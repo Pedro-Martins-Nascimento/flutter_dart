@@ -1,0 +1,37 @@
+# Arquivos e diretórios gerados pelo Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+
+# Android
+android/.gradle
+android/app/debug
+android/app/profile
+android/app/release
+android/local.properties
+android/gradlew
+android/gradlew.bat
+android/**/GeneratedPluginRegistrant.java
+
+# iOS
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Pods/
+ios/.symlinks/
+ios/Runner.xcworkspace/xcshareddata/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Web
+web/build/
+
+# --- Config sensível do Firebase (não commitar) ---
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+lib/firebase_options.dart
