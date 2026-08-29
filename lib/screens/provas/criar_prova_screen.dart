@@ -1,75 +1,13 @@
 // lib/screens/provas/criar_prova_screen.dart
 //
-// Tela "Criar Prova" (N1 - dados mock, sem Firebase ainda)
-// RF08 — Criar prova selecionando matéria(s) e questões do banco
-// RF09 — Escolher modo: mesma prova embaralhada por versão, ou conjuntos
-//        de questões diferentes
-//
-// ALTERADO (revisão de UI): a lista de questões (item 2) agora usa
-// AppListItem em vez de CheckboxListTile puro — cada questão vira um
-// card clicável, com um ícone à esquerda que muda de cor quando
-// selecionada (mesmo tint do bordô usado nos chips), seguindo o
-// visual soft/iOS-like do resto do app.
+// Tela "Criar Prova" (RF08/RF09): seleciona matéria(s), questões do
+// banco e o modo de geração da prova.
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../models/questao.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
-
-// ---------------------------------------------------------------------
-// MODELOS MOCK
-// Depois (N2) isso vira classe real em lib/models/, vindo do Firestore.
-// Por enquanto é só pra ter algo pra exibir na tela.
-// ---------------------------------------------------------------------
-
-class Materia {
-  final String id;
-  final String nome;
-
-  Materia({required this.id, required this.nome});
-}
-
-class Questao {
-  final String id;
-  final String materiaId;
-  final String enunciado;
-
-  Questao({
-    required this.id,
-    required this.materiaId,
-    required this.enunciado,
-  });
-}
-
-// Modo de geração da prova (RF09)
-enum ModoProva {
-  mesmaEmbaralhada, // mesma prova, ordem das questões/alternativas embaralhada por versão
-  conjuntosDiferentes, // versões com questões diferentes entre si
-}
-
-// ---------------------------------------------------------------------
-// DADOS MOCK (fixos, só pra N1 funcionar sem banco)
-// ---------------------------------------------------------------------
-
-final List<Materia> materiasMock = [
-  Materia(id: 'mat1', nome: 'Matemática'),
-  Materia(id: 'mat2', nome: 'História'),
-  Materia(id: 'mat3', nome: 'Biologia'),
-];
-
-final List<Questao> questoesMock = [
-  Questao(id: 'q1', materiaId: 'mat1', enunciado: 'Quanto é 7 x 8?'),
-  Questao(id: 'q2', materiaId: 'mat1', enunciado: 'Qual a raiz quadrada de 144?'),
-  Questao(id: 'q3', materiaId: 'mat1', enunciado: 'Resolva: 2x + 4 = 10'),
-  Questao(id: 'q4', materiaId: 'mat2', enunciado: 'Em que ano começou a 2ª Guerra Mundial?'),
-  Questao(id: 'q5', materiaId: 'mat2', enunciado: 'Quem proclamou a independência do Brasil?'),
-  Questao(id: 'q6', materiaId: 'mat3', enunciado: 'O que é fotossíntese?'),
-  Questao(id: 'q7', materiaId: 'mat3', enunciado: 'Qual a função das mitocôndrias?'),
-];
-
-// ---------------------------------------------------------------------
-// TELA
-// ---------------------------------------------------------------------
 
 class CriarProvaScreen extends StatefulWidget {
   const CriarProvaScreen({super.key});
@@ -117,11 +55,13 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
   bool get podeAvancar => questoesSelecionadas.isNotEmpty;
 
   void _avancarParaGeracao() {
-    // TODO (revisão): a tela de geração ainda não recebe
-    // questoesSelecionadas/modoSelecionado — ok pra N1, mas quando
-    // entrar o banco real de questões (N2) precisamos passar isso pra
-    // frente, provavelmente via `extra:` do go_router.
-    context.go('/gerar-provas');
+    final questoesEscolhidas =
+        questoesMock.where((q) => questoesSelecionadas.contains(q.id)).toList();
+
+    context.go(
+      '/gerar-provas',
+      extra: ProvaConfig(questoes: questoesEscolhidas, modo: modoSelecionado),
+    );
   }
 
   @override

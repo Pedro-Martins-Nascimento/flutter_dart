@@ -1,12 +1,10 @@
 // lib/router/app_router.dart
 //
-// Configuração central de navegação com go_router.
-// Cada tela do app vira uma rota aqui. Por enquanto só temos as
-// telas de provas, mas o resto do grupo (turmas, questões,
-// correção...) vai entrar nessa mesma lista conforme for ficando pronto.
+// Configuração central de navegação (go_router).
 
 import 'package:go_router/go_router.dart';
 
+import '../models/questao.dart';
 import '../screens/provas/criar_prova_screen.dart';
 import '../screens/provas/gerar_provas_screen.dart';
 import '../screens/provas/preview_layout_screen.dart';
@@ -20,7 +18,13 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/gerar-provas',
-      builder: (context, state) => const GerarProvasScreen(),
+      builder: (context, state) {
+        // Nullable: dá pra cair direto nessa rota sem passar pela Criar
+        // Prova (ex: URL digitada na versão web); GerarProvasScreen trata
+        // o caso nulo com um fallback.
+        final config = state.extra as ProvaConfig?;
+        return GerarProvasScreen(config: config);
+      },
     ),
     GoRoute(
       path: '/gerar-provas/preview',

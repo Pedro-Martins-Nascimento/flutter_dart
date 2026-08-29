@@ -1,19 +1,13 @@
 // lib/screens/provas/preview_layout_screen.dart
 //
-// Prévia do layout impresso da prova (RF12 + RNF04)
-//
-// Carrossel horizontal: cada versão é um card, você desliza o dedo pra
-// o lado pra passar de versão. Dentro de cada card, se a versão tiver
-// mais de uma página, elas empilham pra baixo sozinhas (comportamento
-// padrão do PdfPreview) — é exatamente o que o PDF real vai fazer na
-// impressão. Cada card tem seu próprio botão de imprimir/exportar,
-// então dá pra baixar só a versão que você quiser.
+// Prévia do layout impresso da prova (RF12 + RNF04). Carrossel: cada
+// versão é um card com seu próprio PdfPreview e botão de exportar.
 
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 
 import '../../services/pdf_service.dart';
-import 'gerar_provas_screen.dart'; // VersaoProva
+import 'gerar_provas_screen.dart';
 
 class PreviewLayoutScreen extends StatefulWidget {
   final List<VersaoProva> versoes;
@@ -29,10 +23,16 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
   final PageController _pageController = PageController(viewportFraction: 0.9);
   int _paginaAtual = 0;
 
-  // Controle SÓ PRA TESTE: deixa simular provas com mais ou menos
-  // questões pra validar a paginação automática (RNF04) ao vivo, sem
-  // precisar editar código. Não é uma opção real do app final.
-  int _quantidadeQuestoesTeste = 8;
+  // Só pra testar a paginação (RNF04) manualmente; não é opção do app final.
+  late int _quantidadeQuestoesTeste;
+
+  @override
+  void initState() {
+    super.initState();
+    final primeiraVersao = widget.versoes.isNotEmpty ? widget.versoes.first : null;
+    final quantidadeReal = primeiraVersao?.questoes.length ?? 8;
+    _quantidadeQuestoesTeste = quantidadeReal.clamp(1, 30);
+  }
 
   @override
   void dispose() {
@@ -61,13 +61,12 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   child: _VersaoPreviewCard(
-                    // key força recriar o preview quando a quantidade de
-                    // teste muda, senão o PdfPreview mantém o PDF antigo
-                    // em cache.
+                    // Muda quando a quantidade de teste muda, forçando o
+                    // PdfPreview a recalcular em vez de usar o PDF antigo.
                     key: ValueKey('${versao.id}-$_quantidadeQuestoesTeste'),
                     versao: versao,
                     pdfService: _pdfService,
-                    quantidadeQuestoes: _quantidadeQuestoesTeste,
+                    forcarQuantidadeParaTeste: _quantidadeQuestoesTeste,
                   ),
                 );
               },
@@ -101,18 +100,16 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
   }
 }
 
-// Card de uma versão: título + preview menor do PDF real dessa versão,
-// com paginação e botões de imprimir/compartilhar já embutidos.
 class _VersaoPreviewCard extends StatelessWidget {
   final VersaoProva versao;
   final PdfService pdfService;
-  final int quantidadeQuestoes;
+  final int forcarQuantidadeParaTeste;
 
   const _VersaoPreviewCard({
     super.key,
     required this.versao,
     required this.pdfService,
-    required this.quantidadeQuestoes,
+    required this.forcarQuantidadeParaTeste,
   });
 
   @override
@@ -136,10 +133,8 @@ class _VersaoPreviewCard extends StatelessWidget {
             child: PdfPreview(
               build: (format) => pdfService.gerarPdfVersao(
                 versao,
-                quantidadeQuestoes: quantidadeQuestoes,
+                forcarQuantidadeParaTeste: forcarQuantidadeParaTeste,
               ),
-              // Isso é o que deixa o preview menor na tela em vez de
-              // ocupar a largura toda.
               maxPageWidth: 320,
               canChangePageFormat: false,
               canChangeOrientation: false,
