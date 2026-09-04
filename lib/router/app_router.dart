@@ -7,13 +7,18 @@
 
 import 'package:go_router/go_router.dart';
 
+import '../screens/auth/login_screen.dart';
 import '../screens/provas/criar_prova_screen.dart';
 import '../screens/provas/gerar_provas_screen.dart';
 import '../screens/provas/preview_layout_screen.dart';
 
 final GoRouter appRouter = GoRouter(
-  initialLocation: '/criar-prova',
+  initialLocation: '/login',
   routes: [
+    GoRoute(
+      path: '/login',
+      builder: (context, state) => const LoginScreen(),
+    ),
     GoRoute(
       path: '/criar-prova',
       builder: (context, state) => const CriarProvaScreen(),
