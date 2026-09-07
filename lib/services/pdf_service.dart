@@ -43,6 +43,9 @@ class PdfService {
   }
 
   Future<pw.Document> _criarDocumentoBase() async {
+    // Helvetica (fonte padrão do pdf) não tem acentuação — troca por uma
+    // fonte com Unicode completo, senão "Correção", "questões" etc saem
+    // quebrados no PDF final.
     final fontRegular = await PdfGoogleFonts.notoSansRegular();
     final fontBold = await PdfGoogleFonts.notoSansBold();
     return pw.Document(
@@ -108,6 +111,10 @@ class PdfService {
                     ],
                   ),
                 ),
+                // QR code real, codificando o mesmo dado mock que já
+                // existia (versao.qrCode). Quando entrar o modelo de dados
+                // de verdade (N2), o conteúdo codificado aqui é que muda,
+                // a lógica de gerar continua igual.
                 pw.BarcodeWidget(
                   barcode: pw.Barcode.qrCode(),
                   data: versao.qrCode,
@@ -122,7 +129,9 @@ class PdfService {
     );
   }
 
-
+  // Marcadores de canto inferiores, repetidos em toda página (inclusive
+  // se uma versão precisar de mais de uma página). Mesmo raciocínio do
+  // header: precisa de altura fixa pra não bagunçar o cálculo de espaço.
   pw.Widget _buildFooterMarkers() {
     return pw.Container(
       width: double.infinity,
@@ -180,7 +189,9 @@ class PdfService {
     );
   }
 
-
+  // Busca o nome do aluno vinculado (link real que já existe desde a
+  // tela Gerar Provas). Se não tiver vínculo, deixa uma linha em
+  // branco pra preencher à mão.
   String _nomeAluno(VersaoProva versao) {
     if (versao.alunoId == null) return '_______________________________';
     final aluno = alunosMock.firstWhere(
