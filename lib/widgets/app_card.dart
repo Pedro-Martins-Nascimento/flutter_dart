@@ -22,6 +22,88 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
+/// Scaffold "padrão" das telas do app — funciona igual ao Scaffold
+/// normal do Flutter, mas já aplica o AppMaxWidth no `body` sozinho,
+/// sem precisar lembrar de envolver cada tela manualmente.
+///
+/// OBS PRA EQUIPE: criei esse wrapper por conta própria (Karen) pra
+/// resolver as telas ficando muito esticadas quando o app roda em
+/// desktop/iPad/web — o Scaffold puro do Flutter não tem limite de
+/// largura por padrão. Não é nada do enunciado/requisito, só ajuste de
+/// UI. Se alguma tela precisar do Scaffold sem esse limite (ex: uma
+/// tela cheia, tipo splash/onboarding), é só usar o Scaffold normal em
+/// vez desse
+class AppScaffold extends StatelessWidget {
+  final PreferredSizeWidget? appBar;
+  final Widget? body;
+  final double maxWidth;
+  final Color? backgroundColor;
+  final Widget? floatingActionButton;
+  final Widget? bottomNavigationBar;
+  final Widget? drawer;
+
+  const AppScaffold({
+    super.key,
+    this.appBar,
+    this.body,
+    this.maxWidth = AppLayout.maxContentWidth,
+    this.backgroundColor,
+    this.floatingActionButton,
+    this.bottomNavigationBar,
+    this.drawer,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: appBar,
+      backgroundColor: backgroundColor,
+      floatingActionButton: floatingActionButton,
+      bottomNavigationBar: bottomNavigationBar,
+      drawer: drawer,
+      body: body == null ? null : AppMaxWidth(maxWidth: maxWidth, child: body!),
+    );
+  }
+}
+
+/// Limita a largura do CONTEÚDO da tela e centraliza — evita que listas,
+/// forms e cards fiquem esticados de ponta a ponta quando o app roda em
+/// telas largas (desktop, iPad, web). Em celular (largura menor que o
+/// limite) fica exatamente igual a hoje, sem nenhuma diferença visual.
+///
+/// Uso: coloca direto no `body:` do Scaffold, por fora do
+/// ListView/Column da tela:
+///
+/// ```dart
+/// body: const AppMaxWidth(
+///   child: ListView(...),
+/// ),
+/// ```
+///
+/// [maxWidth] tem como padrão [AppLayout.maxContentWidth]; use
+/// [AppLayout.maxContentWidthWide] em telas com colunas lado a lado.
+class AppMaxWidth extends StatelessWidget {
+  final Widget child;
+  final double maxWidth;
+
+  const AppMaxWidth({
+    super.key,
+    required this.child,
+    this.maxWidth = AppLayout.maxContentWidth,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: child,
+      ),
+    );
+  }
+}
+
 /// Casca de card usada em todo o app: fundo branco, cantos bem
 /// arredondados, sombra suave (em vez da borda reta do Card padrão do
 /// Material com elevation).

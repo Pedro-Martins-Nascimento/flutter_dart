@@ -51,6 +51,20 @@ class AppColors {
   static const error = Color(0xFFB3261E);
 }
 
+// Limites de largura do conteúdo — usados pra centralizar as telas em
+// vez de deixá-las esticadas de ponta a ponta quando o app roda em
+// telas largas (desktop, iPad, web). Ver AppMaxWidth em app_card.dart.
+class AppLayout {
+  AppLayout._();
+
+  // Largura confortável pra listas/formulários de uma coluna só.
+  static const double maxContentWidth = 640.0;
+
+  // Um pouco mais largo — usado em telas que têm colunas lado a lado
+  // (ex: botões "Exportar PDF" / "Editor de layout" da tela Gerar Provas).
+  static const double maxContentWidthWide = 800.0;
+}
+
 class AppSpacing {
   AppSpacing._();
   static const s1 = 4.0;
