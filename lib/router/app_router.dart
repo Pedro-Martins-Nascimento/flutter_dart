@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 
 import '../screens/auth/login_screen.dart';
 import '../screens/em_breve_screen.dart';
+import '../screens/inicio/inicio_screen.dart';
 import '../screens/provas/criar_prova_screen.dart';
 import '../screens/provas/gerar_provas_screen.dart';
 import '../screens/provas/listar_provas_screen.dart';
@@ -26,7 +27,7 @@ final GoRouter appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/inicio',
-              builder: (context, state) => const EmBreveScreen(titulo: 'Início'),
+              builder: (context, state) => const InicioScreen(),
             ),
           ],
         ),
