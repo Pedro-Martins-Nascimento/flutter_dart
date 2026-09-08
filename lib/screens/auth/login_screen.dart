@@ -51,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     setState(() => _carregando = false);
 
-    context.go('/criar-prova');
+    context.go('/inicio');
   }
 
   void _esqueciSenha() {
