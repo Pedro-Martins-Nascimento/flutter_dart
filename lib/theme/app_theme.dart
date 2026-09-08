@@ -63,6 +63,11 @@ class AppLayout {
   // Um pouco mais largo — usado em telas que têm colunas lado a lado
   // (ex: botões "Exportar PDF" / "Editor de layout" da tela Gerar Provas).
   static const double maxContentWidthWide = 800.0;
+
+  static const double maxContentWidthPainel = 1120.0;
+
+  static const double medio = 640.0;
+  static const double largo = 900.0;
 }
 
 class AppSpacing {
