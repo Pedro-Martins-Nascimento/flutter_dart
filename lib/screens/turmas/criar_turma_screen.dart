@@ -85,7 +85,7 @@ class _CriarTurmaScreenState extends State<CriarTurmaScreen> {
                   InkWell(
                     onTap: () async {
                       // RF: Espera o retorno da tela de criação para atualizar a lista
-                      await context.push('/criar-turma/nova');
+                      await context.push('/turmas/nova');
                       setState(() {});
                     },
                     child: Container(
