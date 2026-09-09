@@ -36,7 +36,7 @@ class Turma {
     required this.qtdAlunos,
     required this.qtdProvas,
     List<AlunoTurma>? alunos,
-  }) : this.alunos = alunos ?? [];
+  }) : alunos = alunos ?? [];
 }
 
 // ---------------------------------------------------------------------

@@ -425,7 +425,7 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () {},
+                      onPressed: () => context.push('/turmas/${turma.id}/importar'),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s1),
                         minimumSize: const Size(0, 44),

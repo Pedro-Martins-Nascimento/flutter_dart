@@ -8,6 +8,7 @@ import '../screens/provas/listar_provas_screen.dart';
 import '../screens/provas/preview_layout_screen.dart';
 import '../screens/turmas/criar_turma_screen.dart';
 import '../screens/turmas/visualizar_turma_screen.dart';
+import '../screens/turmas/importar_alunos_screen.dart';
 import '../services/provas_repository.dart'; // ProvaGerada
 import '../screens/shell/main_shell.dart';
 
@@ -48,6 +49,15 @@ final GoRouter appRouter = GoRouter(
                     final id = state.pathParameters['id']!;
                     return VisualizarTurmaScreen(turmaId: id);
                   },
+                  routes: [
+                    GoRoute(
+                      path: 'importar',
+                      builder: (context, state) {
+                        final id = state.pathParameters['id']!;
+                        return ImportarAlunosScreen(turmaId: id);
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
