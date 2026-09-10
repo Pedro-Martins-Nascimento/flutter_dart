@@ -42,6 +42,7 @@ dependencies:
   getwidget: ^7.0.2
   file_picker: ^9.1.1
   excel: ^4.0.5
+  mobile_scanner: ^7.4.1
 
 dev_dependencies:
   flutter_test:
