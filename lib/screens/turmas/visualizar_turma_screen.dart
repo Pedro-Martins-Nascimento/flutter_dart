@@ -1,14 +1,9 @@
-// lib/screens/turmas/visualizar_turma_screen.dart
-//
-// Tela "Detalhes da Turma" (Seguindo o protótipo da imagem)
-// RF02 — Listar alunos da turma com matrícula
-// RF03 — Adicionar aluno individualmente ou importar lista
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
-import 'criar_turma_screen.dart'; // Importa o modelo Turma e os dados mock
+import 'criar_turma_screen.dart';
 
 class VisualizarTurmaScreen extends StatefulWidget {
   final String turmaId;
@@ -29,10 +24,14 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
   }
 
   void _carregarTurma() {
-    // Busca a turma pelos dados mock (em N2 isso virá de um Repository/Firebase)
     turma = turmasMock.firstWhere(
       (t) => t.id == widget.turmaId,
-      orElse: () => Turma(id: '0', nome: 'Turma não encontrada', qtdAlunos: 0, qtdProvas: 0),
+      orElse: () => Turma(
+        id: '0',
+        nome: 'Turma não encontrada',
+        qtdAlunos: 0,
+        qtdProvas: 0,
+      ),
     );
   }
 
@@ -73,7 +72,10 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
                     onPressed: () => Navigator.pop(context, false),
                     child: const Text(
                       'Cancelar',
-                      style: TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -83,7 +85,10 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
                       backgroundColor: AppColors.accent,
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 28,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -172,7 +177,10 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
                     onPressed: () => Navigator.pop(context, false),
                     child: const Text(
                       'Cancelar',
-                      style: TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -182,7 +190,10 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
                       backgroundColor: AppColors.accent,
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 28,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -243,7 +254,10 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
                     onPressed: () => Navigator.pop(context, false),
                     child: const Text(
                       'Cancelar',
-                      style: TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -253,7 +267,10 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
                       backgroundColor: AppColors.accent,
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 28,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -342,7 +359,10 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
                     onPressed: () => Navigator.pop(context, false),
                     child: const Text(
                       'Cancelar',
-                      style: TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -352,7 +372,10 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
                       backgroundColor: AppColors.accent,
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 28,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -397,7 +420,6 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cabeçalho: Título e Kicker
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s6),
               child: Column(
@@ -408,9 +430,9 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
                   Text(
                     turma.nome,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: AppColors.text,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      color: AppColors.text,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),
@@ -418,16 +440,18 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
 
             const SizedBox(height: 24),
 
-            // Botões de Ação
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s6),
               child: Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => context.push('/turmas/${turma.id}/importar'),
+                      onPressed: () =>
+                          context.push('/turmas/${turma.id}/importar'),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.s1,
+                        ),
                         minimumSize: const Size(0, 44),
                         textStyle: const TextStyle(fontSize: 13),
                       ),
@@ -439,7 +463,9 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
                     child: OutlinedButton(
                       onPressed: _adicionarAluno,
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.s1,
+                        ),
                         minimumSize: const Size(0, 44),
                         textStyle: const TextStyle(fontSize: 13),
                       ),
@@ -463,7 +489,11 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
                           ),
                         ],
                       ),
-                      child: const Icon(Icons.delete_outline, color: Colors.white, size: 20),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ],
@@ -472,28 +502,27 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
 
             const SizedBox(height: 32),
 
-            // Contador de Alunos
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s6, vertical: AppSpacing.s2),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.s6,
+                vertical: AppSpacing.s2,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '${turma.alunos.length} ALUNOS',
-                    style: AppTheme.kicker,
-                  ),
+                  Text('${turma.alunos.length} ALUNOS', style: AppTheme.kicker),
                 ],
               ),
             ),
 
             const Divider(height: 1),
 
-            // Lista de Alunos
             Expanded(
               child: ListView.separated(
                 itemCount: turma.alunos.length,
                 padding: EdgeInsets.zero,
-                separatorBuilder: (context, index) => const Divider(height: 1, indent: 0),
+                separatorBuilder: (context, index) =>
+                    const Divider(height: 1, indent: 0),
                 itemBuilder: (context, index) {
                   final aluno = turma.alunos[index];
                   return _AlunoItem(
@@ -555,11 +584,19 @@ class _AlunoItem extends StatelessWidget {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.edit_outlined, color: AppColors.neutral400, size: 20),
+            icon: const Icon(
+              Icons.edit_outlined,
+              color: AppColors.neutral400,
+              size: 20,
+            ),
             onPressed: onEdit,
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline, color: AppColors.neutral400, size: 20),
+            icon: const Icon(
+              Icons.delete_outline,
+              color: AppColors.neutral400,
+              size: 20,
+            ),
             onPressed: onDelete,
           ),
         ],
