@@ -1,26 +1,15 @@
-// lib/screens/turmas/criar_turma_screen.dart
-//
-// Tela "Minhas Turmas" (Seguindo o protótipo da imagem)
-// Exibe a lista de turmas cadastradas com atalho para criar novas.
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../theme/app_theme.dart';
 
-// ---------------------------------------------------------------------
-// MODELO MOCK
-// ---------------------------------------------------------------------
+import '../../theme/app_theme.dart';
+import '../../widgets/app_card.dart';
 
 class AlunoTurma {
   final String id;
   final String nome;
   final String matricula;
 
-  AlunoTurma({
-    required this.id,
-    required this.nome,
-    required this.matricula,
-  });
+  AlunoTurma({required this.id, required this.nome, required this.matricula});
 }
 
 class Turma {
@@ -38,10 +27,6 @@ class Turma {
     List<AlunoTurma>? alunos,
   }) : alunos = alunos ?? [];
 }
-
-// ---------------------------------------------------------------------
-// DADOS MOCK (Transformado em lista mutável para teste N1)
-// ---------------------------------------------------------------------
 
 final List<AlunoTurma> alunosMockTurmaB = [
   AlunoTurma(id: '1', nome: 'Ana Beatriz Lima', matricula: '20261137'),
@@ -185,10 +170,6 @@ List<Turma> turmasMock = [
   ),
 ];
 
-// ---------------------------------------------------------------------
-// TELA PRINCIPAL (LISTA)
-// ---------------------------------------------------------------------
-
 class CriarTurmaScreen extends StatefulWidget {
   const CriarTurmaScreen({super.key});
 
@@ -205,8 +186,8 @@ class _CriarTurmaScreenState extends State<CriarTurmaScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cabeçalho conforme protótipo
-            Padding(
+            AppFaixa(
+              bordaBase: const BorderSide(color: AppColors.divider),
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.s6,
                 vertical: AppSpacing.s6,
@@ -215,24 +196,27 @@ class _CriarTurmaScreenState extends State<CriarTurmaScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Turmas', style: AppTheme.kicker),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Minhas turmas',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              color: AppColors.text,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Turmas', style: AppTheme.kicker),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Minhas turmas',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                color: AppColors.text,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ],
+                    ),
                   ),
-                  // Botão "+" em caixa
+                  const SizedBox(width: AppSpacing.s3),
+
                   InkWell(
                     onTap: () async {
-                      // RF: Espera o retorno da tela de criação para atualizar a lista
                       await context.push('/turmas/nova');
                       setState(() {});
                     },
@@ -257,24 +241,24 @@ class _CriarTurmaScreenState extends State<CriarTurmaScreen> {
               ),
             ),
 
-            const Divider(height: 1),
-
-            // Lista de turmas
             Expanded(
-              child: ListView.separated(
-                itemCount: turmasMock.length,
-                padding: EdgeInsets.zero,
-                separatorBuilder: (context, index) => const Divider(height: 1, indent: 0),
-                itemBuilder: (context, index) {
-                  final turma = turmasMock[index];
-                  return _TurmaItem(
-                    turma: turma,
-                    onTap: () async {
-                      await context.push('/turmas/${turma.id}');
-                      setState(() {});
-                    },
-                  );
-                },
+              child: AppMaxWidth(
+                child: ListView.separated(
+                  itemCount: turmasMock.length,
+                  padding: EdgeInsets.zero,
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1, indent: 0),
+                  itemBuilder: (context, index) {
+                    final turma = turmasMock[index];
+                    return _TurmaItem(
+                      turma: turma,
+                      onTap: () async {
+                        await context.push('/turmas/${turma.id}');
+                        setState(() {});
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ],
@@ -288,10 +272,7 @@ class _TurmaItem extends StatelessWidget {
   final Turma turma;
   final VoidCallback onTap;
 
-  const _TurmaItem({
-    required this.turma,
-    required this.onTap,
-  });
+  const _TurmaItem({required this.turma, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -339,10 +320,6 @@ class _TurmaItem extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------
-// TELA NOVA TURMA (Formulário)
-// ---------------------------------------------------------------------
-
 class NovaTurmaScreen extends StatefulWidget {
   const NovaTurmaScreen({super.key});
 
@@ -367,16 +344,15 @@ class _NovaTurmaScreenState extends State<NovaTurmaScreen> {
 
     if (nome.isEmpty) return;
 
-    // Adiciona na lista mock global (como primeira da lista)
     setState(() {
       turmasMock.insert(
         0,
         Turma(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           nome: periodo.isNotEmpty ? '$nome — $periodo' : nome,
-          qtdAlunos: 0, // Inicia com zero
-          qtdProvas: 0, // Inicia com zero
-          alunos: [], // Inicia com lista vazia expansível
+          qtdAlunos: 0,
+          qtdProvas: 0,
+          alunos: [],
         ),
       );
     });
@@ -386,7 +362,7 @@ class _NovaTurmaScreenState extends State<NovaTurmaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppScaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
         title: const Text('Nova turma'),
@@ -403,10 +379,7 @@ class _NovaTurmaScreenState extends State<NovaTurmaScreen> {
           children: [
             const Text(
               'Nome da turma',
-              style: TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: AppColors.textMuted, fontSize: 14),
             ),
             const SizedBox(height: 8),
             TextField(
@@ -419,10 +392,7 @@ class _NovaTurmaScreenState extends State<NovaTurmaScreen> {
             const SizedBox(height: 24),
             const Text(
               'Período',
-              style: TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: AppColors.textMuted, fontSize: 14),
             ),
             const SizedBox(height: 8),
             TextField(

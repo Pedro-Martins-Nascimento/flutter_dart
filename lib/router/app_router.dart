@@ -1,30 +1,27 @@
-// lib/router/app_router.dart
-//
-// Configuração central de navegação (go_router).
-
 import 'package:go_router/go_router.dart';
 
 import '../screens/auth/login_screen.dart';
-import '../screens/em_breve_screen.dart';
+import '../models/questao.dart';
+import '../screens/corrigir/corrigir_screen.dart';
+import '../screens/inicio/inicio_screen.dart';
 import '../screens/provas/criar_prova_screen.dart';
 import '../screens/provas/gerar_provas_screen.dart';
 import '../screens/provas/listar_provas_screen.dart';
 import '../screens/provas/preview_layout_screen.dart';
+import '../screens/questoes/materias_screen.dart';
+import '../screens/questoes/questao_form_screen.dart';
+import '../screens/questoes/questoes_materia_screen.dart';
 import '../screens/turmas/criar_turma_screen.dart';
 import '../screens/turmas/visualizar_turma_screen.dart';
 import '../screens/turmas/importar_alunos_screen.dart';
-import '../services/provas_repository.dart'; // ProvaGerada
+import '../services/provas_repository.dart';
 import '../screens/shell/main_shell.dart';
 
 final GoRouter appRouter = GoRouter(
   initialLocation: '/login',
   routes: [
-    GoRoute(
-      path: '/login',
-      builder: (context, state) => const LoginScreen(),
-    ),
+    GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
 
-    // A ordem das branches tem que bater com AppBottomNav.itens.
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) =>
           MainShell(navigationShell: navigationShell),
@@ -33,7 +30,7 @@ final GoRouter appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/inicio',
-              builder: (context, state) => const EmBreveScreen(titulo: 'Início'),
+              builder: (context, state) => const InicioScreen(),
             ),
           ],
         ),
@@ -71,28 +68,40 @@ final GoRouter appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/questoes',
-              builder: (context, state) =>
-                  const EmBreveScreen(titulo: 'Questões'),
+              builder: (context, state) => const MateriasScreen(),
+              routes: [
+                GoRoute(
+                  path: ':materiaId',
+                  builder: (context, state) => QuestoesMateriaScreen(
+                    materiaId: state.pathParameters['materiaId']!,
+                  ),
+                  routes: [
+                    GoRoute(
+                      path: 'questao',
+                      builder: (context, state) => QuestaoFormScreen(
+                        materiaId: state.pathParameters['materiaId']!,
+                        questao: state.extra as Questao?,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
         StatefulShellBranch(
           routes: [
             GoRoute(
+              path: '/provas-geradas',
+              builder: (context, state) => const ListarProvasScreen(),
+            ),
+            GoRoute(
               path: '/criar-prova',
               builder: (context, state) => const CriarProvaScreen(),
             ),
             GoRoute(
               path: '/gerar-provas',
-              // ALTERADO: agora recebe (opcionalmente) o DadosProva montado na
-              // tela Criar Prova. `as DadosProva?` porque a rota pode ser aberta
-              // sem `extra` (ex: navegação direta) — nesse caso GerarProvasScreen
-              // cai nos valores mock de sempre.
-              //
-              // NOVO: também aceita um ProvaGerada — usado quando a tela é aberta
-              // a partir do histórico ("Provas geradas"), pra reabrir uma rodada
-              // já gerada e permitir trocar o vínculo aluno/versão antes de ir
-              // pro Editor de layout / Exportar PDF.
+
               builder: (context, state) {
                 final extra = state.extra;
                 if (extra is ProvaGerada) {
@@ -116,17 +125,11 @@ final GoRouter appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/corrigir',
-              builder: (context, state) =>
-                  const EmBreveScreen(titulo: 'Corrigir'),
+              builder: (context, state) => const CorrigirScreen(),
             ),
           ],
         ),
       ],
-    ),
-    // NOVO: histórico de provas geradas.
-    GoRoute(
-      path: '/provas-geradas',
-      builder: (context, state) => const ListarProvasScreen(),
     ),
   ],
 );
