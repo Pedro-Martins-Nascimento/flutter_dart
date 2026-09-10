@@ -1,8 +1,3 @@
-// lib/models/questao.dart
-//
-// Modelos e banco mock de questões (RF08). Separado das telas pra ser
-// fácil de editar/adicionar questão sem mexer em código de UI.
-
 class Materia {
   final String id;
   final String nome;
@@ -14,8 +9,8 @@ class Questao {
   final String id;
   final String materiaId;
   final String enunciado;
-  final List<String> alternativas; // sempre 4
-  final int respostaCorreta; // índice da alternativa certa em `alternativas`
+  final List<String> alternativas;
+  final int respostaCorreta;
 
   Questao({
     required this.id,
@@ -23,18 +18,19 @@ class Questao {
     required this.enunciado,
     required this.alternativas,
     required this.respostaCorreta,
-  })  : assert(alternativas.length == 4, 'Toda questão tem exatamente 4 alternativas'),
-        assert(
-          respostaCorreta >= 0 && respostaCorreta < alternativas.length,
-          'respostaCorreta precisa apontar pra uma alternativa que existe',
-        );
+  }) : assert(
+         alternativas.length >= 2,
+         'Toda questão precisa de pelo menos 2 alternativas',
+       ),
+       assert(
+         respostaCorreta >= 0 && respostaCorreta < alternativas.length,
+         'respostaCorreta precisa apontar pra uma alternativa que existe',
+       );
 }
 
-// RF09 — modo de geração da prova.
-enum ModoProva {
-  mesmaEmbaralhada,
-  conjuntosDiferentes,
-}
+String letraAlternativa(int indice) => String.fromCharCode(65 + indice);
+
+enum ModoProva { mesmaEmbaralhada, conjuntosDiferentes }
 
 final List<Materia> materiasMock = [
   Materia(id: 'mat1', nome: 'Matemática'),
@@ -48,7 +44,6 @@ final List<Materia> materiasMock = [
 ];
 
 final List<Questao> questoesMock = [
-  // ---- Matemática ----
   Questao(
     id: 'q1',
     materiaId: 'mat1',
@@ -80,8 +75,7 @@ final List<Questao> questoesMock = [
   Questao(
     id: 'q5',
     materiaId: 'mat1',
-    enunciado:
-        'Em uma progressão aritmética de razão 3, começando em 2, qual é o 5º termo?',
+    enunciado: 'Em uma progressão aritmética de razão 3, começando em 2, qual é o 5º termo?',
     alternativas: ['11', '12', '14', '17'],
     respostaCorreta: 2,
   ),
@@ -93,7 +87,6 @@ final List<Questao> questoesMock = [
     respostaCorreta: 1,
   ),
 
-  // ---- História ----
   Questao(
     id: 'q7',
     materiaId: 'mat2',
@@ -152,7 +145,6 @@ final List<Questao> questoesMock = [
     respostaCorreta: 1,
   ),
 
-  // ---- Biologia ----
   Questao(
     id: 'q13',
     materiaId: 'mat3',
@@ -187,9 +179,13 @@ final List<Questao> questoesMock = [
   Questao(
     id: 'q16',
     materiaId: 'mat3',
-    enunciado:
-        'Qual grupo de organismos é responsável por decompor a matéria orgânica morta?',
-    alternativas: ['Produtores', 'Consumidores', 'Decompositores', 'Herbívoros'],
+    enunciado: 'Qual grupo de organismos é responsável por decompor a matéria orgânica morta?',
+    alternativas: [
+      'Produtores',
+      'Consumidores',
+      'Decompositores',
+      'Herbívoros',
+    ],
     respostaCorreta: 2,
   ),
   Questao(
@@ -202,8 +198,7 @@ final List<Questao> questoesMock = [
   Questao(
     id: 'q18',
     materiaId: 'mat3',
-    enunciado:
-        'Qual sistema do corpo humano é responsável pelo transporte de oxigênio e nutrientes?',
+    enunciado: 'Qual sistema do corpo humano é responsável pelo transporte de oxigênio e nutrientes?',
     alternativas: [
       'Sistema digestório',
       'Sistema circulatório',
@@ -213,7 +208,6 @@ final List<Questao> questoesMock = [
     respostaCorreta: 1,
   ),
 
-  // ---- Português ----
   Questao(
     id: 'q19',
     materiaId: 'mat4',
@@ -236,7 +230,8 @@ final List<Questao> questoesMock = [
   Questao(
     id: 'q21',
     materiaId: 'mat4',
-    enunciado: 'Que figura de linguagem aparece em "Seus olhos são duas estrelas"?',
+    enunciado:
+        'Que figura de linguagem aparece em "Seus olhos são duas estrelas"?',
     alternativas: ['Metonímia', 'Metáfora', 'Hipérbole', 'Ironia'],
     respostaCorreta: 1,
   ),
@@ -250,21 +245,18 @@ final List<Questao> questoesMock = [
   Questao(
     id: 'q23',
     materiaId: 'mat4',
-    enunciado:
-        'Assinale a alternativa com um verbo no pretérito perfeito do indicativo.',
+    enunciado: 'Assinale a alternativa com um verbo no pretérito perfeito do indicativo.',
     alternativas: ['eu como', 'eu comia', 'eu comi', 'eu comerei'],
     respostaCorreta: 2,
   ),
   Questao(
     id: 'q24',
     materiaId: 'mat4',
-    enunciado:
-        'Qual a classe gramatical da palavra destacada em "Ele correu RAPIDAMENTE até a escola"?',
+    enunciado: 'Qual a classe gramatical da palavra destacada em "Ele correu RAPIDAMENTE até a escola"?',
     alternativas: ['Substantivo', 'Adjetivo', 'Advérbio', 'Pronome'],
     respostaCorreta: 2,
   ),
 
-  // ---- Geografia ----
   Questao(
     id: 'q25',
     materiaId: 'mat5',
@@ -302,8 +294,7 @@ final List<Questao> questoesMock = [
   Questao(
     id: 'q29',
     materiaId: 'mat5',
-    enunciado:
-        'O fenômeno El Niño está relacionado ao aquecimento das águas de qual oceano?',
+    enunciado: 'O fenômeno El Niño está relacionado ao aquecimento das águas de qual oceano?',
     alternativas: ['Atlântico', 'Índico', 'Pacífico', 'Ártico'],
     respostaCorreta: 2,
   ),
@@ -315,7 +306,6 @@ final List<Questao> questoesMock = [
     respostaCorreta: 1,
   ),
 
-  // ---- Física ----
   Questao(
     id: 'q31',
     materiaId: 'mat6',
@@ -369,7 +359,6 @@ final List<Questao> questoesMock = [
     respostaCorreta: 0,
   ),
 
-  // ---- Química ----
   Questao(
     id: 'q37',
     materiaId: 'mat7',
@@ -423,7 +412,6 @@ final List<Questao> questoesMock = [
     respostaCorreta: 0,
   ),
 
-  // ---- Inglês ----
   Questao(
     id: 'q43',
     materiaId: 'mat8',
