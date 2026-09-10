@@ -56,33 +56,36 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _esqueciSenha() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Recuperação de senha ainda não disponível.')),
+      const SnackBar(
+        content: Text('Recuperação de senha ainda não disponível.'),
+      ),
     );
   }
 
   Widget _rotulo(String texto) => Padding(
-        padding: const EdgeInsets.only(bottom: AppSpacing.s2),
-        child: Text(
-          texto,
-          style: const TextStyle(fontSize: 14, color: AppColors.textMuted),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: AppSpacing.s2),
+    child: Text(
+      texto,
+      style: const TextStyle(fontSize: 14, color: AppColors.textMuted),
+    ),
+  );
 
-  InputBorder _linha(Color cor, [double espessura = 1]) =>
-      UnderlineInputBorder(borderSide: BorderSide(color: cor, width: espessura));
+  InputBorder _linha(Color cor, [double espessura = 1]) => UnderlineInputBorder(
+    borderSide: BorderSide(color: cor, width: espessura),
+  );
 
   InputDecoration _decoracao(String hint, {Widget? sufixo}) => InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(fontSize: 17, color: AppColors.neutral500),
-        suffixIcon: sufixo,
-        filled: false,
-        contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.s2),
-        border: _linha(AppColors.divider),
-        enabledBorder: _linha(AppColors.divider),
-        focusedBorder: _linha(AppColors.accent, 1.5),
-        errorBorder: _linha(AppColors.error),
-        focusedErrorBorder: _linha(AppColors.error, 1.5),
-      );
+    hintText: hint,
+    hintStyle: const TextStyle(fontSize: 17, color: AppColors.neutral500),
+    suffixIcon: sufixo,
+    filled: false,
+    contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.s2),
+    border: _linha(AppColors.divider),
+    enabledBorder: _linha(AppColors.divider),
+    focusedBorder: _linha(AppColors.accent, 1.5),
+    errorBorder: _linha(AppColors.error),
+    focusedErrorBorder: _linha(AppColors.error, 1.5),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -115,9 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     Text(
                       'Correção de provas',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
+                      style: Theme.of(context).textTheme.bodyMedium
                           ?.copyWith(fontSize: 15),
                     ),
                     const SizedBox(height: AppSpacing.s2),
@@ -165,8 +166,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             size: 20,
                             color: AppColors.textMuted,
                           ),
-                          tooltip:
-                              _senhaVisivel ? 'Ocultar senha' : 'Mostrar senha',
+                          tooltip: _senhaVisivel
+                              ? 'Ocultar senha'
+                              : 'Mostrar senha',
                           onPressed: () =>
                               setState(() => _senhaVisivel = !_senhaVisivel),
                         ),
@@ -180,8 +182,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.text,
-                          disabledBackgroundColor:
-                              AppColors.text.withValues(alpha: 0.35),
+                          disabledBackgroundColor: AppColors.text.withValues(
+                            alpha: 0.35,
+                          ),
                         ),
                         onPressed: _carregando ? null : _entrar,
                         child: _carregando
