@@ -1,22 +1,5 @@
-// lib/screens/provas/preview_layout_screen.dart
-//
-// "Editor de layout" da prova (RF12 + RNF04).
-//
-// Carrossel horizontal: cada versão é um card, você desliza o dedo pra
-// o lado pra passar de versão. Dentro de cada card, se a versão tiver
-// mais de uma página, elas empilham pra baixo sozinhas (comportamento
-// padrão do PdfPreview) — é exatamente o que o PDF real vai fazer na
-// impressão.
-//
-// Painel de controles no topo, com sliders de:
-//  - Tamanho da fonte
-//  - Espaçamento entre questões
-//  - Margem da página (útil pra impressoras que cortam perto da borda)
-// Mexer em qualquer um regenera o PDF ao vivo, com o conteúdo real das
-// questões da versão (enunciado + alternativas + gabarito).
-
 import 'package:flutter/material.dart';
-import 'package:printing/printing.dart'; // PdfPreview
+import 'package:printing/printing.dart';
 
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
@@ -37,21 +20,18 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
   final PageController _pageController = PageController(viewportFraction: 0.9);
   int _paginaAtual = 0;
 
-  // Controles reais do editor de layout.
   double _tamanhoFonte = 11;
   double _espacamento = 16;
   double _margem = 28;
 
-  // Controle SÓ PRA TESTE: deixa simular provas com mais ou menos
-  // questões pra validar a paginação automática (RNF04) ao vivo, sem
-  // precisar editar código. Não é uma opção real do app final. Começa
-  // já com a quantidade real de questões da primeira versão.
   late int _quantidadeQuestoesTeste;
 
   @override
   void initState() {
     super.initState();
-    final primeiraVersao = widget.versoes.isNotEmpty ? widget.versoes.first : null;
+    final primeiraVersao = widget.versoes.isNotEmpty
+        ? widget.versoes.first
+        : null;
     final quantidadeReal = primeiraVersao?.questoes.length ?? 8;
     _quantidadeQuestoesTeste = quantidadeReal.clamp(1, 30);
   }
@@ -68,10 +48,11 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Editor de layout — V${_paginaAtual + 1} de ${versoes.length}'),
+        title: Text(
+          'Editor de layout — V${_paginaAtual + 1} de ${versoes.length}',
+        ),
       ),
       body: AppMaxWidth(
-        maxWidth: AppLayout.maxContentWidthWide,
         child: Column(
           children: [
             _buildControlesLayout(),
@@ -84,11 +65,11 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
                 itemBuilder: (context, index) {
                   final versao = versoes[index];
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
+                    ),
                     child: _VersaoPreviewCard(
-                      // key força recriar o preview quando qualquer
-                      // controle muda, senão o PdfPreview mantém o PDF
-                      // antigo em cache e os sliders parecem não fazer nada.
                       key: ValueKey(
                         '${versao.id}-$_quantidadeQuestoesTeste-$_tamanhoFonte-$_espacamento-$_margem',
                       ),
@@ -113,7 +94,10 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: AppCard(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s4, vertical: AppSpacing.s2),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.s4,
+          vertical: AppSpacing.s2,
+        ),
         child: Column(
           children: [
             _sliderLinha(
@@ -162,7 +146,10 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
       children: [
         SizedBox(
           width: 150,
-          child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+          ),
         ),
         Expanded(
           child: Slider(
@@ -174,7 +161,13 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
             onChanged: onChanged,
           ),
         ),
-        SizedBox(width: 36, child: Text('${valor.round()}$sufixo', style: const TextStyle(fontSize: 12))),
+        SizedBox(
+          width: 36,
+          child: Text(
+            '${valor.round()}$sufixo',
+            style: const TextStyle(fontSize: 12),
+          ),
+        ),
       ],
     );
   }
@@ -192,7 +185,8 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
               max: 30,
               divisions: 29,
               label: '$_quantidadeQuestoesTeste',
-              onChanged: (v) => setState(() => _quantidadeQuestoesTeste = v.round()),
+              onChanged: (v) =>
+                  setState(() => _quantidadeQuestoesTeste = v.round()),
             ),
           ),
           SizedBox(width: 24, child: Text('$_quantidadeQuestoesTeste')),
