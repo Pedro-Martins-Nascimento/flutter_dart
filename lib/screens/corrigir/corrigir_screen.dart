@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../services/correcoes_repository.dart';
+import '../../services/provas_repository.dart';
 import '../../theme/app_theme.dart';
+import '../provas/gerar_provas_screen.dart' show VersaoProva;
 import '../turmas/criar_turma_screen.dart' show turmasMock;
 import '../../widgets/app_card.dart';
 
 int get _totalFolhas => turmasMock.first.qtdAlunos;
 
 const int _jaCorrigidas = 12;
+
+typedef _VersaoEncontrada = ({ProvaGerada prova, VersaoProva versao});
 
 class CorrigirScreen extends StatefulWidget {
   const CorrigirScreen({super.key});
@@ -36,6 +42,18 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
 
   bool get _concluido => _corrigidas >= _totalFolhas;
 
+  // Acha, no histórico de provas geradas, a versão cujo QR bate com a
+  // folha lida pela câmera — é o que liga a leitura real (RF13) ao
+  // cálculo de nota (RF16) em CorrigirVersaoScreen.
+  _VersaoEncontrada? _localizarVersao(String qrCode) {
+    for (final prova in ProvasRepository.instance.provas) {
+      for (final versao in prova.versoes) {
+        if (versao.qrCode == qrCode) return (prova: prova, versao: versao);
+      }
+    }
+    return null;
+  }
+
   void _aoDetectar(BarcodeCapture captura) {
     for (final codigo in captura.barcodes) {
       final valor = codigo.rawValue;
@@ -62,7 +80,20 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
     }
 
     setState(() {});
-    _avisar('Folha $folha lida e corrigida.');
+
+    // Se o QR bate com uma versão de prova real (gerada em "Provas"),
+    // segue pra correção com nota. Senão (QR de teste/desconhecido),
+    // só marca a folha como lida, igual antes.
+    final encontrada = _localizarVersao(folha);
+    if (encontrada == null || CorrecoesRepository.instance.jaCorrigida(encontrada.versao.id)) {
+      _avisar('Folha $folha lida e corrigida.');
+      return;
+    }
+
+    context.push(
+      '/corrigir/versao',
+      extra: {'prova': encontrada.prova, 'versao': encontrada.versao},
+    );
   }
 
   Future<void> _alternarLanterna() async {
@@ -129,16 +160,27 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
             AppSpacing.s5,
             AppSpacing.s5,
-            AppSpacing.s5,
+            AppSpacing.s3,
             AppSpacing.s4,
           ),
-          child: Text(
-            'alinhe os 4 marcadores de canto da folha',
-            style: TextStyle(fontSize: 14, color: Colors.white),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'alinhe os 4 marcadores de canto da folha',
+                  style: TextStyle(fontSize: 14, color: Colors.white),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Ver corrigidas',
+                icon: const Icon(Icons.fact_check_outlined, color: Colors.white),
+                onPressed: () => context.push('/corrigir/historico'),
+              ),
+            ],
           ),
         ),
         Expanded(child: _alvo()),
