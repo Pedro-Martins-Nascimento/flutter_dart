@@ -40,6 +40,8 @@ dependencies:
   google_fonts: ^6.2.1 
   cupertino_native: ^0.1.1
   getwidget: ^7.0.2
+  file_picker: ^9.1.1
+  excel: ^4.0.5
 
 dev_dependencies:
   flutter_test:
