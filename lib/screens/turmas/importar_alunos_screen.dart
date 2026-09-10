@@ -1,15 +1,11 @@
-// lib/screens/turmas/importar_alunos_screen.dart
-//
-// Tela "Importar Lista de Alunos" (Seguindo o protótipo da imagem)
-// Permite selecionar arquivos CSV/XLSX para importação em lote.
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' hide Border;
+
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
-import 'criar_turma_screen.dart'; // Importa o modelo e turmasMock
+import 'criar_turma_screen.dart';
 
 class ImportarAlunosScreen extends StatefulWidget {
   final String turmaId;
@@ -46,13 +42,13 @@ class _ImportarAlunosScreenState extends State<ImportarAlunosScreen> {
           final sheet = excel.tables[table];
           if (sheet == null) continue;
 
-          // Pula a primeira linha (cabeçalho)
           for (var i = 1; i < sheet.maxRows; i++) {
             final row = sheet.rows[i];
-            
-            // Assume coluna 0 como Nome e coluna 1 como Matrícula
+
             final nome = row[0]?.value?.toString() ?? '';
-            final matricula = row.length > 1 ? row[1]?.value?.toString() ?? '' : '';
+            final matricula = row.length > 1
+                ? row[1]?.value?.toString() ?? ''
+                : '';
 
             if (nome.isNotEmpty) {
               novosAlunos.add(
@@ -74,7 +70,11 @@ class _ImportarAlunosScreenState extends State<ImportarAlunosScreen> {
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('${novosAlunos.length} alunos importados com sucesso!')),
+              SnackBar(
+                content: Text(
+                  '${novosAlunos.length} alunos importados com sucesso!',
+                ),
+              ),
             );
             context.pop();
           }
@@ -82,9 +82,9 @@ class _ImportarAlunosScreenState extends State<ImportarAlunosScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao importar arquivo: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao importar arquivo: $e')));
       }
     } finally {
       if (mounted) setState(() => _importando = false);
@@ -107,7 +107,6 @@ class _ImportarAlunosScreenState extends State<ImportarAlunosScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Card de área de seleção
             AppCard(
               padding: const EdgeInsets.all(AppSpacing.s6),
               border: Border.all(color: AppColors.neutral300, width: 1),
@@ -143,27 +142,31 @@ class _ImportarAlunosScreenState extends State<ImportarAlunosScreen> {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 32),
 
-            // Botão Escolher Arquivo
             SizedBox(
               width: double.infinity,
-              child: _importando 
-                ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
-                : ElevatedButton.icon(
-                    onPressed: _escolherArquivo,
-                    icon: const Icon(Icons.upload_file, size: 20),
-                    label: const Text('Escolher arquivo'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+              child: _importando
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppColors.accent),
+                    )
+                  : ElevatedButton.icon(
+                      onPressed: _escolherArquivo,
+                      icon: const Icon(Icons.upload_file, size: 20),
+                      label: const Text('Escolher arquivo'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.accent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 14,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
-                  ),
             ),
           ],
         ),
