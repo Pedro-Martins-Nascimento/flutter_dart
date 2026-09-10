@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 class AppBottomNav extends StatelessWidget {
-  // A ordem tem que bater com a ordem das branches no app_router.dart.
   static const itens = ['Início', 'Turmas', 'Questões', 'Provas', 'Corrigir'];
 
   final int indiceAtual;
@@ -50,10 +49,12 @@ class AppBottomNav extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 13,
-                                fontWeight:
-                                    ativo ? FontWeight.w700 : FontWeight.w500,
-                                color:
-                                    ativo ? AppColors.text : AppColors.textMuted,
+                                fontWeight: ativo
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: ativo
+                                    ? AppColors.text
+                                    : AppColors.textMuted,
                               ),
                             ),
                           ),
@@ -150,10 +151,12 @@ class AppNavRail extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 14,
-                              fontWeight:
-                                  ativo ? FontWeight.w700 : FontWeight.w500,
-                              color:
-                                  ativo ? AppColors.text : AppColors.textMuted,
+                              fontWeight: ativo
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: ativo
+                                  ? AppColors.text
+                                  : AppColors.textMuted,
                             ),
                           ),
                         ),
