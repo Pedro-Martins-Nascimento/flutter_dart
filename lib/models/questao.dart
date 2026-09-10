@@ -36,15 +36,6 @@ enum ModoProva {
   conjuntosDiferentes,
 }
 
-// Empacota a escolha da tela Criar Prova pra levar até Gerar Provas via
-// `extra:` do go_router.
-class ProvaConfig {
-  final List<Questao> questoes;
-  final ModoProva modo;
-
-  ProvaConfig({required this.questoes, required this.modo});
-}
-
 final List<Materia> materiasMock = [
   Materia(id: 'mat1', nome: 'Matemática'),
   Materia(id: 'mat2', nome: 'História'),

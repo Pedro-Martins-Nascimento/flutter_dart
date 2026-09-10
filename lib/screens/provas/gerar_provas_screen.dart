@@ -1,7 +1,8 @@
 // lib/screens/provas/gerar_provas_screen.dart
 //
 // Tela "Gerar Provas" (RF10/RF11/RF12): gera N versões da prova, cada
-// uma com QR code, alternativas embaralhadas e gabarito próprios.
+// uma com QR code, alternativas embaralhadas e gabarito próprios (banco
+// real de questões, com fallback pra mock se a tela for aberta direto).
 // O QR code é só um placeholder visual (trocar pelo pacote qr_flutter
 // quando integrar).
 
@@ -9,9 +10,13 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:printing/printing.dart';
 import '../../models/questao.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
+import '../../services/provas_repository.dart';
+import '../../services/pdf_service.dart';
+import 'criar_prova_screen.dart' show DadosProva;
 
 class Aluno {
   final String id;
@@ -38,10 +43,14 @@ class QuestaoNaVersao {
 class VersaoProva {
   final String id;
   final String qrCode;
-  String? alunoId;
+  String? alunoId; // RF11 — vínculo é opcional
   final List<QuestaoNaVersao> questoes;
+
+  // Campos usados no cabeçalho de identificação do PDF
   final String materia;
   final String professor;
+  final String? turma;
+  final String provaNome;
 
   VersaoProva({
     required this.id,
@@ -50,6 +59,8 @@ class VersaoProva {
     this.alunoId,
     this.materia = 'Matemática',
     this.professor = 'Prof. responsável',
+    this.turma,
+    this.provaNome = 'Prova sem título',
   });
 }
 
@@ -60,9 +71,14 @@ final List<Aluno> alunosMock = [
 ];
 
 class GerarProvasScreen extends StatefulWidget {
-  final ProvaConfig? config;
+  // Dados vindos da tela Criar Prova. Fica nullable de propósito —
+  // se alguém cair aqui direto (ex: link antigo, hot-reload no meio da
+  // rota), a tela ainda funciona com os valores mock de fallback.
+  final DadosProva? dados;
 
-  const GerarProvasScreen({super.key, this.config});
+  final ProvaGerada? provaExistente;
+
+  const GerarProvasScreen({super.key, this.dados, this.provaExistente});
 
   @override
   State<GerarProvasScreen> createState() => _GerarProvasScreenState();
@@ -71,16 +87,26 @@ class GerarProvasScreen extends StatefulWidget {
 class _GerarProvasScreenState extends State<GerarProvasScreen> {
   final TextEditingController quantidadeController =
       TextEditingController(text: '3');
+  final PdfService _pdfService = PdfService();
   final Random _random = Random();
 
   List<VersaoProva> versoes = [];
 
+  @override
+  void initState() {
+    super.initState();
+    final provaExistente = widget.provaExistente;
+    if (provaExistente != null) {
+      versoes = List.of(provaExistente.versoes);
+    }
+  }
+
   List<Questao> get _bancoSelecionado {
-    final questoes = widget.config?.questoes ?? const [];
+    final questoes = widget.dados?.questoes ?? const [];
     return questoes.isNotEmpty ? questoes : questoesMock.take(8).toList();
   }
 
-  ModoProva get _modo => widget.config?.modo ?? ModoProva.mesmaEmbaralhada;
+  ModoProva get _modo => widget.dados?.modo ?? ModoProva.mesmaEmbaralhada;
 
   void _gerarVersoes() {
     final quantidade = int.tryParse(quantidadeController.text) ?? 0;
@@ -89,16 +115,39 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     final banco = _bancoSelecionado;
     final modo = _modo;
 
+    final dados = widget.dados;
+    final materiaTexto =
+        (dados != null && dados.materias.isNotEmpty) ? dados.materiasResumo : 'Matemática';
+    final provaNome = dados?.nomeProva ?? 'Prova sem título';
+    final turmaTexto = dados?.turma?.nome;
+
     setState(() {
       versoes = List.generate(quantidade, (i) {
         final numero = i + 1;
         return VersaoProva(
           id: 'v$numero',
+          // string fake só pra representar o conteúdo do QR por enquanto
           qrCode: 'PROVA-2026-V$numero-${(1000 + numero * 37)}',
           questoes: _materializarQuestoes(banco, modo),
+          materia: materiaTexto,
+          professor: 'Prof. responsável',
+          turma: turmaTexto,
+          provaNome: provaNome,
         );
       });
     });
+
+    // Salva essa rodada no histórico de provas geradas.
+    ProvasRepository.instance.salvar(
+      ProvaGerada(
+        id: 'pg_${DateTime.now().millisecondsSinceEpoch}',
+        nome: provaNome,
+        materia: materiaTexto,
+        turma: turmaTexto,
+        criadoEm: DateTime.now(),
+        versoes: versoes,
+      ),
+    );
   }
 
   // Mesma embaralhada: todas as versões levam o conjunto completo, só a
@@ -132,7 +181,16 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     });
   }
 
-  void _exportarPdf() {
+  Future<void> _exportarPdfDireto() async {
+    final bytes = await _pdfService.gerarPdfProvas(versoes);
+    final nome = widget.provaExistente?.nome ?? widget.dados?.nomeProva ?? 'provas';
+    await Printing.layoutPdf(
+      onLayout: (format) async => bytes,
+      name: '$nome.pdf',
+    );
+  }
+
+  void _abrirEditorDeLayout() {
     context.push('/gerar-provas/preview', extra: versoes);
   }
 
@@ -144,34 +202,72 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Gerar Provas')),
+    final editandoExistente = widget.provaExistente != null;
+
+    return AppScaffold(
+      maxWidth: AppLayout.maxContentWidthWide,
+      appBar: AppBar(
+        title: Text(editandoExistente ? widget.provaExistente!.nome : 'Gerar Provas'),
+        leading: BackButton(
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/criar-prova');
+            }
+          },
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('QUANTAS VERSÕES VOCÊ QUER GERAR?', style: AppTheme.kicker),
-          const SizedBox(height: 8),
-          AppCard(
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 80,
-                  child: TextField(
-                    controller: quantidadeController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(border: OutlineInputBorder()),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton(
-                  onPressed: _gerarVersoes,
-                  child: const Text('Gerar versões'),
-                ),
-              ],
+          if (!editandoExistente) ...[
+            OutlinedButton.icon(
+              icon: const Icon(Icons.history),
+              label: const Text('Provas geradas'),
+              onPressed: () => context.push('/provas-geradas'),
+              style: OutlinedButton.styleFrom(
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s4, vertical: AppSpacing.s4),
+              ),
             ),
-          ),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
+            Text('QUANTAS VERSÕES VOCÊ QUER GERAR?', style: AppTheme.kicker),
+            const SizedBox(height: 8),
+            AppCard(
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 80,
+                    child: TextField(
+                      controller: quantidadeController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(border: OutlineInputBorder()),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: _gerarVersoes,
+                    child: const Text('Gerar versões'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ] else ...[
+            Text('DESEJA EDITAR O VÍNCULO DA PROVA?', style: AppTheme.kicker),
+            const SizedBox(height: 8),
+            AppCard(
+              child: Text(
+                '${widget.provaExistente!.materia}'
+                '${widget.provaExistente!.turma != null ? ' • ${widget.provaExistente!.turma}' : ''}'
+                ' • ${versoes.length} versão(ões)',
+                style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
 
           if (versoes.isEmpty)
             const Padding(
@@ -191,16 +287,34 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
 
           const SizedBox(height: 24),
           if (versoes.isNotEmpty)
-            ElevatedButton.icon(
-              onPressed: _exportarPdf,
-              icon: const Icon(Icons.picture_as_pdf),
-              label: const Text('Exportar PDF pronto para impressão'),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _exportarPdfDireto,
+                    icon: const Icon(Icons.picture_as_pdf),
+                    label: const Text('Exportar PDF'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _abrirEditorDeLayout,
+                    icon: const Icon(Icons.tune),
+                    label: const Text('Editor de layout'),
+                  ),
+                ),
+              ],
             ),
         ],
       ),
     );
   }
 }
+
+// ---------------------------------------------------------------------
+// CARD DE CADA VERSÃO
+// ---------------------------------------------------------------------
 
 class _VersaoCard extends StatelessWidget {
   final VersaoProva versao;

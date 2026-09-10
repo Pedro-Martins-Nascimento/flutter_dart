@@ -1,11 +1,25 @@
 // lib/screens/provas/preview_layout_screen.dart
 //
-// Prévia do layout impresso da prova (RF12 + RNF04). Carrossel: cada
-// versão é um card com seu próprio PdfPreview e botão de exportar.
+// "Editor de layout" da prova (RF12 + RNF04).
+//
+// Carrossel horizontal: cada versão é um card, você desliza o dedo pra
+// o lado pra passar de versão. Dentro de cada card, se a versão tiver
+// mais de uma página, elas empilham pra baixo sozinhas (comportamento
+// padrão do PdfPreview) — é exatamente o que o PDF real vai fazer na
+// impressão.
+//
+// Painel de controles no topo, com sliders de:
+//  - Tamanho da fonte
+//  - Espaçamento entre questões
+//  - Margem da página (útil pra impressoras que cortam perto da borda)
+// Mexer em qualquer um regenera o PDF ao vivo, com o conteúdo real das
+// questões da versão (enunciado + alternativas + gabarito).
 
 import 'package:flutter/material.dart';
-import 'package:printing/printing.dart';
+import 'package:printing/printing.dart'; // PdfPreview
 
+import '../../theme/app_theme.dart';
+import '../../widgets/app_card.dart';
 import '../../services/pdf_service.dart';
 import 'gerar_provas_screen.dart';
 
@@ -23,7 +37,15 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
   final PageController _pageController = PageController(viewportFraction: 0.9);
   int _paginaAtual = 0;
 
-  // Só pra testar a paginação (RNF04) manualmente; não é opção do app final.
+  // Controles reais do editor de layout.
+  double _tamanhoFonte = 11;
+  double _espacamento = 16;
+  double _margem = 28;
+
+  // Controle SÓ PRA TESTE: deixa simular provas com mais ou menos
+  // questões pra validar a paginação automática (RNF04) ao vivo, sem
+  // precisar editar código. Não é uma opção real do app final. Começa
+  // já com a quantidade real de questões da primeira versão.
   late int _quantidadeQuestoesTeste;
 
   @override
@@ -46,34 +68,114 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Prévia — V${_paginaAtual + 1} de ${versoes.length}'),
+        title: Text('Editor de layout — V${_paginaAtual + 1} de ${versoes.length}'),
       ),
-      body: Column(
-        children: [
-          _buildControleTeste(),
-          Expanded(
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: versoes.length,
-              onPageChanged: (i) => setState(() => _paginaAtual = i),
-              itemBuilder: (context, index) {
-                final versao = versoes[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  child: _VersaoPreviewCard(
-                    // Muda quando a quantidade de teste muda, forçando o
-                    // PdfPreview a recalcular em vez de usar o PDF antigo.
-                    key: ValueKey('${versao.id}-$_quantidadeQuestoesTeste'),
-                    versao: versao,
-                    pdfService: _pdfService,
-                    forcarQuantidadeParaTeste: _quantidadeQuestoesTeste,
-                  ),
-                );
-              },
+      body: AppMaxWidth(
+        maxWidth: AppLayout.maxContentWidthWide,
+        child: Column(
+          children: [
+            _buildControlesLayout(),
+            _buildControleTeste(),
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: versoes.length,
+                onPageChanged: (i) => setState(() => _paginaAtual = i),
+                itemBuilder: (context, index) {
+                  final versao = versoes[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    child: _VersaoPreviewCard(
+                      // key força recriar o preview quando qualquer
+                      // controle muda, senão o PdfPreview mantém o PDF
+                      // antigo em cache e os sliders parecem não fazer nada.
+                      key: ValueKey(
+                        '${versao.id}-$_quantidadeQuestoesTeste-$_tamanhoFonte-$_espacamento-$_margem',
+                      ),
+                      versao: versao,
+                      pdfService: _pdfService,
+                      forcarQuantidadeParaTeste: _quantidadeQuestoesTeste,
+                      tamanhoFonte: _tamanhoFonte,
+                      espacamento: _espacamento,
+                      margem: _margem,
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildControlesLayout() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: AppCard(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s4, vertical: AppSpacing.s2),
+        child: Column(
+          children: [
+            _sliderLinha(
+              label: 'Tamanho da fonte',
+              valor: _tamanhoFonte,
+              min: 9,
+              max: 16,
+              divisoes: 7,
+              sufixo: 'pt',
+              onChanged: (v) => setState(() => _tamanhoFonte = v),
+            ),
+            _sliderLinha(
+              label: 'Espaçamento entre questões',
+              valor: _espacamento,
+              min: 8,
+              max: 32,
+              divisoes: 24,
+              sufixo: 'pt',
+              onChanged: (v) => setState(() => _espacamento = v),
+            ),
+            _sliderLinha(
+              label: 'Margem da página',
+              valor: _margem,
+              min: 14,
+              max: 48,
+              divisoes: 34,
+              sufixo: 'pt',
+              onChanged: (v) => setState(() => _margem = v),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sliderLinha({
+    required String label,
+    required double valor,
+    required double min,
+    required double max,
+    required int divisoes,
+    required String sufixo,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 150,
+          child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+        ),
+        Expanded(
+          child: Slider(
+            value: valor,
+            min: min,
+            max: max,
+            divisions: divisoes,
+            label: '${valor.round()}$sufixo',
+            onChanged: onChanged,
+          ),
+        ),
+        SizedBox(width: 36, child: Text('${valor.round()}$sufixo', style: const TextStyle(fontSize: 12))),
+      ],
     );
   }
 
@@ -104,12 +206,18 @@ class _VersaoPreviewCard extends StatelessWidget {
   final VersaoProva versao;
   final PdfService pdfService;
   final int forcarQuantidadeParaTeste;
+  final double tamanhoFonte;
+  final double espacamento;
+  final double margem;
 
   const _VersaoPreviewCard({
     super.key,
     required this.versao,
     required this.pdfService,
     required this.forcarQuantidadeParaTeste,
+    required this.tamanhoFonte,
+    required this.espacamento,
+    required this.margem,
   });
 
   @override
@@ -134,8 +242,11 @@ class _VersaoPreviewCard extends StatelessWidget {
               build: (format) => pdfService.gerarPdfVersao(
                 versao,
                 forcarQuantidadeParaTeste: forcarQuantidadeParaTeste,
+                tamanhoFonte: tamanhoFonte,
+                espacamento: espacamento,
+                margem: margem,
               ),
-              maxPageWidth: 320,
+              maxPageWidth: 500,
               canChangePageFormat: false,
               canChangeOrientation: false,
               allowPrinting: true,

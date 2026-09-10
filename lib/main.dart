@@ -13,15 +13,20 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'Correção de Provas',
+      // Tira a faixa vermelha "DEBUG" do canto da tela. É só visual e só
+      // aparece em build de debug (em release ela já não existe), mas
+      // atrapalha na hora de comparar a tela com o mock/protótipo.
+      debugShowCheckedModeBanner: false,
       // ANTES: era um ThemeData inline com colorScheme.fromSeed(deepPurple).
       // Agora usa o tema central do app (paleta "Modernist" extraída do
       // protótipo), definido em lib/theme/app_theme.dart.
       theme: AppTheme.light,
       // ANTES: home: const GerarProvasScreen(),
       // Agora quem decide a tela inicial é o "initialLocation" lá no
-      // app_router.dart (hoje tá apontando pra '/criar-prova').
-      // TODO: quando o app tiver login/turmas prontos, o initialLocation
-      // do router deve virar a tela de login em vez de '/criar-prova'.
+      // app_router.dart — que agora aponta pra '/login', a primeira tela
+      // do fluxo. Depois de entrar, o login manda pra '/criar-prova'.
+      // TODO (N2): quando a autenticação for real, colocar um redirect no
+      // go_router pra barrar as rotas internas de quem não fez login.
       routerConfig: appRouter,
     );
   }

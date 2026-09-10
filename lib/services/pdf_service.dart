@@ -1,25 +1,35 @@
 // lib/services/pdf_service.dart
 //
-// Geração do PDF das provas (RF12 + RNF04). Usa o pacote `pdf` puro
-// (não widgets do Flutter) porque ele pagina sozinho: uma questão que
-// não cabe na página inteira vai pra próxima, nunca é cortada no meio.
+// Geração real do PDF das provas (RF12 + RNF04).
+// Usa o pacote `pdf` puro (não widgets do Flutter) porque ele sabe
+// paginar sozinho: se uma questão não cabe na página atual, ela inteira
+// vai pra próxima página — nada é cortado no meio.
 
 import 'dart:typed_data';
 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
+import 'package:printing/printing.dart'; // PdfGoogleFonts — fonte com suporte a acentuação
 
-import '../screens/provas/gerar_provas_screen.dart';
+import '../screens/provas/gerar_provas_screen.dart'; // VersaoProva
 
 class PdfService {
   /// PDF de uma versão só (usado no preview em carrossel).
   Future<Uint8List> gerarPdfVersao(
     VersaoProva versao, {
     int? forcarQuantidadeParaTeste,
+    double tamanhoFonte = 11,
+    double espacamento = 16,
+    double margem = 28,
   }) async {
     final doc = await _criarDocumentoBase();
-    doc.addPage(_construirPaginaVersao(versao, forcarQuantidadeParaTeste));
+    doc.addPage(_construirPaginaVersao(
+      versao,
+      forcarQuantidadeParaTeste,
+      tamanhoFonte,
+      espacamento,
+      margem,
+    ));
     return doc.save();
   }
 
@@ -27,16 +37,27 @@ class PdfService {
   Future<Uint8List> gerarPdfProvas(
     List<VersaoProva> versoes, {
     int? forcarQuantidadeParaTeste,
+    double tamanhoFonte = 11,
+    double espacamento = 16,
+    double margem = 28,
   }) async {
     final doc = await _criarDocumentoBase();
     for (final versao in versoes) {
-      doc.addPage(_construirPaginaVersao(versao, forcarQuantidadeParaTeste));
+      doc.addPage(_construirPaginaVersao(
+        versao,
+        forcarQuantidadeParaTeste,
+        tamanhoFonte,
+        espacamento,
+        margem,
+      ));
     }
     return doc.save();
   }
 
   Future<pw.Document> _criarDocumentoBase() async {
-    // Fonte padrão não tem acentuação; troca por uma com Unicode completo.
+    // Helvetica (fonte padrão do pdf) não tem acentuação — troca por uma
+    // fonte com Unicode completo, senão "Correção", "questões" etc saem
+    // quebrados no PDF final.
     final fontRegular = await PdfGoogleFonts.notoSansRegular();
     final fontBold = await PdfGoogleFonts.notoSansBold();
     return pw.Document(
@@ -44,19 +65,34 @@ class PdfService {
     );
   }
 
-  pw.Page _construirPaginaVersao(VersaoProva versao, int? forcarQuantidadeParaTeste) {
+  pw.Page _construirPaginaVersao(
+    VersaoProva versao,
+    int? forcarQuantidadeParaTeste,
+    double tamanhoFonte,
+    double espacamento,
+    double margem,
+  ) {
     return pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(28),
+      margin: pw.EdgeInsets.all(margem),
       header: (context) => _buildHeader(versao),
       footer: (context) => _buildFooterMarkers(),
-      build: (context) => _buildQuestoes(versao, forcarQuantidadeParaTeste),
+      build: (context) => _buildQuestoes(
+        versao,
+        forcarQuantidadeParaTeste,
+        tamanhoFonte,
+        espacamento,
+      ),
     );
   }
 
+  // Cabeçalho: título, identificação da versão, vínculo de aluno (se
+  // houver), QR code real (codificando o mesmo dado mock de antes) e
+  // os marcadores de canto superiores.
   pw.Widget _buildHeader(VersaoProva versao) {
-    // Altura fixa: um Stack só com filhos Positioned não se dimensiona
-    // sozinho e "come" a altura da página inteira sem isso.
+    // Container com altura fixa: é o que dá ao Stack um tamanho de
+    // referência. Sem isso, um Stack só com filhos Positioned não sabe
+    // se dimensionar e acaba "comendo" a altura da página inteira.
     return pw.Container(
       width: double.infinity,
       height: 70,
@@ -77,7 +113,14 @@ class PdfService {
                         'PROVA',
                         style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14),
                       ),
-                      pw.Text(versao.id.toUpperCase(), style: const pw.TextStyle(fontSize: 11)),
+                      pw.Text(
+                        versao.provaNome,
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+                      ),
+                      pw.Text(
+                        versao.id.toUpperCase(),
+                        style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+                      ),
                       pw.Text(
                         versao.alunoId != null ? 'Aluno vinculado' : 'Sem vínculo de aluno',
                         style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
@@ -85,6 +128,10 @@ class PdfService {
                     ],
                   ),
                 ),
+                // QR code real, codificando o mesmo dado mock que já
+                // existia (versao.qrCode). Quando entrar o modelo de dados
+                // de verdade (N2), o conteúdo codificado aqui é que muda,
+                // a lógica de gerar continua igual.
                 pw.BarcodeWidget(
                   barcode: pw.Barcode.qrCode(),
                   data: versao.qrCode,
@@ -99,6 +146,9 @@ class PdfService {
     );
   }
 
+  // Marcadores de canto inferiores, repetidos em toda página (inclusive
+  // se uma versão precisar de mais de uma página). Mesmo raciocínio do
+  // header: precisa de altura fixa pra não bagunçar o cálculo de espaço.
   pw.Widget _buildFooterMarkers() {
     return pw.Container(
       width: double.infinity,
@@ -114,8 +164,8 @@ class PdfService {
 
   // Fica no `build:`, não no header/footer, então só aparece uma vez no
   // topo da primeira página mesmo se a prova estourar pra mais páginas.
+  // Bloco de identificação (Aluno / Professor / Matéria / Turma / Data).
   pw.Widget _buildCabecalhoIdentificacao(VersaoProva versao) {
-    final data = _formatarData(DateTime.now());
     final aluno = _nomeAluno(versao);
 
     return pw.Container(
@@ -135,7 +185,13 @@ class PdfService {
             ],
           ),
           pw.SizedBox(height: 4),
-          _campoIdentificacao('Data', data),
+          pw.Row(
+            children: [
+              pw.Expanded(child: _campoIdentificacao('Turma', versao.turma ?? '—')),
+              pw.SizedBox(width: 12),
+              pw.Expanded(child: _campoIdentificacao('Data', '____/____/______')),
+            ],
+          ),
         ],
       ),
     );
@@ -152,6 +208,9 @@ class PdfService {
     );
   }
 
+  // Busca o nome do aluno vinculado (link real que já existe desde a
+  // tela Gerar Provas). Se não tiver vínculo, deixa uma linha em
+  // branco pra preencher à mão.
   String _nomeAluno(VersaoProva versao) {
     if (versao.alunoId == null) return '_______________________________';
     final aluno = alunosMock.firstWhere(
@@ -161,19 +220,18 @@ class PdfService {
     return aluno.nome;
   }
 
-  String _formatarData(DateTime data) {
-    final dia = data.day.toString().padLeft(2, '0');
-    final mes = data.month.toString().padLeft(2, '0');
-    return '$dia/$mes/${data.year}';
-  }
-
   pw.Widget _cornerMarker() {
     return pw.Container(width: 16, height: 16, color: PdfColors.black);
   }
 
   // `forcarQuantidadeParaTeste` cicla pelas questões da versão só pra
   // testar paginação com mais conteúdo; sem ele, imprime as reais.
-  List<pw.Widget> _buildQuestoes(VersaoProva versao, int? forcarQuantidadeParaTeste) {
+  List<pw.Widget> _buildQuestoes(
+    VersaoProva versao,
+    int? forcarQuantidadeParaTeste,
+    double tamanhoFonte,
+    double espacamento,
+  ) {
     final questoes = versao.questoes;
     final semForcarTeste = forcarQuantidadeParaTeste == null || questoes.isEmpty;
     final lista = semForcarTeste
@@ -196,13 +254,13 @@ class PdfService {
           final numero = entry.key + 1;
           final questaoVersao = entry.value;
           return pw.Padding(
-            padding: const pw.EdgeInsets.only(bottom: 16),
+            padding: pw.EdgeInsets.only(bottom: espacamento),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Text(
                   '$numero. ${questaoVersao.questao.enunciado}',
-                  style: const pw.TextStyle(fontSize: 11),
+                  style: pw.TextStyle(fontSize: tamanhoFonte),
                 ),
                 pw.SizedBox(height: 6),
                 pw.Column(
@@ -226,7 +284,7 @@ class PdfService {
                           pw.Expanded(
                             child: pw.Text(
                               '${String.fromCharCode(65 + alt)}) ${questaoVersao.alternativas[alt]}',
-                              style: const pw.TextStyle(fontSize: 10),
+                              style: pw.TextStyle(fontSize: tamanhoFonte - 1),
                             ),
                           ),
                         ],
