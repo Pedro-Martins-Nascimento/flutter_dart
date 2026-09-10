@@ -10,9 +10,9 @@ class MainShell extends StatelessWidget {
   const MainShell({super.key, required this.navigationShell});
 
   void _irPara(int indice) => navigationShell.goBranch(
-        indice,
-        initialLocation: indice == navigationShell.currentIndex,
-      );
+    indice,
+    initialLocation: indice == navigationShell.currentIndex,
+  );
 
   @override
   Widget build(BuildContext context) {
