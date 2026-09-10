@@ -1,3 +1,7 @@
+// lib/router/app_router.dart
+//
+// Configuração central de navegação (go_router).
+
 import 'package:go_router/go_router.dart';
 
 import '../screens/auth/login_screen.dart';
