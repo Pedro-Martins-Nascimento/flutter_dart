@@ -12,8 +12,8 @@
 //  - Tamanho da fonte
 //  - Espaçamento entre questões
 //  - Margem da página (útil pra impressoras que cortam perto da borda)
-// Mexer em qualquer um regenera o PDF ao vivo — o PdfService já usa
-// esses valores de verdade na hora de montar o documento.
+// Mexer em qualquer um regenera o PDF ao vivo, com o conteúdo real das
+// questões da versão (enunciado + alternativas + gabarito).
 
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart'; // PdfPreview
@@ -21,7 +21,7 @@ import 'package:printing/printing.dart'; // PdfPreview
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../services/pdf_service.dart';
-import 'gerar_provas_screen.dart'; // VersaoProva
+import 'gerar_provas_screen.dart';
 
 class PreviewLayoutScreen extends StatefulWidget {
   final List<VersaoProva> versoes;
@@ -40,12 +40,21 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
   // Controles reais do editor de layout.
   double _tamanhoFonte = 11;
   double _espacamento = 16;
-  double _margem = 28; // NOVO
+  double _margem = 28;
 
   // Controle SÓ PRA TESTE: deixa simular provas com mais ou menos
   // questões pra validar a paginação automática (RNF04) ao vivo, sem
-  // precisar editar código. Não é uma opção real do app final.
-  int _quantidadeQuestoesTeste = 8;
+  // precisar editar código. Não é uma opção real do app final. Começa
+  // já com a quantidade real de questões da primeira versão.
+  late int _quantidadeQuestoesTeste;
+
+  @override
+  void initState() {
+    super.initState();
+    final primeiraVersao = widget.versoes.isNotEmpty ? widget.versoes.first : null;
+    final quantidadeReal = primeiraVersao?.questoes.length ?? 8;
+    _quantidadeQuestoesTeste = quantidadeReal.clamp(1, 30);
+  }
 
   @override
   void dispose() {
@@ -85,7 +94,7 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
                       ),
                       versao: versao,
                       pdfService: _pdfService,
-                      quantidadeQuestoes: _quantidadeQuestoesTeste,
+                      forcarQuantidadeParaTeste: _quantidadeQuestoesTeste,
                       tamanhoFonte: _tamanhoFonte,
                       espacamento: _espacamento,
                       margem: _margem,
@@ -99,7 +108,6 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
       ),
     );
   }
-
 
   Widget _buildControlesLayout() {
     return Padding(
@@ -194,11 +202,10 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
   }
 }
 
-
 class _VersaoPreviewCard extends StatelessWidget {
   final VersaoProva versao;
   final PdfService pdfService;
-  final int quantidadeQuestoes;
+  final int forcarQuantidadeParaTeste;
   final double tamanhoFonte;
   final double espacamento;
   final double margem;
@@ -207,7 +214,7 @@ class _VersaoPreviewCard extends StatelessWidget {
     super.key,
     required this.versao,
     required this.pdfService,
-    required this.quantidadeQuestoes,
+    required this.forcarQuantidadeParaTeste,
     required this.tamanhoFonte,
     required this.espacamento,
     required this.margem,
@@ -234,7 +241,7 @@ class _VersaoPreviewCard extends StatelessWidget {
             child: PdfPreview(
               build: (format) => pdfService.gerarPdfVersao(
                 versao,
-                quantidadeQuestoes: quantidadeQuestoes,
+                forcarQuantidadeParaTeste: forcarQuantidadeParaTeste,
                 tamanhoFonte: tamanhoFonte,
                 espacamento: espacamento,
                 margem: margem,

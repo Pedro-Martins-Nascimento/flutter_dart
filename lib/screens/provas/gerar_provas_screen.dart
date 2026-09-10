@@ -1,23 +1,22 @@
 // lib/screens/provas/gerar_provas_screen.dart
 //
-// Tela "Gerar Provas" (N1 - dados mock, sem Firebase/QR real ainda)
-// RF10 — Gerar QR code único por versão, vinculado ao gabarito daquela versão
-// RF11 — Vincular (opcionalmente) uma versão a um aluno importado
-// RF12 — Exportar a prova em PDF pronta para impressão
-//
+// Tela "Gerar Provas" (RF10/RF11/RF12): gera N versões da prova, cada
+// uma com QR code, alternativas embaralhadas e gabarito próprios (banco
+// real de questões, com fallback pra mock se a tela for aberta direto).
+// O QR code é só um placeholder visual (trocar pelo pacote qr_flutter
+// quando integrar).
+
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
+import '../../models/questao.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../services/provas_repository.dart';
 import '../../services/pdf_service.dart';
 import 'criar_prova_screen.dart' show DadosProva;
-
-// ---------------------------------------------------------------------
-// MODELOS MOCK
-// ---------------------------------------------------------------------
 
 class Aluno {
   final String id;
@@ -26,10 +25,26 @@ class Aluno {
   Aluno({required this.id, required this.nome});
 }
 
+// Questão já embaralhada dentro de uma versão específica: alternativas na
+// ordem impressa e `respostaCorreta` recalculado pra essa ordem — é o
+// gabarito daquela versão.
+class QuestaoNaVersao {
+  final Questao questao;
+  final List<String> alternativas;
+  final int respostaCorreta;
+
+  QuestaoNaVersao({
+    required this.questao,
+    required this.alternativas,
+    required this.respostaCorreta,
+  });
+}
+
 class VersaoProva {
   final String id;
-  final String qrCode; 
+  final String qrCode;
   String? alunoId; // RF11 — vínculo é opcional
+  final List<QuestaoNaVersao> questoes;
 
   // Campos usados no cabeçalho de identificação do PDF
   final String materia;
@@ -40,6 +55,7 @@ class VersaoProva {
   VersaoProva({
     required this.id,
     required this.qrCode,
+    required this.questoes,
     this.alunoId,
     this.materia = 'Matemática',
     this.professor = 'Prof. responsável',
@@ -48,19 +64,11 @@ class VersaoProva {
   });
 }
 
-// ---------------------------------------------------------------------
-// DADOS MOCK
-// ---------------------------------------------------------------------
-
 final List<Aluno> alunosMock = [
   Aluno(id: 'al1', nome: 'Bruno Oliveira'),
   Aluno(id: 'al2', nome: 'Carla Menezes'),
   Aluno(id: 'al3', nome: 'Diego Farias'),
 ];
-
-// ---------------------------------------------------------------------
-// TELA
-// ---------------------------------------------------------------------
 
 class GerarProvasScreen extends StatefulWidget {
   // Dados vindos da tela Criar Prova. Fica nullable de propósito —
@@ -80,6 +88,7 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
   final TextEditingController quantidadeController =
       TextEditingController(text: '3');
   final PdfService _pdfService = PdfService();
+  final Random _random = Random();
 
   List<VersaoProva> versoes = [];
 
@@ -92,9 +101,19 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     }
   }
 
+  List<Questao> get _bancoSelecionado {
+    final questoes = widget.dados?.questoes ?? const [];
+    return questoes.isNotEmpty ? questoes : questoesMock.take(8).toList();
+  }
+
+  ModoProva get _modo => widget.dados?.modo ?? ModoProva.mesmaEmbaralhada;
+
   void _gerarVersoes() {
     final quantidade = int.tryParse(quantidadeController.text) ?? 0;
     if (quantidade <= 0) return;
+
+    final banco = _bancoSelecionado;
+    final modo = _modo;
 
     final dados = widget.dados;
     final materiaTexto =
@@ -109,6 +128,7 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
           id: 'v$numero',
           // string fake só pra representar o conteúdo do QR por enquanto
           qrCode: 'PROVA-2026-V$numero-${(1000 + numero * 37)}',
+          questoes: _materializarQuestoes(banco, modo),
           materia: materiaTexto,
           professor: 'Prof. responsável',
           turma: turmaTexto,
@@ -128,6 +148,31 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
         versoes: versoes,
       ),
     );
+  }
+
+  // Mesma embaralhada: todas as versões levam o conjunto completo, só a
+  // ordem muda. Conjuntos diferentes: cada versão sorteia ~70% do banco.
+  List<Questao> _questoesParaVersao(List<Questao> banco, ModoProva modo) {
+    final embaralhado = List<Questao>.from(banco)..shuffle(_random);
+    if (modo == ModoProva.mesmaEmbaralhada || banco.length <= 2) {
+      return embaralhado;
+    }
+    final tamanho = (banco.length * 0.7).ceil().clamp(1, banco.length);
+    return embaralhado.take(tamanho).toList();
+  }
+
+  // Embaralha as alternativas de cada questão e recalcula o índice da
+  // correta na nova ordem — isso vira o gabarito daquela versão.
+  List<QuestaoNaVersao> _materializarQuestoes(List<Questao> banco, ModoProva modo) {
+    return _questoesParaVersao(banco, modo).map((questao) {
+      final ordem = List<int>.generate(questao.alternativas.length, (i) => i)
+        ..shuffle(_random);
+      return QuestaoNaVersao(
+        questao: questao,
+        alternativas: ordem.map((i) => questao.alternativas[i]).toList(),
+        respostaCorreta: ordem.indexOf(questao.respostaCorreta),
+      );
+    }).toList();
   }
 
   void _vincularAluno(VersaoProva versao, String? alunoId) {
@@ -286,7 +331,7 @@ class _VersaoCard extends StatelessWidget {
       child: AppListItem(
         leading: const AppLeadingIcon(icon: Icons.qr_code_2),
         title: versao.id.toUpperCase(),
-        subtitle: versao.qrCode,
+        subtitle: '${versao.qrCode} · ${versao.questoes.length} questões',
         trailing: Icon(
           vinculado ? Icons.link : Icons.link_off,
           size: 18,

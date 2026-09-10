@@ -5,50 +5,17 @@
 // RF09 — Escolher modo: mesma prova embaralhada por versão, ou conjuntos
 //        de questões diferentes
 //
+// Matérias e questões vêm do banco real (lib/models/questao.dart, com
+// alternativas e gabarito). Turma vem do módulo de turmas
+// (lib/screens/turmas/criar_turma_screen.dart) — mesma fonte de dados
+// usada em "Minhas Turmas", pra uma turma criada aqui aparecer lá também.
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../models/questao.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
-
-// ---------------------------------------------------------------------
-// MODELOS MOCK
-// Depois (N2) isso vira classe real em lib/models/, vindo do Firestore.
-// Por enquanto é só pra ter algo pra exibir na tela.
-// ---------------------------------------------------------------------
-
-class Materia {
-  final String id;
-  final String nome;
-
-  Materia({required this.id, required this.nome});
-}
-
-// NOVO: turma — mesma ideia da Materia, mock por enquanto.
-class Turma {
-  final String id;
-  final String nome;
-
-  Turma({required this.id, required this.nome});
-}
-
-class Questao {
-  final String id;
-  final String materiaId;
-  final String enunciado;
-
-  Questao({
-    required this.id,
-    required this.materiaId,
-    required this.enunciado,
-  });
-}
-
-// Modo de geração da prova (RF09)
-enum ModoProva {
-  mesmaEmbaralhada, // mesma prova, ordem das questões/alternativas embaralhada por versão
-  conjuntosDiferentes, // versões com questões diferentes entre si
-}
+import '../turmas/criar_turma_screen.dart' show Turma, turmasMock;
 
 // (Gerar Provas) via `extra:` do go_router.
 class DadosProva {
@@ -66,40 +33,8 @@ class DadosProva {
     required this.modo,
   });
 
-
   String get materiasResumo => materias.map((m) => m.nome).join(', ');
 }
-
-// ---------------------------------------------------------------------
-// DADOS MOCK (fixos, só pra N1 funcionar sem banco)
-// ---------------------------------------------------------------------
-
-final List<Materia> materiasMock = [
-  Materia(id: 'mat1', nome: 'Matemática'),
-  Materia(id: 'mat2', nome: 'História'),
-  Materia(id: 'mat3', nome: 'Biologia'),
-];
-
-// NOVO
-final List<Turma> turmasMock = [
-  Turma(id: 't1', nome: '9º Ano A'),
-  Turma(id: 't2', nome: '9º Ano B'),
-  Turma(id: 't3', nome: '1ª Série EM'),
-];
-
-final List<Questao> questoesMock = [
-  Questao(id: 'q1', materiaId: 'mat1', enunciado: 'Quanto é 7 x 8?'),
-  Questao(id: 'q2', materiaId: 'mat1', enunciado: 'Qual a raiz quadrada de 144?'),
-  Questao(id: 'q3', materiaId: 'mat1', enunciado: 'Resolva: 2x + 4 = 10'),
-  Questao(id: 'q4', materiaId: 'mat2', enunciado: 'Em que ano começou a 2ª Guerra Mundial?'),
-  Questao(id: 'q5', materiaId: 'mat2', enunciado: 'Quem proclamou a independência do Brasil?'),
-  Questao(id: 'q6', materiaId: 'mat3', enunciado: 'O que é fotossíntese?'),
-  Questao(id: 'q7', materiaId: 'mat3', enunciado: 'Qual a função das mitocôndrias?'),
-];
-
-// ---------------------------------------------------------------------
-// TELA
-// ---------------------------------------------------------------------
 
 class CriarProvaScreen extends StatefulWidget {
   const CriarProvaScreen({super.key});
@@ -109,8 +44,10 @@ class CriarProvaScreen extends StatefulWidget {
 }
 
 class _CriarProvaScreenState extends State<CriarProvaScreen> {
-  final List<Materia> _materiasDisponiveis = List.of(materiasMock);
-  final List<Turma> _turmasDisponiveis = List.of(turmasMock);
+  // Getters (não cópia local) pra sempre refletir turmas/matérias criadas
+  // em outras telas (ex: "Minhas Turmas") sem precisar sincronizar estado.
+  List<Materia> get _materiasDisponiveis => materiasMock;
+  List<Turma> get _turmasDisponiveis => turmasMock;
 
   final Set<String> materiasSelecionadas = {};
   String? turmaSelecionadaId; 
@@ -222,16 +159,20 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
     final novaTurma = Turma(
       id: 'turma_${DateTime.now().millisecondsSinceEpoch}',
       nome: nome.trim(),
+      qtdAlunos: 0,
+      qtdProvas: 0,
+      alunos: [],
     );
     setState(() {
-      _turmasDisponiveis.add(novaTurma);
+      // Insere na lista real (compartilhada com "Minhas Turmas"), não
+      // numa cópia local — turma criada aqui aparece lá também.
+      turmasMock.insert(0, novaTurma);
       turmaSelecionadaId = novaTurma.id;
     });
   }
 
   bool get podeAvancar =>
       questoesSelecionadas.isNotEmpty && nomeProvaController.text.trim().isNotEmpty;
-
 
   void _avancarParaGeracao() {
     Turma? turmaEscolhida;

@@ -12,32 +12,44 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart'; // PdfGoogleFonts — fonte com suporte a acentuação
 
 import '../screens/provas/gerar_provas_screen.dart'; // VersaoProva
-// TODO: quando o modelo VersaoProva virar arquivo próprio em lib/models/,
-// atualizar esse import.
 
 class PdfService {
+  /// PDF de uma versão só (usado no preview em carrossel).
   Future<Uint8List> gerarPdfVersao(
     VersaoProva versao, {
-    int quantidadeQuestoes = 8,
+    int? forcarQuantidadeParaTeste,
     double tamanhoFonte = 11,
     double espacamento = 16,
     double margem = 28,
   }) async {
     final doc = await _criarDocumentoBase();
-    doc.addPage(_construirPaginaVersao(versao, quantidadeQuestoes, tamanhoFonte, espacamento, margem));
+    doc.addPage(_construirPaginaVersao(
+      versao,
+      forcarQuantidadeParaTeste,
+      tamanhoFonte,
+      espacamento,
+      margem,
+    ));
     return doc.save();
   }
 
+  /// PDF único com todas as versões, uma atrás da outra.
   Future<Uint8List> gerarPdfProvas(
     List<VersaoProva> versoes, {
-    int quantidadeQuestoes = 8,
+    int? forcarQuantidadeParaTeste,
     double tamanhoFonte = 11,
     double espacamento = 16,
     double margem = 28,
   }) async {
     final doc = await _criarDocumentoBase();
     for (final versao in versoes) {
-      doc.addPage(_construirPaginaVersao(versao, quantidadeQuestoes, tamanhoFonte, espacamento, margem));
+      doc.addPage(_construirPaginaVersao(
+        versao,
+        forcarQuantidadeParaTeste,
+        tamanhoFonte,
+        espacamento,
+        margem,
+      ));
     }
     return doc.save();
   }
@@ -55,7 +67,7 @@ class PdfService {
 
   pw.Page _construirPaginaVersao(
     VersaoProva versao,
-    int quantidadeQuestoes,
+    int? forcarQuantidadeParaTeste,
     double tamanhoFonte,
     double espacamento,
     double margem,
@@ -65,7 +77,12 @@ class PdfService {
       margin: pw.EdgeInsets.all(margem),
       header: (context) => _buildHeader(versao),
       footer: (context) => _buildFooterMarkers(),
-      build: (context) => _buildQuestoes(versao, quantidadeQuestoes, tamanhoFonte, espacamento),
+      build: (context) => _buildQuestoes(
+        versao,
+        forcarQuantidadeParaTeste,
+        tamanhoFonte,
+        espacamento,
+      ),
     );
   }
 
@@ -145,7 +162,9 @@ class PdfService {
     );
   }
 
-  // Bloco de identificação (Aluno / Professor / Matéria / Data).
+  // Fica no `build:`, não no header/footer, então só aparece uma vez no
+  // topo da primeira página mesmo se a prova estourar pra mais páginas.
+  // Bloco de identificação (Aluno / Professor / Matéria / Turma / Data).
   pw.Widget _buildCabecalhoIdentificacao(VersaoProva versao) {
     final aluno = _nomeAluno(versao);
 
@@ -205,57 +224,78 @@ class PdfService {
     return pw.Container(width: 16, height: 16, color: PdfColors.black);
   }
 
-
+  // `forcarQuantidadeParaTeste` cicla pelas questões da versão só pra
+  // testar paginação com mais conteúdo; sem ele, imprime as reais.
   List<pw.Widget> _buildQuestoes(
     VersaoProva versao,
-    int quantidade,
+    int? forcarQuantidadeParaTeste,
     double tamanhoFonte,
     double espacamento,
   ) {
-    const enunciadoMock =
-        'Qual das alternativas abaixo apresenta corretamente a principal '
-        'diferença entre uma questão objetiva e uma questão discursiva no '
-        'processo de avaliação dos alunos?';
+    final questoes = versao.questoes;
+    final semForcarTeste = forcarQuantidadeParaTeste == null || questoes.isEmpty;
+    final lista = semForcarTeste
+        ? questoes
+        : List.generate(
+            forcarQuantidadeParaTeste,
+            (i) => questoes[i % questoes.length],
+          );
 
     return [
       _buildCabecalhoIdentificacao(versao),
       pw.SizedBox(height: 12),
-      ...List.generate(quantidade, (i) {
-        return pw.Padding(
-          padding: pw.EdgeInsets.only(bottom: espacamento),
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text('${i + 1}. $enunciadoMock', style: pw.TextStyle(fontSize: tamanhoFonte)),
-              pw.SizedBox(height: 6),
-              pw.Row(
-                children: List.generate(4, (alt) {
-                  return pw.Padding(
-                    padding: const pw.EdgeInsets.only(right: 14),
-                    child: pw.Row(
-                      children: [
-                        pw.Container(
-                          width: 10,
-                          height: 10,
-                          decoration: pw.BoxDecoration(
-                            shape: pw.BoxShape.circle,
-                            border: pw.Border.all(width: 0.8),
+      if (lista.isEmpty)
+        pw.Text(
+          'Nenhuma questão selecionada para esta prova.',
+          style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700),
+        )
+      else
+        ...lista.asMap().entries.map((entry) {
+          final numero = entry.key + 1;
+          final questaoVersao = entry.value;
+          return pw.Padding(
+            padding: pw.EdgeInsets.only(bottom: espacamento),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  '$numero. ${questaoVersao.questao.enunciado}',
+                  style: pw.TextStyle(fontSize: tamanhoFonte),
+                ),
+                pw.SizedBox(height: 6),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: List.generate(questaoVersao.alternativas.length, (alt) {
+                    return pw.Padding(
+                      padding: const pw.EdgeInsets.only(bottom: 4),
+                      child: pw.Row(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Container(
+                            width: 10,
+                            height: 10,
+                            margin: const pw.EdgeInsets.only(top: 2),
+                            decoration: pw.BoxDecoration(
+                              shape: pw.BoxShape.circle,
+                              border: pw.Border.all(width: 0.8),
+                            ),
                           ),
-                        ),
-                        pw.SizedBox(width: 3),
-                        pw.Text(
-                          String.fromCharCode(65 + alt),
-                          style: pw.TextStyle(fontSize: tamanhoFonte - 1),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ),
-            ],
-          ),
-        );
-      }),
+                          pw.SizedBox(width: 6),
+                          pw.Expanded(
+                            child: pw.Text(
+                              '${String.fromCharCode(65 + alt)}) ${questaoVersao.alternativas[alt]}',
+                              style: pw.TextStyle(fontSize: tamanhoFonte - 1),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            ),
+          );
+        }),
     ];
   }
 }
