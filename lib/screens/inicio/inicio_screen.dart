@@ -1,16 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../models/questao.dart';
+import '../turmas/criar_turma_screen.dart' show Turma, turmasMock;
 import '../../services/provas_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 
-const int _totalFolhas = 28;
+Turma get _turmaEmDestaque => turmasMock.first;
+
+int get _totalFolhas => _turmaEmDestaque.qtdAlunos;
+
 const int _folhasCorrigidas = 12;
 const String _mediaTurma = '7,4';
-const String _turmaEmDestaque = '3º ano B';
 
-const List<int> _percentualAcerto = [86, 71, 93, 54, 79, 61, 32, 89, 68, 43];
+const Map<String, int> _erroPorMateriaMock = {
+  'mat1': 54,
+  'mat2': 43,
+  'mat3': 32,
+  'mat4': 61,
+  'mat5': 28,
+  'mat6': 47,
+  'mat7': 39,
+  'mat8': 21,
+};
 
 const List<_ResumoProva> _provasMock = [
   _ResumoProva(
@@ -35,11 +48,11 @@ class _ResumoProva {
   const _ResumoProva({required this.titulo, required this.meta, this.prova});
 }
 
-class _ErroQuestao {
-  final String rotulo;
+class _ErroMateria {
+  final String materia;
   final int percentual;
 
-  const _ErroQuestao(this.rotulo, this.percentual);
+  const _ErroMateria(this.materia, this.percentual);
 }
 
 class InicioScreen extends StatelessWidget {
@@ -47,6 +60,13 @@ class InicioScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: ProvasRepository.instance,
+      builder: (context, _) => _conteudo(context),
+    );
+  }
+
+  Widget _conteudo(BuildContext context) {
     return LayoutBuilder(
       builder: (context, restricoes) {
         final medio = restricoes.maxWidth >= AppLayout.medio;
@@ -153,7 +173,9 @@ class InicioScreen extends StatelessWidget {
             child: _Numero(rotulo: 'Corrigidas', valor: '$_folhasCorrigidas'),
           ),
           SizedBox(width: espaco),
-          Flexible(child: _Numero(rotulo: 'Pendentes', valor: '$pendentes')),
+          Flexible(
+            child: _Numero(rotulo: 'Pendentes', valor: '$pendentes'),
+          ),
           SizedBox(width: espaco),
           const Flexible(
             child: _Numero(rotulo: 'Média', valor: _mediaTurma),
@@ -181,7 +203,7 @@ class InicioScreen extends StatelessWidget {
     required bool largo,
     required double recuo,
   }) {
-    final tituloErros = 'Questões com mais erro · $_turmaEmDestaque';
+    final tituloErros = 'Erro por matéria · ${_turmaEmDestaque.nome}';
 
     if (!largo) {
       return Column(
@@ -237,35 +259,17 @@ class InicioScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final questao in _questoesComMaisErro())
-          _LinhaErro(questao: questao),
-        const SizedBox(height: AppSpacing.s3),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.s1),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            onPressed: () => _emConstrucao(context, 'Estatística completa'),
-            child: const Text('Ver estatística completa'),
-          ),
-        ),
+        for (final linha in _erroPorMateria()) _LinhaErro(linha: linha),
       ],
     );
   }
 
-  List<_ErroQuestao> _questoesComMaisErro() {
-    final questoes = [
-      for (var i = 0; i < _percentualAcerto.length; i++)
-        _ErroQuestao(
-          'Q${(i + 1).toString().padLeft(2, '0')}',
-          _percentualAcerto[i],
-        ),
-    ]..sort((a, b) => a.percentual.compareTo(b.percentual));
-
-    return questoes.take(3).toList();
+  List<_ErroMateria> _erroPorMateria() {
+    return [
+      for (final materia in materiasMock)
+        if (_erroPorMateriaMock[materia.id] case final erro?)
+          _ErroMateria(materia.nome, erro),
+    ]..sort((a, b) => b.percentual.compareTo(a.percentual));
   }
 
   Widget _conteudoProvas(BuildContext context, {required double recuo}) {
@@ -294,11 +298,7 @@ class InicioScreen extends StatelessWidget {
 
     return [
       for (final prova in geradas.take(3))
-        _ResumoProva(
-          titulo: prova.nome,
-          meta: _metaProva(prova),
-          prova: prova,
-        ),
+        _ResumoProva(titulo: prova.nome, meta: _metaProva(prova), prova: prova),
     ];
   }
 
@@ -308,12 +308,6 @@ class InicioScreen extends StatelessWidget {
     partes.add('${prova.versoes.length} versões');
     partes.add(_dataCurta(prova.criadoEm));
     return partes.join(' · ');
-  }
-
-  void _emConstrucao(BuildContext context, String recurso) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$recurso ainda não disponível.')),
-    );
   }
 }
 
@@ -435,22 +429,24 @@ class _Numero extends StatelessWidget {
 }
 
 class _LinhaErro extends StatelessWidget {
-  final _ErroQuestao questao;
+  final _ErroMateria linha;
 
-  const _LinhaErro({required this.questao});
+  const _LinhaErro({required this.linha});
 
   @override
   Widget build(BuildContext context) {
-    final cor = questao.percentual < 50 ? AppColors.accent : AppColors.text;
+    final cor = linha.percentual >= 50 ? AppColors.accent : AppColors.text;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
           SizedBox(
-            width: 30,
+            width: 78,
             child: Text(
-              questao.rotulo,
+              linha.materia,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 12, color: AppColors.neutral600),
             ),
           ),
@@ -461,7 +457,7 @@ class _LinhaErro extends StatelessWidget {
               color: AppColors.neutral200,
               alignment: Alignment.centerLeft,
               child: FractionallySizedBox(
-                widthFactor: questao.percentual / 100,
+                widthFactor: linha.percentual / 100,
                 child: Container(color: cor),
               ),
             ),
@@ -470,7 +466,7 @@ class _LinhaErro extends StatelessWidget {
           SizedBox(
             width: 38,
             child: Text(
-              '${questao.percentual}%',
+              '${linha.percentual}%',
               textAlign: TextAlign.right,
               style: const TextStyle(
                 fontSize: 12,
