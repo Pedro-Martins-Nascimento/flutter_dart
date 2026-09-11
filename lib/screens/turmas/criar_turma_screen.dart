@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../services/persistencia_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 
@@ -10,6 +11,14 @@ class AlunoTurma {
   final String matricula;
 
   AlunoTurma({required this.id, required this.nome, required this.matricula});
+
+  Map<String, dynamic> toJson() => {'id': id, 'nome': nome, 'matricula': matricula};
+
+  factory AlunoTurma.fromJson(Map<String, dynamic> json) => AlunoTurma(
+    id: json['id'] as String,
+    nome: json['nome'] as String,
+    matricula: json['matricula'] as String,
+  );
 }
 
 class Turma {
@@ -26,6 +35,24 @@ class Turma {
     required this.qtdProvas,
     List<AlunoTurma>? alunos,
   }) : alunos = alunos ?? [];
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'nome': nome,
+    'qtdAlunos': qtdAlunos,
+    'qtdProvas': qtdProvas,
+    'alunos': alunos.map((a) => a.toJson()).toList(),
+  };
+
+  factory Turma.fromJson(Map<String, dynamic> json) => Turma(
+    id: json['id'] as String,
+    nome: json['nome'] as String,
+    qtdAlunos: json['qtdAlunos'] as int,
+    qtdProvas: json['qtdProvas'] as int,
+    alunos: (json['alunos'] as List)
+        .map((a) => AlunoTurma.fromJson(a as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 final List<AlunoTurma> alunosMockTurmaB = [
@@ -356,6 +383,7 @@ class _NovaTurmaScreenState extends State<NovaTurmaScreen> {
         ),
       );
     });
+    PersistenciaService.instance.salvar();
 
     context.pop();
   }

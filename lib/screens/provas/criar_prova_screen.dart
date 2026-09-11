@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../models/questao.dart';
+import '../../services/persistencia_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../turmas/criar_turma_screen.dart' show Turma, turmasMock;
@@ -137,6 +138,7 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
 
       materiasSelecionadas.add(novaMateria.id);
     });
+    PersistenciaService.instance.salvar();
   }
 
   Future<void> _criarNovaTurma() async {
@@ -157,6 +159,7 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
       turmasMock.insert(0, novaTurma);
       turmaSelecionadaId = novaTurma.id;
     });
+    PersistenciaService.instance.salvar();
   }
 
   bool get podeAvancar =>

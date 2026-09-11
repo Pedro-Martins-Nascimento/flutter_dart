@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../models/questao.dart';
 import '../turmas/criar_turma_screen.dart' show Turma, turmasMock;
+import '../../services/correcoes_repository.dart';
 import '../../services/provas_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
@@ -61,7 +62,10 @@ class InicioScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ProvasRepository.instance,
+      listenable: Listenable.merge([
+        ProvasRepository.instance,
+        CorrecoesRepository.instance,
+      ]),
       builder: (context, _) => _conteudo(context),
     );
   }
@@ -161,24 +165,33 @@ class InicioScreen extends StatelessWidget {
   }
 
   Widget _resumoNumeros({required bool medio, required double recuo}) {
-    final pendentes = (_totalFolhas - _folhasCorrigidas).clamp(0, _totalFolhas);
     final espaco = medio ? 56.0 : AppSpacing.s8;
+    final corrigidasReais = CorrecoesRepository.instance.correcoes.length;
+
+    // Enquanto não existir nenhuma correção com nota calculada, mostra os
+    // números mock do protótipo — assim que a primeira folha for lida e
+    // corrigida em "Corrigir", passa a refletir dado real.
+    final corrigidas = corrigidasReais == 0 ? _folhasCorrigidas : corrigidasReais;
+    final pendentes = (_totalFolhas - corrigidas).clamp(0, _totalFolhas);
+    final media = corrigidasReais == 0
+        ? _mediaTurma
+        : CorrecoesRepository.instance.mediaGeral.toStringAsFixed(1).replaceAll('.', ',');
 
     return Padding(
       padding: EdgeInsets.fromLTRB(recuo, 0, recuo, AppSpacing.s5),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Flexible(
-            child: _Numero(rotulo: 'Corrigidas', valor: '$_folhasCorrigidas'),
+          Flexible(
+            child: _Numero(rotulo: 'Corrigidas', valor: '$corrigidas'),
           ),
           SizedBox(width: espaco),
           Flexible(
             child: _Numero(rotulo: 'Pendentes', valor: '$pendentes'),
           ),
           SizedBox(width: espaco),
-          const Flexible(
-            child: _Numero(rotulo: 'Média', valor: _mediaTurma),
+          Flexible(
+            child: _Numero(rotulo: 'Média', valor: media),
           ),
         ],
       ),
@@ -260,15 +273,38 @@ class InicioScreen extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final linha in _erroPorMateria()) _LinhaErro(linha: linha),
+        const SizedBox(height: AppSpacing.s2),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.s1),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: () => context.push('/inicio/estatistica'),
+            child: const Text('Ver estatística completa'),
+          ),
+        ),
       ],
     );
   }
 
   List<_ErroMateria> _erroPorMateria() {
+    final acertoReal = CorrecoesRepository.instance.percentualAcertoPorMateria();
+
+    if (acertoReal.isEmpty) {
+      return [
+        for (final materia in materiasMock)
+          if (_erroPorMateriaMock[materia.id] case final erro?)
+            _ErroMateria(materia.nome, erro),
+      ]..sort((a, b) => b.percentual.compareTo(a.percentual));
+    }
+
     return [
       for (final materia in materiasMock)
-        if (_erroPorMateriaMock[materia.id] case final erro?)
-          _ErroMateria(materia.nome, erro),
+        if (acertoReal[materia.id] case final acerto?)
+          _ErroMateria(materia.nome, (100 - acerto).round()),
     ]..sort((a, b) => b.percentual.compareTo(a.percentual));
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../models/questao.dart';
+import '../../services/persistencia_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 
@@ -13,6 +14,28 @@ class MateriasScreen extends StatefulWidget {
 }
 
 class _MateriasScreenState extends State<MateriasScreen> {
+  final _buscaController = TextEditingController();
+  String _busca = '';
+
+  @override
+  void dispose() {
+    _buscaController.dispose();
+    super.dispose();
+  }
+
+  List<Questao> get _resultadosBusca {
+    final termo = _busca.trim().toLowerCase();
+    if (termo.isEmpty) return const [];
+    return questoesMock.where((q) => q.enunciado.toLowerCase().contains(termo)).toList();
+  }
+
+  String _nomeMateria(String materiaId) {
+    for (final m in materiasMock) {
+      if (m.id == materiaId) return m.nome;
+    }
+    return '—';
+  }
+
   Future<void> _novaMateria() async {
     final controller = TextEditingController();
 
@@ -50,6 +73,7 @@ class _MateriasScreenState extends State<MateriasScreen> {
         ),
       );
     });
+    PersistenciaService.instance.salvar();
   }
 
   Future<void> _excluirMateria(Materia materia, int totalQuestoes) async {
@@ -83,6 +107,7 @@ class _MateriasScreenState extends State<MateriasScreen> {
       questoesMock.removeWhere((q) => q.materiaId == materia.id);
       materiasMock.removeWhere((m) => m.id == materia.id);
     });
+    PersistenciaService.instance.salvar();
   }
 
   @override
@@ -145,37 +170,100 @@ class _MateriasScreenState extends State<MateriasScreen> {
               ),
             ),
 
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.s6,
+                AppSpacing.s4,
+                AppSpacing.s6,
+                AppSpacing.s2,
+              ),
+              child: TextField(
+                controller: _buscaController,
+                onChanged: (valor) => setState(() => _busca = valor),
+                decoration: InputDecoration(
+                  hintText: 'Buscar questão pelo enunciado...',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _busca.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () => setState(() {
+                            _buscaController.clear();
+                            _busca = '';
+                          }),
+                        ),
+                ),
+              ),
+            ),
+
             Expanded(
               child: AppMaxWidth(
-                child: ListView.separated(
-                  itemCount: materiasMock.length,
-                  padding: EdgeInsets.zero,
-                  separatorBuilder: (context, indice) =>
-                      const Divider(height: 1),
-                  itemBuilder: (context, indice) {
-                    final materia = materiasMock[indice];
-                    final total = questoesMock
-                        .where((q) => q.materiaId == materia.id)
-                        .length;
+                child: _busca.trim().isNotEmpty
+                    ? _listaBusca(context)
+                    : ListView.separated(
+                        itemCount: materiasMock.length,
+                        padding: EdgeInsets.zero,
+                        separatorBuilder: (context, indice) =>
+                            const Divider(height: 1),
+                        itemBuilder: (context, indice) {
+                          final materia = materiasMock[indice];
+                          final total = questoesMock
+                              .where((q) => q.materiaId == materia.id)
+                              .length;
 
-                    return _MateriaItem(
-                      nome: materia.nome,
-                      onExcluir: () => _excluirMateria(materia, total),
-                      meta: total == 0
-                          ? 'Nenhuma questão'
-                          : '$total ${total == 1 ? 'questão' : 'questões'}',
-                      onTap: () async {
-                        await context.push('/questoes/${materia.id}');
-                        if (mounted) setState(() {});
-                      },
-                    );
-                  },
-                ),
+                          return _MateriaItem(
+                            nome: materia.nome,
+                            onExcluir: () => _excluirMateria(materia, total),
+                            meta: total == 0
+                                ? 'Nenhuma questão'
+                                : '$total ${total == 1 ? 'questão' : 'questões'}',
+                            onTap: () async {
+                              await context.push('/questoes/${materia.id}');
+                              if (mounted) setState(() {});
+                            },
+                          );
+                        },
+                      ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _listaBusca(BuildContext context) {
+    final resultados = _resultadosBusca;
+
+    if (resultados.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s6, vertical: AppSpacing.s6),
+        child: Text(
+          'Nenhuma questão encontrada para "${_busca.trim()}".',
+          style: const TextStyle(color: AppColors.textMuted),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: EdgeInsets.zero,
+      itemCount: resultados.length,
+      separatorBuilder: (context, indice) => const Divider(height: 1),
+      itemBuilder: (context, indice) {
+        final questao = resultados[indice];
+        return _MateriaItem(
+          nome: questao.enunciado,
+          meta: _nomeMateria(questao.materiaId),
+          onExcluir: null,
+          onTap: () async {
+            await context.push(
+              '/questoes/${questao.materiaId}/questao',
+              extra: questao,
+            );
+            if (mounted) setState(() {});
+          },
+        );
+      },
     );
   }
 }
@@ -184,7 +272,7 @@ class _MateriaItem extends StatelessWidget {
   final String nome;
   final String meta;
   final VoidCallback onTap;
-  final VoidCallback onExcluir;
+  final VoidCallback? onExcluir;
 
   const _MateriaItem({
     required this.nome,
@@ -227,23 +315,24 @@ class _MateriaItem extends StatelessWidget {
                 ],
               ),
             ),
-            PopupMenuButton<void>(
-              tooltip: 'Excluir matéria',
-              icon: const Icon(
-                Icons.more_vert,
-                size: 20,
-                color: AppColors.neutral500,
-              ),
-              itemBuilder: (context) => [
-                PopupMenuItem<void>(
-                  onTap: onExcluir,
-                  child: const Text(
-                    'Excluir matéria',
-                    style: TextStyle(color: AppColors.error),
-                  ),
+            if (onExcluir != null)
+              PopupMenuButton<void>(
+                tooltip: 'Excluir matéria',
+                icon: const Icon(
+                  Icons.more_vert,
+                  size: 20,
+                  color: AppColors.neutral500,
                 ),
-              ],
-            ),
+                itemBuilder: (context) => [
+                  PopupMenuItem<void>(
+                    onTap: onExcluir,
+                    child: const Text(
+                      'Excluir matéria',
+                      style: TextStyle(color: AppColors.error),
+                    ),
+                  ),
+                ],
+              ),
             const Icon(
               Icons.chevron_right,
               color: AppColors.neutral400,

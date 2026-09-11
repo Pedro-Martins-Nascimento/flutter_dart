@@ -4,9 +4,120 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../models/questao.dart';
 import '../screens/provas/gerar_provas_screen.dart';
+import 'correcoes_repository.dart';
 
 class PdfService {
+  // Boletim de um aluno (RF17): nota, acertos e o gabarito questão a
+  // questão — o que ele marcou vs. o que era certo.
+  Future<Uint8List> gerarBoletimAluno(Correcao correcao) async {
+    final doc = await _criarDocumentoBase();
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(28),
+        build: (context) => _buildBoletim(correcao),
+      ),
+    );
+    return doc.save();
+  }
+
+  // Boletim de vários alunos de uma vez (ex: turma inteira) — uma página
+  // por correção, no mesmo formato do boletim individual.
+  Future<Uint8List> gerarBoletinsMultiplos(List<Correcao> correcoes) async {
+    final doc = await _criarDocumentoBase();
+    for (final correcao in correcoes) {
+      doc.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(28),
+          build: (context) => _buildBoletim(correcao),
+        ),
+      );
+    }
+    return doc.save();
+  }
+
+  List<pw.Widget> _buildBoletim(Correcao correcao) {
+    return [
+      pw.Text(
+        'Boletim — ${correcao.provaNome}',
+        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16),
+      ),
+      pw.SizedBox(height: 4),
+      pw.Text(
+        '${correcao.alunoNome ?? 'Sem aluno vinculado'} · '
+        '${correcao.versao.id.toUpperCase()}'
+        '${correcao.turma != null ? ' · ${correcao.turma}' : ''}',
+        style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700),
+      ),
+      pw.SizedBox(height: 16),
+      pw.Row(
+        children: [
+          _campoResumo('Nota', correcao.nota.toStringAsFixed(1)),
+          pw.SizedBox(width: 24),
+          _campoResumo('Acertos', '${correcao.acertos}/${correcao.total}'),
+        ],
+      ),
+      pw.SizedBox(height: 16),
+      pw.Text(
+        'GABARITO POR QUESTÃO',
+        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+      ),
+      pw.SizedBox(height: 8),
+      pw.Table(
+        border: pw.TableBorder.all(width: 0.5, color: PdfColors.grey400),
+        columnWidths: const {
+          0: pw.FlexColumnWidth(1),
+          1: pw.FlexColumnWidth(6),
+          2: pw.FlexColumnWidth(2),
+          3: pw.FlexColumnWidth(2),
+        },
+        children: [
+          _linhaTabela('Nº', 'Enunciado', 'Marcada', 'Certa', cabecalho: true),
+          for (var i = 0; i < correcao.versao.questoes.length; i++)
+            _linhaTabela(
+              '${i + 1}',
+              correcao.versao.questoes[i].questao.enunciado,
+              letraAlternativa(correcao.respostas[i].alternativaMarcada),
+              letraAlternativa(correcao.versao.questoes[i].respostaCorreta),
+            ),
+        ],
+      ),
+    ];
+  }
+
+  pw.Widget _campoResumo(String rotulo, String valor) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(rotulo, style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+        pw.Text(valor, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 18)),
+      ],
+    );
+  }
+
+  pw.TableRow _linhaTabela(
+    String numero,
+    String enunciado,
+    String marcada,
+    String certa, {
+    bool cabecalho = false,
+  }) {
+    final estilo = pw.TextStyle(
+      fontSize: 9,
+      fontWeight: cabecalho ? pw.FontWeight.bold : pw.FontWeight.normal,
+    );
+    pw.Widget celula(String texto) => pw.Padding(
+          padding: const pw.EdgeInsets.all(4),
+          child: pw.Text(texto, style: estilo),
+        );
+    return pw.TableRow(
+      children: [celula(numero), celula(enunciado), celula(marcada), celula(certa)],
+    );
+  }
+
   Future<Uint8List> gerarPdfVersao(
     VersaoProva versao, {
     int? forcarQuantidadeParaTeste,

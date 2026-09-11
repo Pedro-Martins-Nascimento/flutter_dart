@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../models/questao.dart';
+import '../../services/persistencia_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 
@@ -101,6 +102,7 @@ class _QuestaoFormScreenState extends State<QuestaoFormScreen> {
     } else {
       questoesMock.add(questao);
     }
+    PersistenciaService.instance.salvar();
 
     context.pop();
   }
@@ -131,6 +133,7 @@ class _QuestaoFormScreenState extends State<QuestaoFormScreen> {
     if (confirmado != true || !mounted) return;
 
     questoesMock.removeWhere((q) => q.id == widget.questao!.id);
+    PersistenciaService.instance.salvar();
     context.pop();
   }
 

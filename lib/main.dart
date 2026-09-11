@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import 'router/app_router.dart';
+import 'services/persistencia_service.dart';
 import 'theme/app_theme.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await PersistenciaService.instance.carregar();
   runApp(const MyApp());
 }
 
