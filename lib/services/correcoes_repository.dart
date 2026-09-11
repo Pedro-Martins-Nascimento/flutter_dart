@@ -11,12 +11,23 @@ import 'package:flutter/foundation.dart';
 
 import '../models/questao.dart';
 import '../screens/provas/gerar_provas_screen.dart'; // VersaoProva
+import 'persistencia_service.dart';
 
 class RespostaQuestao {
   final int alternativaMarcada;
   final bool correta;
 
   RespostaQuestao({required this.alternativaMarcada, required this.correta});
+
+  Map<String, dynamic> toJson() => {
+    'alternativaMarcada': alternativaMarcada,
+    'correta': correta,
+  };
+
+  factory RespostaQuestao.fromJson(Map<String, dynamic> json) => RespostaQuestao(
+    alternativaMarcada: json['alternativaMarcada'] as int,
+    correta: json['correta'] as bool,
+  );
 }
 
 class Correcao {
@@ -43,6 +54,30 @@ class Correcao {
   int get acertos => respostas.where((r) => r.correta).length;
   int get total => respostas.length;
   double get nota => total == 0 ? 0 : (acertos / total) * 10;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'versao': versao.toJson(),
+    'provaNome': provaNome,
+    'materia': materia,
+    'turma': turma,
+    'alunoNome': alunoNome,
+    'corrigidoEm': corrigidoEm.toIso8601String(),
+    'respostas': respostas.map((r) => r.toJson()).toList(),
+  };
+
+  factory Correcao.fromJson(Map<String, dynamic> json) => Correcao(
+    id: json['id'] as String,
+    versao: VersaoProva.fromJson(json['versao'] as Map<String, dynamic>),
+    provaNome: json['provaNome'] as String,
+    materia: json['materia'] as String,
+    turma: json['turma'] as String?,
+    alunoNome: json['alunoNome'] as String?,
+    corrigidoEm: DateTime.parse(json['corrigidoEm'] as String),
+    respostas: (json['respostas'] as List)
+        .map((r) => RespostaQuestao.fromJson(r as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 class CorrecoesRepository extends ChangeNotifier {
@@ -59,12 +94,23 @@ class CorrecoesRepository extends ChangeNotifier {
   void salvar(Correcao correcao) {
     _correcoes.add(correcao);
     notifyListeners();
+    PersistenciaService.instance.salvar();
   }
 
   @visibleForTesting
   void limparParaTeste() {
     _correcoes.clear();
     notifyListeners();
+  }
+
+  // Ordem de inserção original (não invertida como `correcoes`) — é o
+  // formato salvo/restaurado pelo PersistenciaService.
+  List<Correcao> exportarParaPersistencia() => List.unmodifiable(_correcoes);
+
+  void importarDePersistencia(List<Correcao> correcoes) {
+    _correcoes
+      ..clear()
+      ..addAll(correcoes);
   }
 
   double get mediaGeral {
@@ -118,6 +164,28 @@ class CorrecoesRepository extends ChangeNotifier {
       for (final id in totais.keys)
         questoes[id]!: (acertos[id] ?? 0) / totais[id]! * 100,
     };
+  }
+
+  // Ranking de alunos por média (RF17/RF18) — só entra quem tem correção
+  // com aluno vinculado; ordenado do melhor pro pior.
+  List<({String aluno, double media, int quantidade})> rankingAlunos() {
+    final porAluno = <String, List<Correcao>>{};
+    for (final correcao in _correcoes) {
+      final nome = correcao.alunoNome;
+      if (nome == null) continue;
+      porAluno.putIfAbsent(nome, () => []).add(correcao);
+    }
+
+    final ranking = [
+      for (final entry in porAluno.entries)
+        (
+          aluno: entry.key,
+          media: entry.value.fold<double>(0, (acc, c) => acc + c.nota) / entry.value.length,
+          quantidade: entry.value.length,
+        ),
+    ]..sort((a, b) => b.media.compareTo(a.media));
+
+    return ranking;
   }
 
   // Correções agrupadas por prova (pelo nome — é o que a Correcao guarda)

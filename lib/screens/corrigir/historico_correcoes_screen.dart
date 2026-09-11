@@ -6,13 +6,23 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:printing/printing.dart';
 
 import '../../services/correcoes_repository.dart';
+import '../../services/pdf_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 
 class HistoricoCorrecoesScreen extends StatelessWidget {
   const HistoricoCorrecoesScreen({super.key});
+
+  Future<void> _exportarTodos(List<Correcao> corrigidas) async {
+    final bytes = await PdfService().gerarBoletinsMultiplos(corrigidas);
+    await Printing.layoutPdf(
+      onLayout: (format) async => bytes,
+      name: 'boletins.pdf',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +36,17 @@ class HistoricoCorrecoesScreen extends StatelessWidget {
     final corrigidas = CorrecoesRepository.instance.correcoes;
 
     return AppScaffold(
-      appBar: AppBar(title: const Text('Corrigidas')),
+      appBar: AppBar(
+        title: const Text('Corrigidas'),
+        actions: [
+          if (corrigidas.isNotEmpty)
+            IconButton(
+              tooltip: 'Exportar boletins de todo mundo (PDF)',
+              icon: const Icon(Icons.picture_as_pdf),
+              onPressed: () => _exportarTodos(corrigidas),
+            ),
+        ],
+      ),
       body: corrigidas.isEmpty
           ? const Center(
               child: Padding(

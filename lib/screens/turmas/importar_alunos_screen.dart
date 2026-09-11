@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' hide Border;
 
+import '../../services/persistencia_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import 'criar_turma_screen.dart';
@@ -67,6 +68,7 @@ class _ImportarAlunosScreenState extends State<ImportarAlunosScreen> {
           setState(() {
             turma.alunos.addAll(novosAlunos);
           });
+          PersistenciaService.instance.salvar();
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(

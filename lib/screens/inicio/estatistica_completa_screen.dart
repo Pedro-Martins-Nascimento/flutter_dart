@@ -54,6 +54,8 @@ class EstatisticaCompletaScreen extends StatelessWidget {
     final questoesOrdenadas = acertoPorQuestao.entries.toList()
       ..sort((a, b) => a.value.compareTo(b.value));
 
+    final ranking = repo.rankingAlunos();
+
     return AppScaffold(
       appBar: AppBar(title: const Text('Estatística completa')),
       body: ListView(
@@ -140,6 +142,47 @@ class EstatisticaCompletaScreen extends StatelessWidget {
                         ),
                       ],
                     ),
+                  ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: AppSpacing.s6),
+          Text('RANKING DE ALUNOS', style: AppTheme.kicker),
+          const SizedBox(height: AppSpacing.s3),
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final entry in ranking.asMap().entries)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.s2),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 24,
+                          child: Text(
+                            '${entry.key + 1}º',
+                            style: const TextStyle(fontSize: 12, color: AppColors.neutral500),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            entry.value.aluno,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ),
+                        Text(
+                          '${entry.value.media.toStringAsFixed(1)} · ${entry.value.quantidade} prova(s)',
+                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (ranking.isEmpty)
+                  const Text(
+                    'Nenhuma correção com aluno vinculado ainda.',
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                   ),
               ],
             ),

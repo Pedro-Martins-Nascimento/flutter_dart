@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../services/persistencia_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import 'criar_turma_screen.dart';
@@ -107,6 +108,7 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
       setState(() {
         turmasMock.removeWhere((t) => t.id == widget.turmaId);
       });
+      PersistenciaService.instance.salvar();
       if (mounted) context.pop();
     }
   }
@@ -219,6 +221,7 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
           );
         }
       });
+      PersistenciaService.instance.salvar();
     }
   }
 
@@ -289,6 +292,7 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
       setState(() {
         turma.alunos.remove(aluno);
       });
+      PersistenciaService.instance.salvar();
     }
   }
 
@@ -400,6 +404,7 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
           ),
         );
       });
+      PersistenciaService.instance.salvar();
     }
   }
 

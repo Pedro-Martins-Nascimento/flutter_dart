@@ -29,6 +29,20 @@ class QuestaoNaVersao {
     required this.alternativas,
     required this.respostaCorreta,
   });
+
+  // A questão vai embutida (não só o id) porque uma prova já gerada não
+  // pode mudar se a questão for editada/excluída do banco depois.
+  Map<String, dynamic> toJson() => {
+    'questao': questao.toJson(),
+    'alternativas': alternativas,
+    'respostaCorreta': respostaCorreta,
+  };
+
+  factory QuestaoNaVersao.fromJson(Map<String, dynamic> json) => QuestaoNaVersao(
+    questao: Questao.fromJson(json['questao'] as Map<String, dynamic>),
+    alternativas: List<String>.from(json['alternativas'] as List),
+    respostaCorreta: json['respostaCorreta'] as int,
+  );
 }
 
 class VersaoProva {
@@ -52,6 +66,30 @@ class VersaoProva {
     this.turma,
     this.provaNome = 'Prova sem título',
   });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'qrCode': qrCode,
+    'alunoId': alunoId,
+    'questoes': questoes.map((q) => q.toJson()).toList(),
+    'materia': materia,
+    'professor': professor,
+    'turma': turma,
+    'provaNome': provaNome,
+  };
+
+  factory VersaoProva.fromJson(Map<String, dynamic> json) => VersaoProva(
+    id: json['id'] as String,
+    qrCode: json['qrCode'] as String,
+    alunoId: json['alunoId'] as String?,
+    questoes: (json['questoes'] as List)
+        .map((q) => QuestaoNaVersao.fromJson(q as Map<String, dynamic>))
+        .toList(),
+    materia: json['materia'] as String,
+    professor: json['professor'] as String,
+    turma: json['turma'] as String?,
+    provaNome: json['provaNome'] as String,
+  );
 }
 
 // Extraídas da State pra dar pra testar sem precisar montar o widget

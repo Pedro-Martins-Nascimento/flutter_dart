@@ -23,6 +23,22 @@ class PdfService {
     return doc.save();
   }
 
+  // Boletim de vários alunos de uma vez (ex: turma inteira) — uma página
+  // por correção, no mesmo formato do boletim individual.
+  Future<Uint8List> gerarBoletinsMultiplos(List<Correcao> correcoes) async {
+    final doc = await _criarDocumentoBase();
+    for (final correcao in correcoes) {
+      doc.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(28),
+          build: (context) => _buildBoletim(correcao),
+        ),
+      );
+    }
+    return doc.save();
+  }
+
   List<pw.Widget> _buildBoletim(Correcao correcao) {
     return [
       pw.Text(

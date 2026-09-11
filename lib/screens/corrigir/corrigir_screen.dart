@@ -15,6 +15,19 @@ const int _jaCorrigidas = 12;
 
 typedef _VersaoEncontrada = ({ProvaGerada prova, VersaoProva versao});
 
+// Quantas versões de prova já geradas ainda não têm correção com nota —
+// usado no selo numérico da aba "Corrigir" (ver main_shell.dart), sem
+// precisar abrir a tela pra saber se tem algo pendente.
+int contarPendentes() {
+  var pendentes = 0;
+  for (final prova in ProvasRepository.instance.provas) {
+    for (final versao in prova.versoes) {
+      if (!CorrecoesRepository.instance.jaCorrigida(versao.id)) pendentes++;
+    }
+  }
+  return pendentes;
+}
+
 class CorrigirScreen extends StatefulWidget {
   const CorrigirScreen({super.key});
 

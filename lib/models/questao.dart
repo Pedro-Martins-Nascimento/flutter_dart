@@ -3,6 +3,11 @@ class Materia {
   final String nome;
 
   Materia({required this.id, required this.nome});
+
+  Map<String, dynamic> toJson() => {'id': id, 'nome': nome};
+
+  factory Materia.fromJson(Map<String, dynamic> json) =>
+      Materia(id: json['id'] as String, nome: json['nome'] as String);
 }
 
 class Questao {
@@ -26,6 +31,22 @@ class Questao {
          respostaCorreta >= 0 && respostaCorreta < alternativas.length,
          'respostaCorreta precisa apontar pra uma alternativa que existe',
        );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'materiaId': materiaId,
+    'enunciado': enunciado,
+    'alternativas': alternativas,
+    'respostaCorreta': respostaCorreta,
+  };
+
+  factory Questao.fromJson(Map<String, dynamic> json) => Questao(
+    id: json['id'] as String,
+    materiaId: json['materiaId'] as String,
+    enunciado: json['enunciado'] as String,
+    alternativas: List<String>.from(json['alternativas'] as List),
+    respostaCorreta: json['respostaCorreta'] as int,
+  );
 }
 
 String letraAlternativa(int indice) => String.fromCharCode(65 + indice);
