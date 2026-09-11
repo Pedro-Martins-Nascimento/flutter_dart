@@ -8,7 +8,7 @@ Projeto acadêmico desenvolvido em grupo. Esta é a entrega **N1**: telas princi
 
 ## Vídeo de demonstração
 
-**[▶ Assistir à demonstração]https://youtu.be/ahXdrW6j_UQ**
+**[▶ Assistir à demonstração](https://youtu.be/ahXdrW6j_UQ)**
 
 ---
 
