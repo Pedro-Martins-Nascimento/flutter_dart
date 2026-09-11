@@ -273,6 +273,19 @@ class InicioScreen extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final linha in _erroPorMateria()) _LinhaErro(linha: linha),
+        const SizedBox(height: AppSpacing.s2),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.s1),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: () => context.push('/inicio/estatistica'),
+            child: const Text('Ver estatística completa'),
+          ),
+        ),
       ],
     );
   }

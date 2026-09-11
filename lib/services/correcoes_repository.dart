@@ -9,6 +9,7 @@
 
 import 'package:flutter/foundation.dart';
 
+import '../models/questao.dart';
 import '../screens/provas/gerar_provas_screen.dart'; // VersaoProva
 
 class RespostaQuestao {
@@ -60,6 +61,12 @@ class CorrecoesRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  @visibleForTesting
+  void limparParaTeste() {
+    _correcoes.clear();
+    notifyListeners();
+  }
+
   double get mediaGeral {
     if (_correcoes.isEmpty) return 0;
     final soma = _correcoes.fold<double>(0, (acc, c) => acc + c.nota);
@@ -86,5 +93,40 @@ class CorrecoesRepository extends ChangeNotifier {
       for (final materiaId in totais.keys)
         materiaId: (acertos[materiaId] ?? 0) / totais[materiaId]! * 100,
     };
+  }
+
+  // Percentual de acerto por questão do banco (RF18) — usado na tela de
+  // estatística completa pra achar as questões que mais derrubam a turma,
+  // já com o enunciado (não só o id) pra facilitar a leitura.
+  Map<Questao, double> percentualAcertoPorQuestao() {
+    final acertos = <String, int>{};
+    final totais = <String, int>{};
+    final questoes = <String, Questao>{};
+
+    for (final correcao in _correcoes) {
+      for (var i = 0; i < correcao.respostas.length; i++) {
+        final questao = correcao.versao.questoes[i].questao;
+        totais[questao.id] = (totais[questao.id] ?? 0) + 1;
+        questoes[questao.id] = questao;
+        if (correcao.respostas[i].correta) {
+          acertos[questao.id] = (acertos[questao.id] ?? 0) + 1;
+        }
+      }
+    }
+
+    return {
+      for (final id in totais.keys)
+        questoes[id]!: (acertos[id] ?? 0) / totais[id]! * 100,
+    };
+  }
+
+  // Correções agrupadas por prova (pelo nome — é o que a Correcao guarda)
+  // — usado na tela de estatística completa pra mostrar a média por prova.
+  Map<String, List<Correcao>> porNomeDeProva() {
+    final grupos = <String, List<Correcao>>{};
+    for (final correcao in _correcoes) {
+      grupos.putIfAbsent(correcao.provaNome, () => []).add(correcao);
+    }
+    return grupos;
   }
 }

@@ -54,6 +54,31 @@ class VersaoProva {
   });
 }
 
+// Extraídas da State pra dar pra testar sem precisar montar o widget
+// inteiro (ver test/gerar_provas_test.dart) — garantem que, depois do
+// embaralhamento, `alternativas[respostaCorreta]` continua sendo o texto
+// certo da questão original.
+List<Questao> questoesParaVersao(List<Questao> banco, ModoProva modo, Random random) {
+  final embaralhado = List<Questao>.from(banco)..shuffle(random);
+  if (modo == ModoProva.mesmaEmbaralhada || banco.length <= 2) {
+    return embaralhado;
+  }
+  final tamanho = (banco.length * 0.7).ceil().clamp(1, banco.length);
+  return embaralhado.take(tamanho).toList();
+}
+
+List<QuestaoNaVersao> materializarQuestoes(List<Questao> banco, ModoProva modo, Random random) {
+  return questoesParaVersao(banco, modo, random).map((questao) {
+    final ordem = List<int>.generate(questao.alternativas.length, (i) => i)
+      ..shuffle(random);
+    return QuestaoNaVersao(
+      questao: questao,
+      alternativas: ordem.map((i) => questao.alternativas[i]).toList(),
+      respostaCorreta: ordem.indexOf(questao.respostaCorreta),
+    );
+  }).toList();
+}
+
 final List<Aluno> alunosMock = [
   Aluno(id: 'al1', nome: 'Bruno Oliveira'),
   Aluno(id: 'al2', nome: 'Carla Menezes'),
@@ -145,6 +170,11 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     final provaNome = _provaNome;
     final turmaTexto = _turmaTexto;
 
+    // Se a prova está presa a uma turma, já vincula um aluno por versão
+    // (round-robin pela lista da turma) — o professor não precisa marcar
+    // vínculo por vínculo à mão, só ajustar se alguém faltar/trocar.
+    final alunosParaVincular = _turma?.alunos ?? const [];
+
     setState(() {
       versoes = List.generate(quantidade, (i) {
         final numero = i + 1;
@@ -152,11 +182,14 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
           id: 'v$numero',
 
           qrCode: 'PROVA-2026-V$numero-${(1000 + numero * 37)}',
-          questoes: _materializarQuestoes(banco, modo),
+          questoes: materializarQuestoes(banco, modo, _random),
           materia: materiaTexto,
           professor: 'Prof. responsável',
           turma: turmaTexto,
           provaNome: provaNome,
+          alunoId: alunosParaVincular.isEmpty
+              ? null
+              : alunosParaVincular[i % alunosParaVincular.length].id,
         );
       });
     });
@@ -185,30 +218,6 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
         const SnackBar(content: Text('Prova salva em Provas geradas.')),
       );
     context.go('/provas-geradas');
-  }
-
-  List<Questao> _questoesParaVersao(List<Questao> banco, ModoProva modo) {
-    final embaralhado = List<Questao>.from(banco)..shuffle(_random);
-    if (modo == ModoProva.mesmaEmbaralhada || banco.length <= 2) {
-      return embaralhado;
-    }
-    final tamanho = (banco.length * 0.7).ceil().clamp(1, banco.length);
-    return embaralhado.take(tamanho).toList();
-  }
-
-  List<QuestaoNaVersao> _materializarQuestoes(
-    List<Questao> banco,
-    ModoProva modo,
-  ) {
-    return _questoesParaVersao(banco, modo).map((questao) {
-      final ordem = List<int>.generate(questao.alternativas.length, (i) => i)
-        ..shuffle(_random);
-      return QuestaoNaVersao(
-        questao: questao,
-        alternativas: ordem.map((i) => questao.alternativas[i]).toList(),
-        respostaCorreta: ordem.indexOf(questao.respostaCorreta),
-      );
-    }).toList();
   }
 
   void _vincularAluno(VersaoProva versao, String? alunoId) {
