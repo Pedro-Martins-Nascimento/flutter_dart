@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import '../models/versao_prova.dart';
 import '../screens/auth/login_screen.dart';
 import '../models/questao.dart';
 import '../screens/corrigir/corrigir_screen.dart';

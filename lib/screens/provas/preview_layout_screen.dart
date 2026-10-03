@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 
+import '../../models/versao_prova.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../services/pdf_service.dart';
-import 'gerar_provas_screen.dart';
 
 class PreviewLayoutScreen extends StatefulWidget {
   final List<VersaoProva> versoes;
