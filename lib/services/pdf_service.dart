@@ -4,7 +4,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
-import '../screens/provas/gerar_provas_screen.dart';
+import '../models/aluno.dart';
+import '../models/versao_prova.dart';
 
 class PdfService {
   Future<Uint8List> gerarPdfVersao(

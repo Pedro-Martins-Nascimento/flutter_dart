@@ -4,61 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
 
+import '../../models/aluno.dart';
 import '../../models/questao.dart';
+import '../../models/versao_prova.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../services/provas_repository.dart';
 import '../../services/pdf_service.dart';
 import 'criar_prova_screen.dart' show DadosProva;
 import '../turmas/criar_turma_screen.dart' show Turma, turmasMock;
-
-class Aluno {
-  final String id;
-  final String nome;
-
-  Aluno({required this.id, required this.nome});
-}
-
-class QuestaoNaVersao {
-  final Questao questao;
-  final List<String> alternativas;
-  final int respostaCorreta;
-
-  QuestaoNaVersao({
-    required this.questao,
-    required this.alternativas,
-    required this.respostaCorreta,
-  });
-}
-
-class VersaoProva {
-  final String id;
-  final String qrCode;
-  String? alunoId;
-  final List<QuestaoNaVersao> questoes;
-
-  final String materia;
-  final String professor;
-  final String? turma;
-  final String provaNome;
-
-  VersaoProva({
-    required this.id,
-    required this.qrCode,
-    required this.questoes,
-    this.alunoId,
-    this.materia = 'Matemática',
-    this.professor = 'Prof. responsável',
-    this.turma,
-    this.provaNome = 'Prova sem título',
-  });
-}
-
-final List<Aluno> alunosMock = [
-  Aluno(id: 'al1', nome: 'Bruno Oliveira'),
-  Aluno(id: 'al2', nome: 'Carla Menezes'),
-  Aluno(id: 'al3', nome: 'Diego Farias'),
-];
 
 class GerarProvasScreen extends StatefulWidget {
   final DadosProva? dados;

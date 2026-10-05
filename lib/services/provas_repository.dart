@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/questao.dart';
-import '../screens/provas/gerar_provas_screen.dart';
+import '../models/versao_prova.dart';
 import '../screens/turmas/criar_turma_screen.dart' show turmasMock;
 
 class ProvaGerada {
