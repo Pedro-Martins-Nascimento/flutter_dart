@@ -164,6 +164,63 @@ A tela de Correção usa a câmera: no navegador, aceite a permissão quando o C
 flutter analyze
 ```
 
+### Configurar o Firebase
+
+O projeto usa o Firebase para a configuracao atual e ja possui as dependencias
+`firebase_core`, `firebase_auth` e `cloud_firestore`. Os arquivos gerados pelo
+FlutterFire nao sao versionados:
+
+- `lib/firebase_options.dart`
+- `android/app/google-services.json`
+
+Cada integrante deve gerar esses arquivos na propria maquina. Nao e necessario
+enviar esses arquivos por mensagem nem adiciona-los ao GitHub.
+
+#### O que cada integrante precisa ter
+
+- Flutter e Dart instalados e funcionando (`flutter doctor`)
+- Uma conta Google com acesso ao projeto Firebase `correcao-provas-grupo`
+- Firebase CLI instalado e autenticado
+- FlutterFire CLI instalado
+- Android Studio e Android SDK, caso va compilar para Android
+- Google Chrome, caso va rodar na Web
+
+#### Configuracao inicial da maquina
+
+```bash
+firebase login
+dart pub global activate flutterfire_cli
+```
+
+Depois de clonar o repositorio, dentro da pasta do projeto, execute:
+
+```bash
+flutter pub get
+flutterfire configure --project=correcao-provas-grupo --platforms=android,web
+```
+
+Durante o comando, confirme o aplicativo Android do projeto. O FlutterFire
+gera localmente `lib/firebase_options.dart` e
+`android/app/google-services.json`; eles ja estao protegidos pelo `.gitignore`.
+
+Para validar a configuracao sem executar todas as regras de negocio:
+
+```bash
+flutter analyze
+flutter build web
+```
+
+Para rodar:
+
+```bash
+flutter run -d chrome
+flutter run -d <id-do-dispositivo-android>
+```
+
+Se alguem nao tiver permissao no projeto Firebase, um integrante com acesso
+deve adiciona-lo no Firebase Console. Nao compartilhe senhas, tokens ou chaves
+privadas; compartilhe apenas o nome do projeto e o acesso autorizado.
+
 ### Gerar o APK
 
 ```bash
@@ -204,6 +261,7 @@ docs/                          # documento do cliente, requisitos e protótipo
 | `mobile_scanner` | leitura do QR code pela câmera |
 | `file_picker` / `excel` | importação da lista de alunos |
 | `google_fonts` | tipografia da interface |
+| `firebase_core` / `firebase_auth` / `cloud_firestore` | inicialização e serviços Firebase |
 
 ---
 
