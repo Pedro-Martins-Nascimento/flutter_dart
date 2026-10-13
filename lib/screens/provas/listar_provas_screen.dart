@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
@@ -10,14 +11,7 @@ class ListarProvasScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: ProvasRepository.instance,
-      builder: (context, _) => _conteudo(context),
-    );
-  }
-
-  Widget _conteudo(BuildContext context) {
-    final provas = ProvasRepository.instance.provas;
+    final provas = context.watch<ProvasRepository>().provas;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -169,7 +163,9 @@ class ListarProvasScreen extends StatelessWidget {
       ),
     );
 
-    if (confirmado == true) ProvasRepository.instance.excluir(prova.id);
+    if (confirmado == true && context.mounted) {
+      context.read<ProvasRepository>().excluir(prova.id);
+    }
   }
 
   String _subtitulo(ProvaGerada prova) {

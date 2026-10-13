@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/questao.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
-import '../turmas/criar_turma_screen.dart' show Turma, turmasMock;
+import '../../models/turma.dart';
+import '../../services/questoes_repository.dart';
+import '../../services/turmas_repository.dart';
 
 class DadosProva {
   final String nomeProva;
@@ -37,8 +40,11 @@ class CriarProvaScreen extends StatefulWidget {
 }
 
 class _CriarProvaScreenState extends State<CriarProvaScreen> {
-  List<Materia> get _materiasDisponiveis => materiasMock;
-  List<Turma> get _turmasDisponiveis => turmasMock;
+  List<Materia> get _materiasDisponiveis =>
+      context.read<QuestoesRepository>().materias;
+  List<Turma> get _turmasDisponiveis => context.read<TurmasRepository>().turmas;
+  List<Questao> get _bancoDeQuestoes =>
+      context.read<QuestoesRepository>().questoes;
 
   final Set<String> materiasSelecionadas = {};
   String? turmaSelecionadaId;
@@ -57,7 +63,7 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
 
   List<Questao> get questoesDisponiveis {
     if (materiasSelecionadas.isEmpty) return [];
-    return questoesMock
+    return _bancoDeQuestoes
         .where((q) => materiasSelecionadas.contains(q.materiaId))
         .toList();
   }
@@ -69,7 +75,7 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
       } else {
         materiasSelecionadas.remove(materiaId);
         questoesSelecionadas.removeWhere((qId) {
-          final questao = questoesMock.firstWhere((q) => q.id == qId);
+          final questao = _bancoDeQuestoes.firstWhere((q) => q.id == qId);
           return questao.materiaId == materiaId;
         });
       }
@@ -146,17 +152,9 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
     );
     if (nome == null || nome.trim().isEmpty) return;
 
-    final novaTurma = Turma(
-      id: 'turma_${DateTime.now().millisecondsSinceEpoch}',
-      nome: nome.trim(),
-      qtdAlunos: 0,
-      qtdProvas: 0,
-      alunos: [],
-    );
-    setState(() {
-      turmasMock.insert(0, novaTurma);
-      turmaSelecionadaId = novaTurma.id;
-    });
+    if (!mounted) return;
+    final novaTurma = context.read<TurmasRepository>().criar(nome.trim());
+    setState(() => turmaSelecionadaId = novaTurma.id);
   }
 
   bool get podeAvancar =>
@@ -177,7 +175,7 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
           .where((m) => materiasSelecionadas.contains(m.id))
           .toList(),
       turma: turmaEscolhida,
-      questoes: questoesMock
+      questoes: _bancoDeQuestoes
           .where((q) => questoesSelecionadas.contains(q.id))
           .toList(),
       modo: modoSelecionado,
@@ -339,6 +337,9 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<QuestoesRepository>();
+    context.watch<TurmasRepository>();
+
     return PopScope(
       canPop: !_temRascunho,
       onPopInvokedWithResult: (jaSaiu, _) {

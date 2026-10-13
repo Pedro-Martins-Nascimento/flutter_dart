@@ -2,17 +2,20 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:printing/printing.dart';
 
 import '../../models/aluno.dart';
 import '../../models/questao.dart';
+import '../../models/turma.dart';
 import '../../models/versao_prova.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../services/provas_repository.dart';
 import '../../services/pdf_service.dart';
+import '../../services/questoes_repository.dart';
+import '../../services/turmas_repository.dart';
 import 'criar_prova_screen.dart' show DadosProva;
-import '../turmas/criar_turma_screen.dart' show Turma, turmasMock;
 
 class GerarProvasScreen extends StatefulWidget {
   final DadosProva? dados;
@@ -55,7 +58,9 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
 
   List<Questao> get _bancoSelecionado {
     final questoes = widget.dados?.questoes ?? const [];
-    return questoes.isNotEmpty ? questoes : questoesMock.take(8).toList();
+    return questoes.isNotEmpty
+        ? questoes
+        : context.read<QuestoesRepository>().questoes.take(8).toList();
   }
 
   ModoProva get _modo => widget.dados?.modo ?? ModoProva.mesmaEmbaralhada;
@@ -66,7 +71,7 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
 
     final nome = widget.provaExistente?.turma;
     if (nome == null) return null;
-    for (final turma in turmasMock) {
+    for (final turma in context.read<TurmasRepository>().turmas) {
       if (turma.nome == nome) return turma;
     }
     return null;
@@ -121,7 +126,7 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
   void _salvarProva() {
     if (versoes.isEmpty || _salva) return;
 
-    ProvasRepository.instance.salvar(
+    context.read<ProvasRepository>().salvar(
       ProvaGerada(
         id: 'pg_${DateTime.now().millisecondsSinceEpoch}',
         nome: _provaNome,
