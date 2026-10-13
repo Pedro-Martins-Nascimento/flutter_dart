@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/questao.dart';
+import '../../services/questoes_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 
@@ -42,14 +44,8 @@ class _MateriasScreenState extends State<MateriasScreen> {
 
     if (nome == null || nome.trim().isEmpty) return;
 
-    setState(() {
-      materiasMock.add(
-        Materia(
-          id: 'mat_${DateTime.now().millisecondsSinceEpoch}',
-          nome: nome.trim(),
-        ),
-      );
-    });
+    if (!mounted) return;
+    context.read<QuestoesRepository>().criarMateria(nome.trim());
   }
 
   Future<void> _excluirMateria(Materia materia, int totalQuestoes) async {
@@ -77,16 +73,16 @@ class _MateriasScreenState extends State<MateriasScreen> {
       ),
     );
 
-    if (confirmado != true) return;
+    if (confirmado != true || !mounted) return;
 
-    setState(() {
-      questoesMock.removeWhere((q) => q.materiaId == materia.id);
-      materiasMock.removeWhere((m) => m.id == materia.id);
-    });
+    context.read<QuestoesRepository>().excluirMateria(materia.id);
   }
 
   @override
   Widget build(BuildContext context) {
+    final repositorio = context.watch<QuestoesRepository>();
+    final materias = repositorio.materias;
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
@@ -148,14 +144,14 @@ class _MateriasScreenState extends State<MateriasScreen> {
             Expanded(
               child: AppMaxWidth(
                 child: ListView.separated(
-                  itemCount: materiasMock.length,
+                  itemCount: materias.length,
                   padding: EdgeInsets.zero,
                   separatorBuilder: (context, indice) =>
                       const Divider(height: 1),
                   itemBuilder: (context, indice) {
-                    final materia = materiasMock[indice];
-                    final total = questoesMock
-                        .where((q) => q.materiaId == materia.id)
+                    final materia = materias[indice];
+                    final total = repositorio
+                        .questoesDaMateria(materia.id)
                         .length;
 
                     return _MateriaItem(
@@ -164,10 +160,7 @@ class _MateriasScreenState extends State<MateriasScreen> {
                       meta: total == 0
                           ? 'Nenhuma questão'
                           : '$total ${total == 1 ? 'questão' : 'questões'}',
-                      onTap: () async {
-                        await context.push('/questoes/${materia.id}');
-                        if (mounted) setState(() {});
-                      },
+                      onTap: () => context.push('/questoes/${materia.id}'),
                     );
                   },
                 ),
