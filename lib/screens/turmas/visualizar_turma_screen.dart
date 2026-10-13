@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../../models/turma.dart';
+import '../../services/turmas_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
-import 'criar_turma_screen.dart';
 
 class VisualizarTurmaScreen extends StatefulWidget {
   final String turmaId;
@@ -15,25 +17,11 @@ class VisualizarTurmaScreen extends StatefulWidget {
 }
 
 class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
-  late Turma turma;
+  TurmasRepository get _repositorio => context.read<TurmasRepository>();
 
-  @override
-  void initState() {
-    super.initState();
-    _carregarTurma();
-  }
-
-  void _carregarTurma() {
-    turma = turmasMock.firstWhere(
-      (t) => t.id == widget.turmaId,
-      orElse: () => Turma(
-        id: '0',
-        nome: 'Turma não encontrada',
-        qtdAlunos: 0,
-        qtdProvas: 0,
-      ),
-    );
-  }
+  Turma get turma =>
+      _repositorio.porId(widget.turmaId) ??
+      Turma(id: '0', nome: 'Turma não encontrada');
 
   Future<void> _deletarTurma() async {
     final confirmar = await showDialog<bool>(
@@ -104,9 +92,7 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
     );
 
     if (confirmar == true) {
-      setState(() {
-        turmasMock.removeWhere((t) => t.id == widget.turmaId);
-      });
+      _repositorio.excluir(widget.turmaId);
       if (mounted) context.pop();
     }
   }
@@ -209,16 +195,14 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
     );
 
     if (atualizado == true) {
-      setState(() {
-        final index = turma.alunos.indexOf(aluno);
-        if (index != -1) {
-          turma.alunos[index] = AlunoTurma(
-            id: aluno.id,
-            nome: nomeController.text.trim(),
-            matricula: matriculaController.text.trim(),
-          );
-        }
-      });
+      _repositorio.atualizarAluno(
+        widget.turmaId,
+        AlunoTurma(
+          id: aluno.id,
+          nome: nomeController.text.trim(),
+          matricula: matriculaController.text.trim(),
+        ),
+      );
     }
   }
 
@@ -286,9 +270,7 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
     );
 
     if (confirmar == true) {
-      setState(() {
-        turma.alunos.remove(aluno);
-      });
+      _repositorio.removerAluno(widget.turmaId, aluno.id);
     }
   }
 
@@ -391,20 +373,21 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
     );
 
     if (criado == true && nomeController.text.trim().isNotEmpty) {
-      setState(() {
-        turma.alunos.add(
-          AlunoTurma(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            nome: nomeController.text.trim(),
-            matricula: matriculaController.text.trim(),
-          ),
-        );
-      });
+      _repositorio.adicionarAlunos(widget.turmaId, [
+        AlunoTurma(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          nome: nomeController.text.trim(),
+          matricula: matriculaController.text.trim(),
+        ),
+      ]);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    context.watch<TurmasRepository>();
+    final turma = this.turma;
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
