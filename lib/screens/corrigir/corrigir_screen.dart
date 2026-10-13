@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:provider/provider.dart';
 
 import '../../theme/app_theme.dart';
-import '../turmas/criar_turma_screen.dart' show turmasMock;
+import '../../services/turmas_repository.dart';
 import '../../widgets/app_card.dart';
-
-int get _totalFolhas => turmasMock.first.qtdAlunos;
 
 const int _jaCorrigidas = 12;
 
@@ -30,6 +29,11 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  int get _totalFolhas {
+    final turmas = context.read<TurmasRepository>().turmas;
+    return turmas.isEmpty ? 0 : turmas.first.qtdAlunos;
   }
 
   int get _corrigidas => _jaCorrigidas + _folhasLidas.length;
@@ -75,6 +79,8 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<TurmasRepository>();
+
     return AppScaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
