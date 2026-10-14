@@ -1,18 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
-import '../../services/provas_repository.dart';
+import '../../services/prova_repository.dart';
 
 class ListarProvasScreen extends StatelessWidget {
-  const ListarProvasScreen({super.key});
+  final ProvaRepository repository;
+
+  const ListarProvasScreen({super.key, required this.repository});
 
   @override
   Widget build(BuildContext context) {
-    final provas = context.watch<ProvasRepository>().provas;
+    return StreamBuilder<List<ProvaResumo>>(
+      stream: repository.observar(),
+      builder: (context, snapshot) =>
+          _conteudo(context, snapshot.data ?? const []),
+    );
+  }
 
+  Widget _conteudo(BuildContext context, List<ProvaResumo> provas) {
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
@@ -84,8 +91,7 @@ class ListarProvasScreen extends StatelessWidget {
                         return _ProvaItem(
                           titulo: prova.nome,
                           meta: _subtitulo(prova),
-                          onTap: () =>
-                              context.push('/gerar-provas', extra: prova),
+                          onTap: () => _abrir(context, prova),
                           onExcluir: () => _excluir(context, prova),
                         );
                       },
@@ -139,14 +145,21 @@ class ListarProvasScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _excluir(BuildContext context, ProvaGerada prova) async {
+  // A lista só tem o resumo: busca a prova completa antes de abrir.
+  Future<void> _abrir(BuildContext context, ProvaResumo resumo) async {
+    final completa = await repository.buscar(resumo.id);
+    if (completa == null || !context.mounted) return;
+    context.push('/gerar-provas', extra: completa);
+  }
+
+  Future<void> _excluir(BuildContext context, ProvaResumo prova) async {
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Excluir prova?'),
         content: Text(
           '"${prova.nome}" sai do histórico com as '
-          '${prova.versoes.length} versões geradas. As folhas já impressas '
+          '${prova.totalVersoes} versões geradas. As folhas já impressas '
           'continuam válidas, mas não dá pra reabrir a prova aqui.',
         ),
         actions: [
@@ -163,15 +176,13 @@ class ListarProvasScreen extends StatelessWidget {
       ),
     );
 
-    if (confirmado == true && context.mounted) {
-      context.read<ProvasRepository>().excluir(prova.id);
-    }
+    if (confirmado == true) await repository.excluir(prova.id);
   }
 
-  String _subtitulo(ProvaGerada prova) {
+  String _subtitulo(ProvaResumo prova) {
     final partes = <String>[prova.materia];
     if (prova.turma != null) partes.add(prova.turma!);
-    partes.add('${prova.versoes.length} versão(ões)');
+    partes.add('${prova.totalVersoes} versão(ões)');
     partes.add(_formatarData(prova.criadoEm));
     return partes.join(' • ');
   }

@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'router/app_router.dart';
 import 'services/auth_service.dart';
-import 'services/provas_repository.dart';
 import 'services/questoes_repository.dart';
 import 'services/turmas_repository.dart';
 import 'theme/app_theme.dart';
@@ -30,7 +29,6 @@ class AppProviders extends StatelessWidget {
         ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider(create: (_) => TurmasRepository()),
         ChangeNotifierProvider(create: (_) => QuestoesRepository()),
-        ChangeNotifierProvider(create: (_) => ProvasRepository()),
       ],
       child: child,
     );
