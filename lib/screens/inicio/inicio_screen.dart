@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../models/questao.dart';
 import '../turmas/criar_turma_screen.dart' show Turma, turmasMock;
-import '../../services/provas_repository.dart';
+import '../../services/prova_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 
@@ -43,9 +42,9 @@ const List<_ResumoProva> _provasMock = [
 class _ResumoProva {
   final String titulo;
   final String meta;
-  final ProvaGerada? prova;
+  final String? provaId;
 
-  const _ResumoProva({required this.titulo, required this.meta, this.prova});
+  const _ResumoProva({required this.titulo, required this.meta, this.provaId});
 }
 
 class _ErroMateria {
@@ -56,17 +55,20 @@ class _ErroMateria {
 }
 
 class InicioScreen extends StatelessWidget {
-  const InicioScreen({super.key});
+  final ProvaRepository repository;
+
+  const InicioScreen({super.key, required this.repository});
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: ProvasRepository.instance,
-      builder: (context, _) => _conteudo(context),
+    return StreamBuilder<List<ProvaResumo>>(
+      stream: repository.observar(),
+      builder: (context, snapshot) =>
+          _conteudo(context, snapshot.data ?? const []),
     );
   }
 
-  Widget _conteudo(BuildContext context) {
+  Widget _conteudo(BuildContext context, List<ProvaResumo> provas) {
     return LayoutBuilder(
       builder: (context, restricoes) {
         final medio = restricoes.maxWidth >= AppLayout.medio;
@@ -98,7 +100,12 @@ class InicioScreen extends StatelessWidget {
                         children: [
                           _resumoNumeros(medio: medio, recuo: recuo),
                           if (!medio) _acoesEmBarra(context, recuo),
-                          _blocos(context, largo: largo, recuo: recuo),
+                          _blocos(
+                            context,
+                            provas: provas,
+                            largo: largo,
+                            recuo: recuo,
+                          ),
                         ],
                       ),
                     ),
@@ -200,6 +207,7 @@ class InicioScreen extends StatelessWidget {
 
   Widget _blocos(
     BuildContext context, {
+    required List<ProvaResumo> provas,
     required bool largo,
     required double recuo,
   }) {
@@ -218,7 +226,7 @@ class InicioScreen extends StatelessWidget {
             titulo: 'Últimas provas',
             recuo: recuo,
             conteudoSemRecuo: true,
-            child: _conteudoProvas(context, recuo: recuo),
+            child: _conteudoProvas(context, provas: provas, recuo: recuo),
           ),
         ],
       );
@@ -247,7 +255,7 @@ class InicioScreen extends StatelessWidget {
               emCard: true,
               recuo: recuoCard,
               conteudoSemRecuo: true,
-              child: _conteudoProvas(context, recuo: recuoCard),
+              child: _conteudoProvas(context, provas: provas, recuo: recuoCard),
             ),
           ),
         ],
@@ -272,17 +280,21 @@ class InicioScreen extends StatelessWidget {
     ]..sort((a, b) => b.percentual.compareTo(a.percentual));
   }
 
-  Widget _conteudoProvas(BuildContext context, {required double recuo}) {
+  Widget _conteudoProvas(
+    BuildContext context, {
+    required List<ProvaResumo> provas,
+    required double recuo,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final prova in _ultimasProvas())
+        for (final prova in _ultimasProvas(provas))
           _LinhaProva(
             resumo: prova,
             recuo: recuo,
             onTap: () {
-              if (prova.prova != null) {
-                context.push('/gerar-provas', extra: prova.prova);
+              if (prova.provaId != null) {
+                _abrirProva(context, prova.provaId!);
               } else {
                 context.push('/provas-geradas');
               }
@@ -292,20 +304,29 @@ class InicioScreen extends StatelessWidget {
     );
   }
 
-  List<_ResumoProva> _ultimasProvas() {
-    final geradas = ProvasRepository.instance.provas;
+  Future<void> _abrirProva(BuildContext context, String id) async {
+    final prova = await repository.buscar(id);
+    if (prova == null || !context.mounted) return;
+    context.push('/gerar-provas', extra: prova);
+  }
+
+  List<_ResumoProva> _ultimasProvas(List<ProvaResumo> geradas) {
     if (geradas.isEmpty) return _provasMock;
 
     return [
       for (final prova in geradas.take(3))
-        _ResumoProva(titulo: prova.nome, meta: _metaProva(prova), prova: prova),
+        _ResumoProva(
+          titulo: prova.nome,
+          meta: _metaProva(prova),
+          provaId: prova.id,
+        ),
     ];
   }
 
-  String _metaProva(ProvaGerada prova) {
+  String _metaProva(ProvaResumo prova) {
     final partes = <String>[prova.materia];
     if (prova.turma != null) partes.add(prova.turma!);
-    partes.add('${prova.versoes.length} versões');
+    partes.add('${prova.totalVersoes} versões');
     partes.add(_dataCurta(prova.criadoEm));
     return partes.join(' · ');
   }

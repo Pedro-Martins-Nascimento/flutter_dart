@@ -16,6 +16,7 @@ import '../screens/turmas/criar_turma_screen.dart';
 import '../screens/turmas/visualizar_turma_screen.dart';
 import '../screens/turmas/importar_alunos_screen.dart';
 import '../services/provas_repository.dart';
+import '../services/prova_repository_padrao.dart';
 import '../screens/shell/main_shell.dart';
 
 final GoRouter appRouter = GoRouter(
@@ -31,7 +32,8 @@ final GoRouter appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/inicio',
-              builder: (context, state) => const InicioScreen(),
+              builder: (context, state) =>
+                  InicioScreen(repository: provaRepository),
             ),
           ],
         ),
@@ -94,7 +96,8 @@ final GoRouter appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/provas-geradas',
-              builder: (context, state) => const ListarProvasScreen(),
+              builder: (context, state) =>
+                  ListarProvasScreen(repository: provaRepository),
             ),
             GoRoute(
               path: '/criar-prova',
@@ -106,9 +109,15 @@ final GoRouter appRouter = GoRouter(
               builder: (context, state) {
                 final extra = state.extra;
                 if (extra is ProvaGerada) {
-                  return GerarProvasScreen(provaExistente: extra);
+                  return GerarProvasScreen(
+                    repository: provaRepository,
+                    provaExistente: extra,
+                  );
                 }
-                return GerarProvasScreen(dados: extra as DadosProva?);
+                return GerarProvasScreen(
+                  repository: provaRepository,
+                  dados: extra as DadosProva?,
+                );
               },
               routes: [
                 GoRoute(
