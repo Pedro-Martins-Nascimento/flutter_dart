@@ -11,7 +11,8 @@ import '../../models/turma.dart';
 import '../../models/versao_prova.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
-import '../../services/provas_repository.dart';
+import '../../services/prova_repository.dart';
+import '../../services/provas_repository.dart' show ProvaGerada;
 import '../../services/pdf_service.dart';
 import '../../services/questoes_repository.dart';
 import '../../services/turmas_repository.dart';
@@ -22,7 +23,14 @@ class GerarProvasScreen extends StatefulWidget {
 
   final ProvaGerada? provaExistente;
 
-  const GerarProvasScreen({super.key, this.dados, this.provaExistente});
+  final ProvaRepository repository;
+
+  const GerarProvasScreen({
+    super.key,
+    required this.repository,
+    this.dados,
+    this.provaExistente,
+  });
 
   @override
   State<GerarProvasScreen> createState() => _GerarProvasScreenState();
@@ -123,21 +131,31 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     setState(() => _salva = false);
   }
 
-  void _salvarProva() {
+  Future<void> _salvarProva() async {
     if (versoes.isEmpty || _salva) return;
 
-    context.read<ProvasRepository>().salvar(
-      ProvaGerada(
-        id: 'pg_${DateTime.now().millisecondsSinceEpoch}',
-        nome: _provaNome,
-        materia: _materiaTexto,
-        turma: _turmaTexto,
-        criadoEm: DateTime.now(),
-        versoes: versoes,
-      ),
-    );
+    setState(() => _salva = true); // evita salvar duas vezes com toque duplo
+    try {
+      await widget.repository.criar(
+        ProvaGerada(
+          id: 'pg_${DateTime.now().millisecondsSinceEpoch}',
+          nome: _provaNome,
+          materia: _materiaTexto,
+          turma: _turmaTexto,
+          criadoEm: DateTime.now(),
+          versoes: versoes,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _salva = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível salvar a prova.')),
+      );
+      return;
+    }
 
-    setState(() => _salva = true);
+    if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -170,10 +188,23 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     }).toList();
   }
 
-  void _vincularAluno(VersaoProva versao, String? alunoId) {
+  Future<void> _vincularAluno(VersaoProva versao, String? alunoId) async {
     setState(() {
       versao.alunoId = alunoId;
     });
+    // O repository guarda cópias: numa prova já salva, o vínculo precisa ser
+    // gravado.
+    final existente = widget.provaExistente;
+    if (existente != null) {
+      try {
+        await widget.repository.atualizarVersao(existente.id, versao);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Não foi possível salvar o vínculo.')),
+        );
+      }
+    }
   }
 
   void _voltar() {

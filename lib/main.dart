@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
 import 'router/app_router.dart';
-import 'services/provas_repository.dart';
 import 'services/questoes_repository.dart';
 import 'services/turmas_repository.dart';
 import 'theme/app_theme.dart';
@@ -26,7 +25,6 @@ class AppProviders extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => TurmasRepository()),
         ChangeNotifierProvider(create: (_) => QuestoesRepository()),
-        ChangeNotifierProvider(create: (_) => ProvasRepository()),
       ],
       child: child,
     );
