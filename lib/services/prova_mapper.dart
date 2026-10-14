@@ -82,7 +82,9 @@ class ProvaMapper {
           id: mapa['questaoId'] as String,
           materiaId: mapa['materiaId'] as String,
           enunciado: mapa['enunciado'] as String,
-          alternativas: List<String>.from(mapa['alternativasOriginais'] as List),
+          alternativas: List<String>.from(
+            mapa['alternativasOriginais'] as List,
+          ),
           respostaCorreta: mapa['respostaOriginal'] as int,
         ),
         alternativas: List<String>.from(mapa['alternativas'] as List),

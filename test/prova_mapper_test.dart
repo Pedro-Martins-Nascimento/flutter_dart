@@ -19,7 +19,11 @@ int tamanhoFirestore(Object? v) {
   if (v is Map) {
     return v.entries.fold(
       0,
-      (s, e) => s + utf8.encode(e.key as String).length + 1 + tamanhoFirestore(e.value),
+      (s, e) =>
+          s +
+          utf8.encode(e.key as String).length +
+          1 +
+          tamanhoFirestore(e.value),
     );
   }
   throw ArgumentError('tipo sem regra: ${v.runtimeType}');
@@ -35,9 +39,8 @@ ProvaGerada provaFalsa({
   int alternativas = 5,
 }) {
   final rnd = Random(1);
-  String texto(int n) => String.fromCharCodes(
-    List.generate(n, (_) => 97 + rnd.nextInt(26)),
-  );
+  String texto(int n) =>
+      String.fromCharCodes(List.generate(n, (_) => 97 + rnd.nextInt(26)));
   final banco = [
     for (var i = 0; i < questoes; i++)
       Questao(
@@ -133,13 +136,22 @@ void main() {
 
     final cenarios = {
       'curta (20 questões, enunciado 100, alternativa 30)': provaFalsa(
-        versoes: 40, questoes: 20, tamEnunciado: 100, tamAlt: 30,
+        versoes: 40,
+        questoes: 20,
+        tamEnunciado: 100,
+        tamAlt: 30,
       ),
       'média (30 questões, enunciado 200, alternativa 60)': provaFalsa(
-        versoes: 40, questoes: 30, tamEnunciado: 200, tamAlt: 60,
+        versoes: 40,
+        questoes: 30,
+        tamEnunciado: 200,
+        tamAlt: 60,
       ),
       'longa (40 questões, enunciado 300, alternativa 80)': provaFalsa(
-        versoes: 40, questoes: 40, tamEnunciado: 300, tamAlt: 80,
+        versoes: 40,
+        questoes: 40,
+        tamEnunciado: 300,
+        tamAlt: 80,
       ),
     };
 

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:provider/provider.dart';
 import 'package:excel/excel.dart' hide Border;
 
+import '../../models/turma.dart';
+import '../../services/turmas_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
-import 'criar_turma_screen.dart';
 
 class ImportarAlunosScreen extends StatefulWidget {
   final String turmaId;
@@ -20,6 +22,7 @@ class _ImportarAlunosScreenState extends State<ImportarAlunosScreen> {
   bool _importando = false;
 
   Future<void> _escolherArquivo() async {
+    final repositorio = context.read<TurmasRepository>();
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -63,10 +66,7 @@ class _ImportarAlunosScreenState extends State<ImportarAlunosScreen> {
         }
 
         if (novosAlunos.isNotEmpty) {
-          final turma = turmasMock.firstWhere((t) => t.id == widget.turmaId);
-          setState(() {
-            turma.alunos.addAll(novosAlunos);
-          });
+          repositorio.adicionarAlunos(widget.turmaId, novosAlunos);
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(

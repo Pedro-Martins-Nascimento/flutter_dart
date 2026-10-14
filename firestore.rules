@@ -1,0 +1,28 @@
+rules_version = '2';
+
+// Cada professor só enxerga os próprios dados.
+// Estrutura: professores/{uid}/{turmas|alunos|materias|questoes|provas|correcoes}/...
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function autenticado() {
+      return request.auth != null;
+    }
+
+    function ehDono(uid) {
+      return autenticado() && request.auth.uid == uid;
+    }
+
+    match /professores/{uid} {
+      allow read, write: if ehDono(uid);
+
+      match /{documento=**} {
+        allow read, write: if ehDono(uid);
+      }
+    }
+
+    // Qualquer caminho fora de professores/{uid} fica bloqueado.
+    match /{documento=**} {
+      allow read, write: if false;
+    }
+  }
+}

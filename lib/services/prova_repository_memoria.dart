@@ -18,7 +18,7 @@ class ProvaRepositoryMemoria implements ProvaRepository {
   /// histórico passar a vir do Firestore.
   factory ProvaRepositoryMemoria.comMocks() {
     final repo = ProvaRepositoryMemoria();
-    for (final prova in ProvasRepository.instance.provas) {
+    for (final prova in ProvasRepository().provas) {
       repo._gravar(prova);
     }
     return repo;

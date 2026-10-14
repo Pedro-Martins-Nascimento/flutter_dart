@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/questao.dart';
 import '../models/versao_prova.dart';
-import '../screens/turmas/criar_turma_screen.dart' show turmasMock;
+import '../models/turma.dart' show turmasMock;
 
 class ProvaGerada {
   final String id;
@@ -23,10 +23,10 @@ class ProvaGerada {
 }
 
 class ProvasRepository extends ChangeNotifier {
-  ProvasRepository._();
-  static final ProvasRepository instance = ProvasRepository._();
+  ProvasRepository({List<ProvaGerada>? iniciais})
+    : _provas = iniciais ?? _provasIniciais();
 
-  final List<ProvaGerada> _provas = _provasIniciais();
+  final List<ProvaGerada> _provas;
 
   List<ProvaGerada> get provas => List.unmodifiable(_provas.reversed);
 

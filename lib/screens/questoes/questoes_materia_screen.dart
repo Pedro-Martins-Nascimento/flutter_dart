@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/questao.dart';
+import '../../services/questoes_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 
@@ -15,22 +17,17 @@ class QuestoesMateriaScreen extends StatefulWidget {
 }
 
 class _QuestoesMateriaScreenState extends State<QuestoesMateriaScreen> {
-  Materia get _materia => materiasMock.firstWhere(
-    (m) => m.id == widget.materiaId,
-    orElse: () => Materia(id: widget.materiaId, nome: 'Matéria'),
-  );
-
-  List<Questao> get _questoes =>
-      questoesMock.where((q) => q.materiaId == widget.materiaId).toList();
-
-  Future<void> _abrirFormulario([Questao? questao]) async {
-    await context.push('/questoes/${widget.materiaId}/questao', extra: questao);
-    if (mounted) setState(() {});
+  void _abrirFormulario([Questao? questao]) {
+    context.push('/questoes/${widget.materiaId}/questao', extra: questao);
   }
 
   @override
   Widget build(BuildContext context) {
-    final questoes = _questoes;
+    final repositorio = context.watch<QuestoesRepository>();
+    final materia =
+        repositorio.materiaPorId(widget.materiaId) ??
+        Materia(id: widget.materiaId, nome: 'Matéria');
+    final questoes = repositorio.questoesDaMateria(widget.materiaId);
 
     return AppScaffold(
       backgroundColor: AppColors.bg,
@@ -59,7 +56,7 @@ class _QuestoesMateriaScreenState extends State<QuestoesMateriaScreen> {
                         Text('Questões', style: AppTheme.kicker),
                         const SizedBox(height: 2),
                         Text(
-                          _materia.nome,
+                          materia.nome,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
