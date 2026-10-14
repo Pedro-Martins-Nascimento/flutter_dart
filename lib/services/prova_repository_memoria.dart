@@ -77,7 +77,10 @@ class ProvaRepositoryMemoria implements ProvaRepository {
         saida.add(_resumos());
         inscricao = _mudancas.stream.listen((_) => saida.add(_resumos()));
       },
-      onCancel: () => inscricao?.cancel(),
+      onCancel: () async {
+        await inscricao?.cancel();
+        await saida.close();
+      },
     );
     return saida.stream;
   }

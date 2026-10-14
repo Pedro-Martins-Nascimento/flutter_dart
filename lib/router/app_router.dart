@@ -32,7 +32,8 @@ final GoRouter appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/inicio',
-              builder: (context, state) => const InicioScreen(),
+              builder: (context, state) =>
+                  InicioScreen(repository: provaRepository),
             ),
           ],
         ),

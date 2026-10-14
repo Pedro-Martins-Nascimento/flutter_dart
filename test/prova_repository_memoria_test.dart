@@ -57,25 +57,31 @@ void main() {
 
   test('criar com id repetido falha', () async {
     await repo.criar(prova('a'));
-    expect(() => repo.criar(prova('a')), throwsStateError);
+    await expectLater(repo.criar(prova('a')), throwsStateError);
   });
 
-  test('listar traz resumos, mais nova primeiro, com total de versões', () async {
-    await repo.criar(prova('velha', diasAtras: 10, versoes: 3));
-    await repo.criar(prova('nova', diasAtras: 1, versoes: 1));
-    await repo.criar(prova('meio', diasAtras: 5));
-    final lista = await repo.listar();
-    expect(lista.map((p) => p.id), ['nova', 'meio', 'velha']);
-    expect(lista.last.totalVersoes, 3);
-    expect(lista.first.turma, 'Turma A');
-  });
+  test(
+    'listar traz resumos, mais nova primeiro, com total de versões',
+    () async {
+      await repo.criar(prova('velha', diasAtras: 10, versoes: 3));
+      await repo.criar(prova('nova', diasAtras: 1, versoes: 1));
+      await repo.criar(prova('meio', diasAtras: 5));
+      final lista = await repo.listar();
+      expect(lista.map((p) => p.id), ['nova', 'meio', 'velha']);
+      expect(lista.last.totalVersoes, 3);
+      expect(lista.first.turma, 'Turma A');
+    },
+  );
 
-  test('o objeto lido é uma cópia: mudar nele não altera o repositório', () async {
-    await repo.criar(prova('a'));
-    final lida = (await repo.buscar('a'))!;
-    lida.versoes.first.alunoId = 'al1';
-    expect((await repo.buscar('a'))!.versoes.first.alunoId, isNull);
-  });
+  test(
+    'o objeto lido é uma cópia: mudar nele não altera o repositório',
+    () async {
+      await repo.criar(prova('a'));
+      final lida = (await repo.buscar('a'))!;
+      lida.versoes.first.alunoId = 'al1';
+      expect((await repo.buscar('a'))!.versoes.first.alunoId, isNull);
+    },
+  );
 
   test('atualizarVersao muda só a versão indicada', () async {
     await repo.criar(prova('a'));
@@ -91,9 +97,9 @@ void main() {
   test('atualizarVersao com prova ou versão inexistente falha', () async {
     await repo.criar(prova('a'));
     final v = (await repo.buscar('a'))!.versoes.first;
-    expect(() => repo.atualizarVersao('x', v), throwsStateError);
+    await expectLater(repo.atualizarVersao('x', v), throwsStateError);
     final fantasma = prova('a', versoes: 5).versoes.last; // v5
-    expect(() => repo.atualizarVersao('a', fantasma), throwsStateError);
+    await expectLater(repo.atualizarVersao('a', fantasma), throwsStateError);
   });
 
   test('editar troca campos e versões', () async {
@@ -115,8 +121,8 @@ void main() {
     expect((await repo.listar()).single.totalVersoes, 1);
   });
 
-  test('editar prova inexistente falha', () {
-    expect(() => repo.editar(prova('x')), throwsStateError);
+  test('editar prova inexistente falha', () async {
+    await expectLater(repo.editar(prova('x')), throwsStateError);
   });
 
   test('excluir remove a prova; excluir de novo não faz nada', () async {

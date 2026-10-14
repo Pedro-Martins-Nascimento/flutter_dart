@@ -183,7 +183,7 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     }).toList();
   }
 
-  void _vincularAluno(VersaoProva versao, String? alunoId) {
+  Future<void> _vincularAluno(VersaoProva versao, String? alunoId) async {
     setState(() {
       versao.alunoId = alunoId;
     });
@@ -191,7 +191,14 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     // gravado.
     final existente = widget.provaExistente;
     if (existente != null) {
-      widget.repository.atualizarVersao(existente.id, versao);
+      try {
+        await widget.repository.atualizarVersao(existente.id, versao);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Não foi possível salvar o vínculo.')),
+        );
+      }
     }
   }
 
