@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -46,12 +47,32 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _entrar() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    setState(() => _carregando = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-    setState(() => _carregando = false);
+    final auth = context.read<AuthService>();
+    await _tentar(
+      () => auth.entrarComEmail(
+        _emailController.text.trim(),
+        _senhaController.text,
+      ),
+    );
+  }
 
-    context.go('/inicio');
+  Future<void> _entrarComGoogle() async {
+    final auth = context.read<AuthService>();
+    await _tentar(auth.entrarComGoogle);
+  }
+
+  Future<void> _tentar(Future<void> Function() acao) async {
+    setState(() => _carregando = true);
+    try {
+      await acao();
+    } on AuthErro catch (erro) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(erro.mensagem)));
+    } finally {
+      if (mounted) setState(() => _carregando = false);
+    }
   }
 
   void _esqueciSenha() {
@@ -197,6 +218,24 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               )
                             : const Text('Entrar'),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.s3),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: OutlinedButton.icon(
+                        onPressed: _carregando ? null : _entrarComGoogle,
+                        icon: const Text(
+                          'G',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.text,
+                          ),
+                        ),
+                        label: const Text('Entrar com Google'),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.s3),
