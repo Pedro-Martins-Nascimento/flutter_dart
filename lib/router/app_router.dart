@@ -15,12 +15,20 @@ import '../screens/questoes/questoes_materia_screen.dart';
 import '../screens/turmas/criar_turma_screen.dart';
 import '../screens/turmas/visualizar_turma_screen.dart';
 import '../screens/turmas/importar_alunos_screen.dart';
+import '../services/auth_service.dart';
 import '../services/provas_repository.dart';
 import '../services/prova_repository_padrao.dart';
 import '../screens/shell/main_shell.dart';
 
-final GoRouter appRouter = GoRouter(
+GoRouter criarRouter(AuthService auth) => GoRouter(
   initialLocation: '/login',
+  refreshListenable: auth,
+  redirect: (context, state) {
+    final naTelaDeLogin = state.matchedLocation == '/login';
+    if (!auth.logado) return naTelaDeLogin ? null : '/login';
+    if (naTelaDeLogin) return '/inicio';
+    return null;
+  },
   routes: [
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
 

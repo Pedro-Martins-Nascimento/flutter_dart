@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/turma.dart';
+import '../../services/auth_service.dart';
 import '../../services/prova_repository.dart';
 import '../../services/questoes_repository.dart';
 import '../../services/turmas_repository.dart';
@@ -167,9 +168,17 @@ class InicioScreen extends StatelessWidget {
                 _AcaoCorrigir(),
                 const SizedBox(width: AppSpacing.s3),
                 _AcaoNovaProva(),
+                const SizedBox(width: AppSpacing.s2),
+                _BotaoSair(),
               ],
             )
-          : titulo,
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: titulo),
+                _BotaoSair(),
+              ],
+            ),
     );
   }
 
@@ -612,4 +621,37 @@ String _dataCurta(DateTime data) {
   final dia = data.day.toString().padLeft(2, '0');
   final mes = data.month.toString().padLeft(2, '0');
   return '$dia/$mes';
+}
+
+class _BotaoSair extends StatelessWidget {
+  Future<void> _confirmar(BuildContext context) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Sair da conta?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Sair'),
+          ),
+        ],
+      ),
+    );
+    if (confirmado == true && context.mounted) {
+      await context.read<AuthService>().sair();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Sair',
+      icon: const Icon(Icons.logout, color: AppColors.textMuted),
+      onPressed: () => _confirmar(context),
+    );
+  }
 }
