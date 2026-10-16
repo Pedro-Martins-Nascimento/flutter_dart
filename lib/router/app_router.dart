@@ -17,10 +17,10 @@ import '../screens/turmas/visualizar_turma_screen.dart';
 import '../screens/turmas/importar_alunos_screen.dart';
 import '../services/auth_service.dart';
 import '../services/provas_repository.dart';
-import '../services/prova_repository_padrao.dart';
+import '../services/prova_repository.dart';
 import '../screens/shell/main_shell.dart';
 
-GoRouter criarRouter(AuthService auth) => GoRouter(
+GoRouter criarRouter(AuthService auth, ProvaRepository provas) => GoRouter(
   initialLocation: '/login',
   refreshListenable: auth,
   redirect: (context, state) {
@@ -41,7 +41,7 @@ GoRouter criarRouter(AuthService auth) => GoRouter(
             GoRoute(
               path: '/inicio',
               builder: (context, state) =>
-                  InicioScreen(repository: provaRepository),
+                  InicioScreen(repository: provas),
             ),
           ],
         ),
@@ -105,7 +105,7 @@ GoRouter criarRouter(AuthService auth) => GoRouter(
             GoRoute(
               path: '/provas-geradas',
               builder: (context, state) =>
-                  ListarProvasScreen(repository: provaRepository),
+                  ListarProvasScreen(repository: provas),
             ),
             GoRoute(
               path: '/criar-prova',
@@ -118,12 +118,12 @@ GoRouter criarRouter(AuthService auth) => GoRouter(
                 final extra = state.extra;
                 if (extra is ProvaGerada) {
                   return GerarProvasScreen(
-                    repository: provaRepository,
+                    repository: provas,
                     provaExistente: extra,
                   );
                 }
                 return GerarProvasScreen(
-                  repository: provaRepository,
+                  repository: provas,
                   dados: extra as DadosProva?,
                 );
               },
