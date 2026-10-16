@@ -14,6 +14,7 @@ class PdfService {
     double tamanhoFonte = 11,
     double espacamento = 16,
     double margem = 28,
+    List<Aluno> alunos = const [],
   }) async {
     final doc = await _criarDocumentoBase();
     doc.addPage(
@@ -23,6 +24,7 @@ class PdfService {
         tamanhoFonte,
         espacamento,
         margem,
+        alunos,
       ),
     );
     return doc.save();
@@ -34,6 +36,7 @@ class PdfService {
     double tamanhoFonte = 11,
     double espacamento = 16,
     double margem = 28,
+    List<Aluno> alunos = const [],
   }) async {
     final doc = await _criarDocumentoBase();
     for (final versao in versoes) {
@@ -44,6 +47,7 @@ class PdfService {
           tamanhoFonte,
           espacamento,
           margem,
+          alunos,
         ),
       );
     }
@@ -64,6 +68,7 @@ class PdfService {
     double tamanhoFonte,
     double espacamento,
     double margem,
+    List<Aluno> alunos,
   ) {
     return pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
@@ -75,6 +80,7 @@ class PdfService {
         forcarQuantidadeParaTeste,
         tamanhoFonte,
         espacamento,
+        alunos,
       ),
     );
   }
@@ -157,8 +163,11 @@ class PdfService {
     );
   }
 
-  pw.Widget _buildCabecalhoIdentificacao(VersaoProva versao) {
-    final aluno = _nomeAluno(versao);
+  pw.Widget _buildCabecalhoIdentificacao(
+    VersaoProva versao,
+    List<Aluno> alunos,
+  ) {
+    final aluno = _nomeAluno(versao, alunos);
 
     return pw.Container(
       width: double.infinity,
@@ -213,9 +222,9 @@ class PdfService {
     );
   }
 
-  String _nomeAluno(VersaoProva versao) {
+  String _nomeAluno(VersaoProva versao, List<Aluno> alunos) {
     if (versao.alunoId == null) return '_______________________________';
-    final aluno = alunosMock.firstWhere(
+    final aluno = alunos.firstWhere(
       (a) => a.id == versao.alunoId,
       orElse: () => Aluno(id: '', nome: '—'),
     );
@@ -231,6 +240,7 @@ class PdfService {
     int? forcarQuantidadeParaTeste,
     double tamanhoFonte,
     double espacamento,
+    List<Aluno> alunos,
   ) {
     final questoes = versao.questoes;
     final semForcarTeste =
@@ -243,7 +253,7 @@ class PdfService {
           );
 
     return [
-      _buildCabecalhoIdentificacao(versao),
+      _buildCabecalhoIdentificacao(versao, alunos),
       pw.SizedBox(height: 12),
       if (lista.isEmpty)
         pw.Text(

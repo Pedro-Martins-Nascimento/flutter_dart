@@ -1,15 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
+import 'package:provider/provider.dart';
 
+import '../../models/aluno.dart';
 import '../../models/versao_prova.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
+import '../../services/alunos_para_pdf.dart';
 import '../../services/pdf_service.dart';
+import '../../services/prova_repository.dart';
+import '../../services/turmas_repository.dart';
+
+/// Dados que a tela de gerar provas entrega ao editor de layout.
+class PreviewLayoutArgs {
+  final List<VersaoProva> versoes;
+  final List<Aluno> alunos;
+
+  const PreviewLayoutArgs({required this.versoes, this.alunos = const []});
+}
 
 class PreviewLayoutScreen extends StatefulWidget {
-  final List<VersaoProva> versoes;
+  // `versoes` vem pronta (construtor padrão) ou é lida do repository pelo id
+  // (construtor `deProva`).
+  final List<VersaoProva>? versoes;
+  final List<Aluno> alunos;
+  final ProvaRepository? repository;
+  final String? provaId;
 
-  const PreviewLayoutScreen({super.key, required this.versoes});
+  const PreviewLayoutScreen({
+    super.key,
+    required List<VersaoProva> this.versoes,
+    this.alunos = const [],
+  }) : repository = null,
+       provaId = null;
+
+  // Abre o editor só com o id da prova, ex.: página recarregada.
+  const PreviewLayoutScreen.deProva({
+    super.key,
+    required ProvaRepository this.repository,
+    required String this.provaId,
+  }) : versoes = null,
+       alunos = const [];
 
   @override
   State<PreviewLayoutScreen> createState() => _PreviewLayoutScreenState();
@@ -20,20 +51,50 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
   final PageController _pageController = PageController(viewportFraction: 0.9);
   int _paginaAtual = 0;
 
+  List<VersaoProva> _versoes = const [];
+  List<Aluno> _alunos = const [];
+  bool _carregando = false;
+  bool _naoEncontrada = false;
+
   double _tamanhoFonte = 11;
   double _espacamento = 16;
   double _margem = 28;
 
-  late int _quantidadeQuestoesTeste;
+  int _quantidadeQuestoesTeste = 8;
 
   @override
   void initState() {
     super.initState();
-    final primeiraVersao = widget.versoes.isNotEmpty
-        ? widget.versoes.first
-        : null;
-    final quantidadeReal = primeiraVersao?.questoes.length ?? 8;
+    final dadas = widget.versoes;
+    if (dadas != null) {
+      _usarDados(dadas, widget.alunos);
+    } else {
+      _carregando = true;
+      _carregarDoRepository();
+    }
+  }
+
+  void _usarDados(List<VersaoProva> versoes, List<Aluno> alunos) {
+    _versoes = versoes;
+    _alunos = alunos;
+    final quantidadeReal = versoes.isNotEmpty
+        ? versoes.first.questoes.length
+        : 8;
     _quantidadeQuestoesTeste = quantidadeReal.clamp(1, 30);
+  }
+
+  Future<void> _carregarDoRepository() async {
+    final prova = await widget.repository!.buscar(widget.provaId!);
+    if (!mounted) return;
+    setState(() {
+      _carregando = false;
+      if (prova == null) {
+        _naoEncontrada = true;
+      } else {
+        final turmas = context.read<TurmasRepository>().turmas;
+        _usarDados(prova.versoes, alunosDaTurma(prova.turma, turmas));
+      }
+    });
   }
 
   @override
@@ -44,7 +105,18 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final versoes = widget.versoes;
+    final versoes = _versoes;
+
+    if (_carregando || _naoEncontrada) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Editor de layout')),
+        body: Center(
+          child: _carregando
+              ? const CircularProgressIndicator()
+              : const Text('Prova não encontrada.'),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -74,6 +146,7 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
                         '${versao.id}-$_quantidadeQuestoesTeste-$_tamanhoFonte-$_espacamento-$_margem',
                       ),
                       versao: versao,
+                      alunos: _alunos,
                       pdfService: _pdfService,
                       forcarQuantidadeParaTeste: _quantidadeQuestoesTeste,
                       tamanhoFonte: _tamanhoFonte,
@@ -198,6 +271,7 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
 
 class _VersaoPreviewCard extends StatelessWidget {
   final VersaoProva versao;
+  final List<Aluno> alunos;
   final PdfService pdfService;
   final int forcarQuantidadeParaTeste;
   final double tamanhoFonte;
@@ -207,6 +281,7 @@ class _VersaoPreviewCard extends StatelessWidget {
   const _VersaoPreviewCard({
     super.key,
     required this.versao,
+    required this.alunos,
     required this.pdfService,
     required this.forcarQuantidadeParaTeste,
     required this.tamanhoFonte,
@@ -235,6 +310,7 @@ class _VersaoPreviewCard extends StatelessWidget {
             child: PdfPreview(
               build: (format) => pdfService.gerarPdfVersao(
                 versao,
+                alunos: alunos,
                 forcarQuantidadeParaTeste: forcarQuantidadeParaTeste,
                 tamanhoFonte: tamanhoFonte,
                 espacamento: espacamento,
