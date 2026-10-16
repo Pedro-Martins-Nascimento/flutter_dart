@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_dart/main.dart';
 import 'package:flutter_dart/services/auth_service.dart';
+import 'package:flutter_dart/services/prova_repository_memoria.dart';
 import 'package:mock_exceptions/mock_exceptions.dart';
 
 void main() {
@@ -11,7 +12,12 @@ void main() {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(MyApp(auth: AuthService(auth: firebase)));
+    await tester.pumpWidget(
+      MyApp(
+        auth: AuthService(auth: firebase),
+        provas: ProvaRepositoryMemoria.comMocks(),
+      ),
+    );
     await tester.pumpAndSettle();
   }
 
