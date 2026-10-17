@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'router/app_router.dart';
 import 'services/auth_service.dart';
+import 'services/prova_repository.dart';
+import 'services/prova_repository_firestore.dart';
 import 'services/questoes_repository.dart';
 import 'services/turmas_repository.dart';
 import 'theme/app_theme.dart';
@@ -37,8 +39,9 @@ class AppProviders extends StatelessWidget {
 
 class MyApp extends StatefulWidget {
   final AuthService? auth;
+  final ProvaRepository? provas;
 
-  const MyApp({super.key, this.auth});
+  const MyApp({super.key, this.auth, this.provas});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -46,7 +49,9 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   late final AuthService _auth = widget.auth ?? AuthService();
-  late final GoRouter _router = criarRouter(_auth);
+  late final ProvaRepository _provas =
+      widget.provas ?? ProvaRepositoryFirestore(uid: () => _auth.usuario!.uid);
+  late final GoRouter _router = criarRouter(_auth, _provas);
 
   @override
   void dispose() {
