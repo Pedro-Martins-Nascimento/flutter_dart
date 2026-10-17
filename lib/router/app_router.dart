@@ -131,8 +131,22 @@ GoRouter criarRouter(AuthService auth, ProvaRepository provas) => GoRouter(
                 GoRoute(
                   path: 'preview',
                   builder: (context, state) {
-                    final versoes = state.extra as List<VersaoProva>;
-                    return PreviewLayoutScreen(versoes: versoes);
+                    // Sem os dados na navegação (ex.: página recarregada), lê a
+                    // prova do repository pelo ?provaId=.
+                    final extra = state.extra;
+                    if (extra is PreviewLayoutArgs) {
+                      return PreviewLayoutScreen(
+                        versoes: extra.versoes,
+                        alunos: extra.alunos,
+                      );
+                    }
+                    if (extra is List<VersaoProva>) {
+                      return PreviewLayoutScreen(versoes: extra);
+                    }
+                    return PreviewLayoutScreen.deProva(
+                      repository: provaRepository,
+                      provaId: state.uri.queryParameters['provaId'] ?? '',
+                    );
                   },
                 ),
               ],

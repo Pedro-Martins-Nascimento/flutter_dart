@@ -17,6 +17,7 @@ import '../../services/pdf_service.dart';
 import '../../services/questoes_repository.dart';
 import '../../services/turmas_repository.dart';
 import 'criar_prova_screen.dart' show DadosProva;
+import 'preview_layout_screen.dart' show PreviewLayoutArgs;
 
 class GerarProvasScreen extends StatefulWidget {
   final DadosProva? dados;
@@ -216,7 +217,10 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
   }
 
   Future<void> _exportarPdfDireto() async {
-    final bytes = await _pdfService.gerarPdfProvas(versoes);
+    final bytes = await _pdfService.gerarPdfProvas(
+      versoes,
+      alunos: _alunosDisponiveis,
+    );
     final nome =
         widget.provaExistente?.nome ?? widget.dados?.nomeProva ?? 'provas';
     await Printing.layoutPdf(
@@ -226,7 +230,14 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
   }
 
   void _abrirEditorDeLayout() {
-    context.push('/gerar-provas/preview', extra: versoes);
+    // O provaId (prova já salva) permite reabrir o editor lendo do repository.
+    final id = widget.provaExistente?.id;
+    context.push(
+      id == null
+          ? '/gerar-provas/preview'
+          : '/gerar-provas/preview?provaId=$id',
+      extra: PreviewLayoutArgs(versoes: versoes, alunos: _alunosDisponiveis),
+    );
   }
 
   @override
