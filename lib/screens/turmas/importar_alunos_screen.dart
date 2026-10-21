@@ -4,7 +4,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:excel/excel.dart' hide Border;
 
-import '../../services/alunos_repository.dart';
+import '../../models/turma.dart';
+import '../../services/turmas_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 
@@ -21,7 +22,7 @@ class _ImportarAlunosScreenState extends State<ImportarAlunosScreen> {
   bool _importando = false;
 
   Future<void> _escolherArquivo() async {
-    final alunosRepo = context.read<AlunosRepository>();
+    final turmasRepo = context.read<TurmasRepository>();
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -38,7 +39,7 @@ class _ImportarAlunosScreenState extends State<ImportarAlunosScreen> {
 
       if (bytes != null) {
         final excel = Excel.decodeBytes(bytes);
-        final List<String> nomesAlunos = [];
+        final List<AlunoTurma> novosAlunos = [];
 
         for (var table in excel.tables.keys) {
           final sheet = excel.tables[table];
@@ -46,21 +47,32 @@ class _ImportarAlunosScreenState extends State<ImportarAlunosScreen> {
 
           for (var i = 1; i < sheet.maxRows; i++) {
             final row = sheet.rows[i];
+
             final nome = row[0]?.value?.toString() ?? '';
+            final matricula = row.length > 1
+                ? row[1]?.value?.toString() ?? ''
+                : '';
+
             if (nome.isNotEmpty) {
-              nomesAlunos.add(nome);
+              novosAlunos.add(
+                AlunoTurma(
+                  id: 'imp_${DateTime.now().millisecondsSinceEpoch}_$i',
+                  nome: nome,
+                  matricula: matricula,
+                ),
+              );
             }
           }
         }
 
-        if (nomesAlunos.isNotEmpty) {
-          await alunosRepo.adicionarLote(nomesAlunos);
+        if (novosAlunos.isNotEmpty) {
+          turmasRepo.adicionarAlunos(widget.turmaId, novosAlunos);
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  '${nomesAlunos.length} alunos importados com sucesso!',
+                  '${novosAlunos.length} alunos importados com sucesso!',
                 ),
               ),
             );
