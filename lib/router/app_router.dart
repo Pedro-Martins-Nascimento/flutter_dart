@@ -144,7 +144,7 @@ GoRouter criarRouter(AuthService auth, ProvaRepository provas) => GoRouter(
                       return PreviewLayoutScreen(versoes: extra);
                     }
                     return PreviewLayoutScreen.deProva(
-                      repository: provaRepository,
+                      repository: provas,
                       provaId: state.uri.queryParameters['provaId'] ?? '',
                     );
                   },
