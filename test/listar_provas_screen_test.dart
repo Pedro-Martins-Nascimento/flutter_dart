@@ -5,8 +5,15 @@ import 'package:flutter_dart/services/provas_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  Future<void> abrir(WidgetTester tester, ProvaRepositoryMemoria repo) => tester
-      .pumpWidget(MaterialApp(home: ListarProvasScreen(repository: repo)));
+  Future<void> abrir(WidgetTester tester, ProvaRepositoryMemoria repo) =>
+      tester.pumpWidget(
+        MaterialApp(
+          home: ListarProvasScreen(
+            repository: repo,
+            carregarCorrecoes: () async => [],
+          ),
+        ),
+      );
 
   testWidgets('repository vazio mostra o aviso de vazio', (tester) async {
     await abrir(tester, ProvaRepositoryMemoria());
