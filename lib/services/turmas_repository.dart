@@ -155,31 +155,31 @@ class TurmasRepository extends ChangeNotifier {
     }
   }
 
-  void adicionarAlunos(String turmaId, List<AlunoTurma> alunos) {
+  Future<void> adicionarAlunos(String turmaId, List<AlunoTurma> alunos) async {
     final turma = porId(turmaId);
     if (turma == null) return;
     final atualizados = List<AlunoTurma>.from(turma.alunos)..addAll(alunos);
-    _atualizarAlunosTurma(turmaId, atualizados);
+    await _atualizarAlunosTurma(turmaId, atualizados);
   }
 
-  void atualizarAluno(String turmaId, AlunoTurma aluno) {
+  Future<void> atualizarAluno(String turmaId, AlunoTurma aluno) async {
     final turma = porId(turmaId);
     if (turma == null) return;
     final alunos = List<AlunoTurma>.from(turma.alunos);
     final indice = alunos.indexWhere((a) => a.id == aluno.id);
     if (indice < 0) return;
     alunos[indice] = aluno;
-    _atualizarAlunosTurma(turmaId, alunos);
+    await _atualizarAlunosTurma(turmaId, alunos);
   }
 
-  void removerAluno(String turmaId, String alunoId) {
+  Future<void> removerAluno(String turmaId, String alunoId) async {
     final turma = porId(turmaId);
     if (turma == null) return;
     final alunos = turma.alunos.where((a) => a.id != alunoId).toList();
-    _atualizarAlunosTurma(turmaId, alunos);
+    await _atualizarAlunosTurma(turmaId, alunos);
   }
 
-  void _atualizarAlunosTurma(String turmaId, List<AlunoTurma> alunos) {
+  Future<void> _atualizarAlunosTurma(String turmaId, List<AlunoTurma> alunos) async {
     if (_modoMemoria) {
       final indice = _turmas.indexWhere((t) => t.id == turmaId);
       if (indice >= 0) {
@@ -193,20 +193,20 @@ class TurmasRepository extends ChangeNotifier {
       }
     } else {
       try {
-        final uid = __auth.currentUser?.uid;
+        final uid = __auth.currentUser?.uid ?? 'dev_professor';
         final db = __firestore;
-        if (uid != null && db != null) {
-          db
+        if (db != null) {
+          await db
               .collection('professores')
               .doc(uid)
               .collection('turmas')
               .doc(turmaId)
-              .update({
+              .set({
             'alunos': [
               for (final a in alunos)
                 {'id': a.id, 'nome': a.nome, 'matricula': a.matricula},
             ],
-          });
+          }, SetOptions(merge: true));
         } else {
           final indice = _turmas.indexWhere((t) => t.id == turmaId);
           if (indice >= 0) {
@@ -230,6 +230,7 @@ class TurmasRepository extends ChangeNotifier {
           );
           notifyListeners();
         }
+        rethrow;
       }
     }
   }

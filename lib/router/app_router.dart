@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import '../models/versao_prova.dart';
 import '../screens/auth/login_screen.dart';
 import '../models/questao.dart';
-import 'package:provider/provider.dart';
 import '../screens/corrigir/corrigir_screen.dart';
 import '../screens/inicio/inicio_screen.dart';
 import '../screens/provas/criar_prova_screen.dart';
@@ -144,9 +143,8 @@ GoRouter criarRouter(AuthService auth, ProvaRepository provas) => GoRouter(
                     if (extra is List<VersaoProva>) {
                       return PreviewLayoutScreen(versoes: extra);
                     }
-                    final provaRepository = context.read<ProvaRepository>();
                     return PreviewLayoutScreen.deProva(
-                      repository: provaRepository,
+                      repository: provas,
                       provaId: state.uri.queryParameters['provaId'] ?? '',
                     );
                   },

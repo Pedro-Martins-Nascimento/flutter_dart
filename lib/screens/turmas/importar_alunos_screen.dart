@@ -66,7 +66,7 @@ class _ImportarAlunosScreenState extends State<ImportarAlunosScreen> {
         }
 
         if (novosAlunos.isNotEmpty) {
-          turmasRepo.adicionarAlunos(widget.turmaId, novosAlunos);
+          await turmasRepo.adicionarAlunos(widget.turmaId, novosAlunos);
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(

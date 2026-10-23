@@ -373,13 +373,26 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
     );
 
     if (criado == true && nomeController.text.trim().isNotEmpty) {
-      _repositorio.adicionarAlunos(widget.turmaId, [
-        AlunoTurma(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          nome: nomeController.text.trim(),
-          matricula: matriculaController.text.trim(),
-        ),
-      ]);
+      try {
+        await _repositorio.adicionarAlunos(widget.turmaId, [
+          AlunoTurma(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            nome: nomeController.text.trim(),
+            matricula: matriculaController.text.trim(),
+          ),
+        ]);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Aluno adicionado com sucesso!')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erro ao adicionar aluno: $e')),
+          );
+        }
+      }
     }
   }
 
