@@ -92,8 +92,10 @@ class ProvaRepositoryFirestore implements ProvaRepository {
     }
     final antigas = await _versoes(prova.id).get();
     final lote = _db.batch();
+    // Só apaga as que saíram da prova; as demais são regravadas abaixo.
+    final mantidas = {for (final v in prova.versoes) v.id};
     for (final v in antigas.docs) {
-      lote.delete(v.reference);
+      if (!mantidas.contains(v.id)) lote.delete(v.reference);
     }
     lote.set(ref, ProvaMapper.provaParaMapa(prova));
     _gravarVersoes(lote, prova);
