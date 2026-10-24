@@ -15,12 +15,17 @@ import '../screens/questoes/questoes_materia_screen.dart';
 import '../screens/turmas/criar_turma_screen.dart';
 import '../screens/turmas/visualizar_turma_screen.dart';
 import '../screens/turmas/importar_alunos_screen.dart';
+import '../models/correcao.dart';
 import '../services/auth_service.dart';
 import '../services/prova_repository.dart';
 import '../screens/shell/main_shell.dart';
 import '../services/provas_repository.dart';
 
-GoRouter criarRouter(AuthService auth, ProvaRepository provas) => GoRouter(
+GoRouter criarRouter(
+  AuthService auth,
+  ProvaRepository provas,
+  Future<List<Correcao>> Function() carregarCorrecoes,
+) => GoRouter(
   initialLocation: '/login',
   refreshListenable: auth,
   redirect: (context, state) {
@@ -105,7 +110,10 @@ GoRouter criarRouter(AuthService auth, ProvaRepository provas) => GoRouter(
             GoRoute(
               path: '/provas-geradas',
               builder: (context, state) =>
-                  ListarProvasScreen(repository: provas),
+                  ListarProvasScreen(
+                    repository: provas,
+                    carregarCorrecoes: carregarCorrecoes,
+                  ),
             ),
             GoRoute(
               path: '/criar-prova',

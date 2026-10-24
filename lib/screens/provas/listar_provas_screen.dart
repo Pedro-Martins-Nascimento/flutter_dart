@@ -1,14 +1,29 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../../models/correcao.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
+import '../../services/notas_da_prova.dart';
 import '../../services/prova_repository.dart';
+import '../../services/relatorio_excel.dart';
+import '../../services/salvar_arquivo.dart';
+import '../../services/turmas_repository.dart';
 
 class ListarProvasScreen extends StatelessWidget {
   final ProvaRepository repository;
+  final Future<List<Correcao>> Function() carregarCorrecoes;
+  final Future<bool> Function(String nome, Uint8List bytes) salvarArquivo;
 
-  const ListarProvasScreen({super.key, required this.repository});
+  const ListarProvasScreen({
+    super.key,
+    required this.repository,
+    required this.carregarCorrecoes,
+    this.salvarArquivo = salvarXlsx,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +107,7 @@ class ListarProvasScreen extends StatelessWidget {
                           titulo: prova.nome,
                           meta: _subtitulo(prova),
                           onTap: () => _abrir(context, prova),
+                          onExportar: () => _exportarNotas(context, prova),
                           onExcluir: () => _excluir(context, prova),
                         );
                       },
@@ -152,6 +168,37 @@ class ListarProvasScreen extends StatelessWidget {
     context.push('/gerar-provas', extra: completa);
   }
 
+  Future<void> _exportarNotas(BuildContext context, ProvaResumo prova) async {
+    final turmas = context.read<TurmasRepository>().turmas;
+    final mensagens = ScaffoldMessenger.of(context);
+    void avisar(String texto) => mensagens
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(texto)));
+
+    try {
+      final linhas = linhasDeNotas(
+        prova: prova,
+        turmas: turmas,
+        correcoes: await carregarCorrecoes(),
+      );
+      if (linhas.isEmpty) {
+        avisar('Esta prova ainda não tem alunos nem correções para exportar.');
+        return;
+      }
+      final nome = prova.nome.trim().replaceAll(
+        RegExp(r'[^A-Za-z0-9À-ÿ]+'),
+        '_',
+      );
+      final salvo = await salvarArquivo(
+        'notas_$nome.xlsx',
+        gerarXlsxNotas(linhas),
+      );
+      if (salvo) avisar('Planilha de notas salva.');
+    } catch (_) {
+      avisar('Não foi possível exportar as notas.');
+    }
+  }
+
   Future<void> _excluir(BuildContext context, ProvaResumo prova) async {
     final confirmado = await showDialog<bool>(
       context: context,
@@ -200,12 +247,14 @@ class _ProvaItem extends StatelessWidget {
   final String titulo;
   final String meta;
   final VoidCallback onTap;
+  final VoidCallback onExportar;
   final VoidCallback onExcluir;
 
   const _ProvaItem({
     required this.titulo,
     required this.meta,
     required this.onTap,
+    required this.onExportar,
     required this.onExcluir,
   });
 
@@ -243,7 +292,7 @@ class _ProvaItem extends StatelessWidget {
                 ],
               ),
             ),
-            _MenuExcluir(onExcluir: onExcluir, rotulo: 'Excluir prova'),
+            _MenuProva(onExportar: onExportar, onExcluir: onExcluir),
             const Icon(
               Icons.chevron_right,
               color: AppColors.neutral400,
@@ -256,21 +305,28 @@ class _ProvaItem extends StatelessWidget {
   }
 }
 
-class _MenuExcluir extends StatelessWidget {
+class _MenuProva extends StatelessWidget {
+  final VoidCallback onExportar;
   final VoidCallback onExcluir;
-  final String rotulo;
 
-  const _MenuExcluir({required this.onExcluir, required this.rotulo});
+  const _MenuProva({required this.onExportar, required this.onExcluir});
 
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<void>(
-      tooltip: rotulo,
+      tooltip: 'Opções da prova',
       icon: const Icon(Icons.more_vert, size: 20, color: AppColors.neutral500),
       itemBuilder: (context) => [
         PopupMenuItem<void>(
+          onTap: onExportar,
+          child: const Text('Exportar notas (.xlsx)'),
+        ),
+        PopupMenuItem<void>(
           onTap: onExcluir,
-          child: Text(rotulo, style: const TextStyle(color: AppColors.error)),
+          child: const Text(
+            'Excluir prova',
+            style: TextStyle(color: AppColors.error),
+          ),
         ),
       ],
     );
