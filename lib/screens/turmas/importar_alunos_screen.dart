@@ -22,7 +22,7 @@ class _ImportarAlunosScreenState extends State<ImportarAlunosScreen> {
   bool _importando = false;
 
   Future<void> _escolherArquivo() async {
-    final repositorio = context.read<TurmasRepository>();
+    final turmasRepo = context.read<TurmasRepository>();
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -66,7 +66,7 @@ class _ImportarAlunosScreenState extends State<ImportarAlunosScreen> {
         }
 
         if (novosAlunos.isNotEmpty) {
-          repositorio.adicionarAlunos(widget.turmaId, novosAlunos);
+          await turmasRepo.adicionarAlunos(widget.turmaId, novosAlunos);
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(

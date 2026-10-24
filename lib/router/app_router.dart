@@ -16,9 +16,9 @@ import '../screens/turmas/criar_turma_screen.dart';
 import '../screens/turmas/visualizar_turma_screen.dart';
 import '../screens/turmas/importar_alunos_screen.dart';
 import '../services/auth_service.dart';
-import '../services/provas_repository.dart';
 import '../services/prova_repository.dart';
 import '../screens/shell/main_shell.dart';
+import '../services/provas_repository.dart';
 
 GoRouter criarRouter(AuthService auth, ProvaRepository provas) => GoRouter(
   initialLocation: '/login',
@@ -144,7 +144,7 @@ GoRouter criarRouter(AuthService auth, ProvaRepository provas) => GoRouter(
                       return PreviewLayoutScreen(versoes: extra);
                     }
                     return PreviewLayoutScreen.deProva(
-                      repository: provaRepository,
+                      repository: provas,
                       provaId: state.uri.queryParameters['provaId'] ?? '',
                     );
                   },
