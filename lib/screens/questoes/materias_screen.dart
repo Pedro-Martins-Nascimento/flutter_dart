@@ -143,27 +143,39 @@ class _MateriasScreenState extends State<MateriasScreen> {
 
             Expanded(
               child: AppMaxWidth(
-                child: ListView.separated(
-                  itemCount: materias.length,
-                  padding: EdgeInsets.zero,
-                  separatorBuilder: (context, indice) =>
-                      const Divider(height: 1),
-                  itemBuilder: (context, indice) {
-                    final materia = materias[indice];
-                    final total = repositorio
-                        .questoesDaMateria(materia.id)
-                        .length;
+                child: materias.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.all(AppSpacing.s6),
+                        child: Text(
+                          'Nenhuma matéria ainda. Toque em + para criar a primeira.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      )
+                    : ListView.separated(
+                        itemCount: materias.length,
+                        padding: EdgeInsets.zero,
+                        separatorBuilder: (context, indice) =>
+                            const Divider(height: 1),
+                        itemBuilder: (context, indice) {
+                          final materia = materias[indice];
+                          final total = repositorio
+                              .questoesDaMateria(materia.id)
+                              .length;
 
-                    return _MateriaItem(
-                      nome: materia.nome,
-                      onExcluir: () => _excluirMateria(materia, total),
-                      meta: total == 0
-                          ? 'Nenhuma questão'
-                          : '$total ${total == 1 ? 'questão' : 'questões'}',
-                      onTap: () => context.push('/questoes/${materia.id}'),
-                    );
-                  },
-                ),
+                          return _MateriaItem(
+                            nome: materia.nome,
+                            onExcluir: () => _excluirMateria(materia, total),
+                            meta: total == 0
+                                ? 'Nenhuma questão'
+                                : '$total ${total == 1 ? 'questão' : 'questões'}',
+                            onTap: () =>
+                                context.push('/questoes/${materia.id}'),
+                          );
+                        },
+                      ),
               ),
             ),
           ],
