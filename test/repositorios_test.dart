@@ -32,22 +32,52 @@ void main() {
       expect(notificacoes, 1);
     });
 
-    test('alunos: adicionar, editar e remover', () {
-      repositorio.adicionarAlunos('t1', [
-        AlunoTurma(id: 'a1', nome: 'Ana', matricula: '1'),
+    test('alunos: adicionar, editar e remover', () async {
+      await repositorio.adicionarAlunos('t1', [
+        AlunoTurma(id: 'a1', nome: 'Ana', matricula: '123'),
       ]);
-      repositorio.atualizarAluno(
+      await repositorio.atualizarAluno(
         't1',
-        AlunoTurma(id: 'a1', nome: 'Ana Lima', matricula: '1'),
+        AlunoTurma(id: 'a1', nome: 'Ana Lima', matricula: '456'),
       );
 
-      expect(repositorio.porId('t1')!.alunos.single.nome, 'Ana Lima');
+      final alunoAtualizado = repositorio.porId('t1')!.alunos.single;
+      expect(alunoAtualizado.nome, 'Ana Lima');
+      expect(alunoAtualizado.matricula, '456');
       expect(repositorio.porId('t1')!.qtdAlunos, 1);
 
-      repositorio.removerAluno('t1', 'a1');
+      await repositorio.removerAluno('t1', 'a1');
 
       expect(repositorio.porId('t1')!.alunos, isEmpty);
       expect(notificacoes, 3);
+    });
+
+    test('caso de borda: turma recém-criada inicia sem alunos', () {
+      final nova = repositorio.criar('Turma Vazia');
+      expect(nova.alunos, isEmpty);
+      expect(nova.qtdAlunos, 0);
+    });
+
+    test('caso de borda: importar lote de alunos preservando nome e matrícula', () async {
+      final lote = [
+        AlunoTurma(id: 'l1', nome: 'Aluno 1', matricula: 'M01'),
+        AlunoTurma(id: 'l2', nome: 'Aluno 2', matricula: 'M02'),
+      ];
+      await repositorio.adicionarAlunos('t1', lote);
+
+      expect(repositorio.porId('t1')!.alunos, hasLength(2));
+      expect(repositorio.porId('t1')!.alunos[0].matricula, 'M01');
+      expect(repositorio.porId('t1')!.alunos[1].matricula, 'M02');
+    });
+
+    test('caso de borda: operações em turma inexistente não geram exceções uncaught', () async {
+      await repositorio.adicionarAlunos('inexistente', [
+        AlunoTurma(id: 'x', nome: 'X', matricula: '0'),
+      ]);
+      await repositorio.atualizarAluno('inexistente', AlunoTurma(id: 'x', nome: 'X', matricula: '0'));
+      await repositorio.removerAluno('inexistente', 'x');
+      repositorio.excluir('inexistente');
+      expect(repositorio.porId('inexistente'), isNull);
     });
 
     test('a lista exposta não pode ser alterada de fora', () {
