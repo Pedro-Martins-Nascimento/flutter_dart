@@ -6,6 +6,7 @@ import '../../models/correcao.dart';
 import '../../services/auth_service.dart';
 import '../../services/correcao_repository.dart';
 import '../../services/estatistica_service.dart';
+import '../../services/pendentes.dart';
 import '../../services/prova_repository.dart';
 import '../../services/questoes_repository.dart';
 import '../../services/turmas_repository.dart';
@@ -49,11 +50,10 @@ class _Numeros {
   });
 
   factory _Numeros.de(List<ProvaResumo> provas, List<Correcao> correcoes) {
-    final geradas = provas.fold<int>(0, (soma, p) => soma + p.totalVersoes);
     final acertos = EstatisticaService.percentualAcertoPorMateria(correcoes);
     return _Numeros(
       corrigidas: correcoes.length,
-      pendentes: (geradas - correcoes.length).clamp(0, geradas),
+      pendentes: contarPendentes(provas, correcoes),
       media: correcoes.isEmpty
           ? '-'
           : EstatisticaService.mediaGeral(correcoes)
