@@ -2,16 +2,49 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
+/// Bolinha com a quantidade pendente de um item do menu.
+class _SeloContador extends StatelessWidget {
+  final int quantidade;
+
+  const _SeloContador(this.quantidade);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      constraints: const BoxConstraints(minWidth: 16),
+      decoration: BoxDecoration(
+        color: AppColors.accent,
+        borderRadius: BorderRadius.circular(AppRadius.full),
+      ),
+      child: Text(
+        quantidade > 99 ? '99+' : '$quantidade',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+          height: 1.3,
+        ),
+      ),
+    );
+  }
+}
+
 class AppBottomNav extends StatelessWidget {
   static const itens = ['Início', 'Turmas', 'Questões', 'Provas', 'Corrigir'];
 
   final int indiceAtual;
   final ValueChanged<int> aoTocar;
 
+  /// Índice do item -> quantidade a mostrar no selo (0 ou ausente = sem selo).
+  final Map<int, int> selos;
+
   const AppBottomNav({
     super.key,
     required this.indiceAtual,
     required this.aoTocar,
+    this.selos = const {},
   });
 
   @override
@@ -43,19 +76,30 @@ class AppBottomNav extends StatelessWidget {
                         ),
                         Expanded(
                           child: Center(
-                            child: Text(
-                              itens[indice],
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: ativo
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
-                                color: ativo
-                                    ? AppColors.text
-                                    : AppColors.textMuted,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    itens[indice],
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: ativo
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      color: ativo
+                                          ? AppColors.text
+                                          : AppColors.textMuted,
+                                    ),
+                                  ),
+                                ),
+                                if ((selos[indice] ?? 0) > 0) ...[
+                                  const SizedBox(width: 4),
+                                  _SeloContador(selos[indice]!),
+                                ],
+                              ],
                             ),
                           ),
                         ),
@@ -77,11 +121,13 @@ class AppNavRail extends StatelessWidget {
 
   final int indiceAtual;
   final ValueChanged<int> aoTocar;
+  final Map<int, int> selos;
 
   const AppNavRail({
     super.key,
     required this.indiceAtual,
     required this.aoTocar,
+    this.selos = const {},
   });
 
   @override
@@ -160,6 +206,10 @@ class AppNavRail extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if ((selos[indice] ?? 0) > 0) ...[
+                          _SeloContador(selos[indice]!),
+                          const SizedBox(width: AppSpacing.s4),
+                        ],
                       ],
                     ),
                   ),

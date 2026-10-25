@@ -43,8 +43,11 @@ GoRouter criarRouter(
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
 
     StatefulShellRoute.indexedStack(
-      builder: (context, state, navigationShell) =>
-          MainShell(navigationShell: navigationShell),
+      builder: (context, state, navigationShell) => MainShell(
+        navigationShell: navigationShell,
+        provas: provas,
+        correcoes: correcoes,
+      ),
       branches: [
         StatefulShellBranch(
           routes: [
