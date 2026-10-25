@@ -2,27 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/turma.dart';
+import '../../models/correcao.dart';
 import '../../services/auth_service.dart';
+import '../../services/correcao_repository.dart';
+import '../../services/estatistica_service.dart';
 import '../../services/prova_repository.dart';
 import '../../services/questoes_repository.dart';
 import '../../services/turmas_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
-
-const int _folhasCorrigidas = 12;
-const String _mediaTurma = '7,4';
-
-const Map<String, int> _erroPorMateriaMock = {
-  'mat1': 54,
-  'mat2': 43,
-  'mat3': 32,
-  'mat4': 61,
-  'mat5': 28,
-  'mat6': 47,
-  'mat7': 39,
-  'mat8': 21,
-};
 
 const List<_ResumoProva> _provasMock = [
   _ResumoProva(
@@ -47,6 +35,37 @@ class _ResumoProva {
   const _ResumoProva({required this.titulo, required this.meta, this.provaId});
 }
 
+class _Numeros {
+  final int corrigidas;
+  final int pendentes;
+  final String media;
+  final Map<String, int> erroPorMateria;
+
+  const _Numeros({
+    required this.corrigidas,
+    required this.pendentes,
+    required this.media,
+    required this.erroPorMateria,
+  });
+
+  factory _Numeros.de(List<ProvaResumo> provas, List<Correcao> correcoes) {
+    final geradas = provas.fold<int>(0, (soma, p) => soma + p.totalVersoes);
+    final acertos = EstatisticaService.percentualAcertoPorMateria(correcoes);
+    return _Numeros(
+      corrigidas: correcoes.length,
+      pendentes: (geradas - correcoes.length).clamp(0, geradas),
+      media: correcoes.isEmpty
+          ? '-'
+          : EstatisticaService.mediaGeral(correcoes)
+                .toStringAsFixed(1)
+                .replaceAll('.', ','),
+      erroPorMateria: {
+        for (final e in acertos.entries) e.key: (100 - e.value).round(),
+      },
+    );
+  }
+}
+
 class _ErroMateria {
   final String materia;
   final int percentual;
@@ -56,8 +75,13 @@ class _ErroMateria {
 
 class InicioScreen extends StatelessWidget {
   final ProvaRepository repository;
+  final CorrecaoRepository correcoes;
 
-  const InicioScreen({super.key, required this.repository});
+  const InicioScreen({
+    super.key,
+    required this.repository,
+    required this.correcoes,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -65,17 +89,22 @@ class InicioScreen extends StatelessWidget {
     context.watch<QuestoesRepository>();
     return StreamBuilder<List<ProvaResumo>>(
       stream: repository.observar(),
-      builder: (context, snapshot) =>
-          _conteudo(context, snapshot.data ?? const []),
+      builder: (context, provasSnapshot) => StreamBuilder<List<Correcao>>(
+        stream: correcoes.observar(),
+        builder: (context, correcoesSnapshot) {
+          final provas = provasSnapshot.data ?? const <ProvaResumo>[];
+          final feitas = correcoesSnapshot.data ?? const <Correcao>[];
+          return _conteudo(context, provas, _Numeros.de(provas, feitas));
+        },
+      ),
     );
   }
 
-  Turma? _turmaEmDestaque(BuildContext context) {
-    final turmas = context.read<TurmasRepository>().turmas;
-    return turmas.isEmpty ? null : turmas.first;
-  }
-
-  Widget _conteudo(BuildContext context, List<ProvaResumo> provas) {
+  Widget _conteudo(
+    BuildContext context,
+    List<ProvaResumo> provas,
+    _Numeros numeros,
+  ) {
     return LayoutBuilder(
       builder: (context, restricoes) {
         final medio = restricoes.maxWidth >= AppLayout.medio;
@@ -105,11 +134,12 @@ class InicioScreen extends StatelessWidget {
                           bottom: largo ? AppSpacing.s8 : AppSpacing.s4,
                         ),
                         children: [
-                          _resumoNumeros(context, medio: medio, recuo: recuo),
+                          _resumoNumeros(numeros, medio: medio, recuo: recuo),
                           if (!medio) _acoesEmBarra(context, recuo),
                           _blocos(
                             context,
                             provas: provas,
+                            numeros: numeros,
                             largo: largo,
                             recuo: recuo,
                           ),
@@ -183,12 +213,10 @@ class InicioScreen extends StatelessWidget {
   }
 
   Widget _resumoNumeros(
-    BuildContext context, {
+    _Numeros numeros, {
     required bool medio,
     required double recuo,
   }) {
-    final totalFolhas = _turmaEmDestaque(context)?.qtdAlunos ?? 0;
-    final pendentes = (totalFolhas - _folhasCorrigidas).clamp(0, totalFolhas);
     final espaco = medio ? 56.0 : AppSpacing.s8;
 
     return Padding(
@@ -196,16 +224,19 @@ class InicioScreen extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Flexible(
-            child: _Numero(rotulo: 'Corrigidas', valor: '$_folhasCorrigidas'),
+          Flexible(
+            child: _Numero(
+              rotulo: 'Corrigidas',
+              valor: '${numeros.corrigidas}',
+            ),
           ),
           SizedBox(width: espaco),
           Flexible(
-            child: _Numero(rotulo: 'Pendentes', valor: '$pendentes'),
+            child: _Numero(rotulo: 'Pendentes', valor: '${numeros.pendentes}'),
           ),
           SizedBox(width: espaco),
-          const Flexible(
-            child: _Numero(rotulo: 'Média', valor: _mediaTurma),
+          Flexible(
+            child: _Numero(rotulo: 'Média', valor: numeros.media),
           ),
         ],
       ),
@@ -228,13 +259,11 @@ class InicioScreen extends StatelessWidget {
   Widget _blocos(
     BuildContext context, {
     required List<ProvaResumo> provas,
+    required _Numeros numeros,
     required bool largo,
     required double recuo,
   }) {
-    final turma = _turmaEmDestaque(context);
-    final tituloErros = turma == null
-        ? 'Erro por matéria'
-        : 'Erro por matéria · ${turma.nome}';
+    const tituloErros = 'Erro por matéria';
 
     if (!largo) {
       return Column(
@@ -243,7 +272,7 @@ class InicioScreen extends StatelessWidget {
           _Bloco(
             titulo: tituloErros,
             recuo: recuo,
-            child: _conteudoEstatistica(context),
+            child: _conteudoEstatistica(context, numeros),
           ),
           _Bloco(
             titulo: 'Últimas provas',
@@ -267,7 +296,7 @@ class InicioScreen extends StatelessWidget {
               titulo: tituloErros,
               emCard: true,
               recuo: recuoCard,
-              child: _conteudoEstatistica(context),
+              child: _conteudoEstatistica(context, numeros),
             ),
           ),
           const SizedBox(width: AppSpacing.s5),
@@ -286,19 +315,24 @@ class InicioScreen extends StatelessWidget {
     );
   }
 
-  Widget _conteudoEstatistica(BuildContext context) {
+  Widget _conteudoEstatistica(BuildContext context, _Numeros numeros) {
+    final linhas = _erroPorMateria(context, numeros);
+    if (linhas.isEmpty) {
+      return const Text(
+        'Ainda não há correções para calcular o erro por matéria.',
+        style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final linha in _erroPorMateria(context)) _LinhaErro(linha: linha),
-      ],
+      children: [for (final linha in linhas) _LinhaErro(linha: linha)],
     );
   }
 
-  List<_ErroMateria> _erroPorMateria(BuildContext context) {
+  List<_ErroMateria> _erroPorMateria(BuildContext context, _Numeros numeros) {
     return [
       for (final materia in context.read<QuestoesRepository>().materias)
-        if (_erroPorMateriaMock[materia.id] case final erro?)
+        if (numeros.erroPorMateria[materia.id] case final erro?)
           _ErroMateria(materia.nome, erro),
     ]..sort((a, b) => b.percentual.compareTo(a.percentual));
   }

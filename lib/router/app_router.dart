@@ -49,7 +49,8 @@ GoRouter criarRouter(
           routes: [
             GoRoute(
               path: '/inicio',
-              builder: (context, state) => InicioScreen(repository: provas),
+              builder: (context, state) =>
+                  InicioScreen(repository: provas, correcoes: correcoes),
             ),
           ],
         ),

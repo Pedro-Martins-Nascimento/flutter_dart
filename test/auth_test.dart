@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_dart/main.dart';
 import 'package:flutter_dart/services/auth_service.dart';
+import 'package:flutter_dart/services/correcao_repository_memoria.dart';
 import 'package:flutter_dart/services/prova_repository_memoria.dart';
 import 'package:mock_exceptions/mock_exceptions.dart';
 
@@ -16,6 +17,7 @@ void main() {
       MyApp(
         auth: AuthService(auth: firebase),
         provas: ProvaRepositoryMemoria.comMocks(),
+        correcoes: CorrecaoRepositoryMemoria(),
       ),
     );
     await tester.pumpAndSettle();
