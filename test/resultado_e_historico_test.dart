@@ -25,6 +25,14 @@ void main() {
     expect(find.textContaining('Enunciado de q2'), findsOneWidget);
   });
 
+  testWidgets('resultado oferece o boletim em PDF', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: ResultadoScreen(correcao: correcao('c1'))),
+    );
+
+    expect(find.text('Exportar boletim (PDF)'), findsOneWidget);
+  });
+
   testWidgets('resultado sem aluno vinculado avisa', (tester) async {
     await tester.pumpWidget(
       MaterialApp(home: ResultadoScreen(correcao: correcao('c1'))),
@@ -45,6 +53,23 @@ void main() {
       find.text('Nenhuma folha com nota calculada ainda.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('histórico só oferece os boletins quando há correções', (
+    tester,
+  ) async {
+    final correcoes = CorrecaoRepositoryMemoria();
+    await tester.pumpWidget(
+      MaterialApp(home: HistoricoCorrecoesScreen(correcoes: correcoes)),
+    );
+    await tester.pump();
+    expect(find.byTooltip('Exportar boletins de todos (PDF)'), findsNothing);
+
+    await correcoes.salvar(correcao('c1'));
+    await tester.pump();
+
+    expect(find.byTooltip('Exportar boletins de todos (PDF)'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('histórico lista as correções e acompanha as novas', (

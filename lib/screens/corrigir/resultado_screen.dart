@@ -3,9 +3,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:printing/printing.dart';
 
 import '../../models/correcao.dart';
 import '../../models/questao.dart';
+import '../../services/pdf_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 
@@ -13,6 +15,14 @@ class ResultadoScreen extends StatelessWidget {
   final Correcao correcao;
 
   const ResultadoScreen({super.key, required this.correcao});
+
+  Future<void> _exportarBoletim() async {
+    final bytes = await PdfService().gerarBoletimAluno(correcao);
+    await Printing.layoutPdf(
+      onLayout: (format) async => bytes,
+      name: 'boletim-${correcao.versaoId}.pdf',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +60,12 @@ class ResultadoScreen extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: AppSpacing.s3),
+          OutlinedButton.icon(
+            onPressed: _exportarBoletim,
+            icon: const Icon(Icons.picture_as_pdf),
+            label: const Text('Exportar boletim (PDF)'),
           ),
           const SizedBox(height: AppSpacing.s5),
           Text('GABARITO POR QUESTÃO', style: AppTheme.kicker),

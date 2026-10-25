@@ -7,6 +7,7 @@ import '../screens/corrigir/corrigir_screen.dart';
 import '../screens/corrigir/corrigir_versao_screen.dart';
 import '../screens/corrigir/historico_correcoes_screen.dart';
 import '../screens/corrigir/resultado_screen.dart';
+import '../screens/inicio/estatistica_completa_screen.dart';
 import '../screens/inicio/inicio_screen.dart';
 import '../screens/provas/criar_prova_screen.dart';
 import '../screens/provas/gerar_provas_screen.dart';
@@ -51,6 +52,13 @@ GoRouter criarRouter(
               path: '/inicio',
               builder: (context, state) =>
                   InicioScreen(repository: provas, correcoes: correcoes),
+              routes: [
+                GoRoute(
+                  path: 'estatistica',
+                  builder: (context, state) =>
+                      EstatisticaCompletaScreen(correcoes: correcoes),
+                ),
+              ],
             ),
           ],
         ),
