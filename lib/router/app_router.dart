@@ -4,6 +4,9 @@ import '../models/versao_prova.dart';
 import '../screens/auth/login_screen.dart';
 import '../models/questao.dart';
 import '../screens/corrigir/corrigir_screen.dart';
+import '../screens/corrigir/corrigir_versao_screen.dart';
+import '../screens/corrigir/historico_correcoes_screen.dart';
+import '../screens/corrigir/resultado_screen.dart';
 import '../screens/inicio/inicio_screen.dart';
 import '../screens/provas/criar_prova_screen.dart';
 import '../screens/provas/gerar_provas_screen.dart';
@@ -17,6 +20,7 @@ import '../screens/turmas/visualizar_turma_screen.dart';
 import '../screens/turmas/importar_alunos_screen.dart';
 import '../models/correcao.dart';
 import '../services/auth_service.dart';
+import '../services/correcao_repository.dart';
 import '../services/prova_repository.dart';
 import '../screens/shell/main_shell.dart';
 import '../services/provas_repository.dart';
@@ -24,7 +28,7 @@ import '../services/provas_repository.dart';
 GoRouter criarRouter(
   AuthService auth,
   ProvaRepository provas,
-  Future<List<Correcao>> Function() carregarCorrecoes,
+  CorrecaoRepository correcoes,
 ) => GoRouter(
   initialLocation: '/login',
   refreshListenable: auth,
@@ -45,8 +49,7 @@ GoRouter criarRouter(
           routes: [
             GoRoute(
               path: '/inicio',
-              builder: (context, state) =>
-                  InicioScreen(repository: provas),
+              builder: (context, state) => InicioScreen(repository: provas),
             ),
           ],
         ),
@@ -109,11 +112,10 @@ GoRouter criarRouter(
           routes: [
             GoRoute(
               path: '/provas-geradas',
-              builder: (context, state) =>
-                  ListarProvasScreen(
-                    repository: provas,
-                    carregarCorrecoes: carregarCorrecoes,
-                  ),
+              builder: (context, state) => ListarProvasScreen(
+                repository: provas,
+                carregarCorrecoes: correcoes.listar,
+              ),
             ),
             GoRoute(
               path: '/criar-prova',
@@ -165,7 +167,31 @@ GoRouter criarRouter(
           routes: [
             GoRoute(
               path: '/corrigir',
-              builder: (context, state) => const CorrigirScreen(),
+              builder: (context, state) =>
+                  CorrigirScreen(provas: provas, correcoes: correcoes),
+              routes: [
+                GoRoute(
+                  path: 'versao',
+                  builder: (context, state) {
+                    final extra = state.extra! as Map<String, Object?>;
+                    return CorrigirVersaoScreen(
+                      prova: extra['prova']! as ProvaGerada,
+                      versao: extra['versao']! as VersaoProva,
+                      correcoes: correcoes,
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'resultado',
+                  builder: (context, state) =>
+                      ResultadoScreen(correcao: state.extra! as Correcao),
+                ),
+                GoRoute(
+                  path: 'historico',
+                  builder: (context, state) =>
+                      HistoricoCorrecoesScreen(correcoes: correcoes),
+                ),
+              ],
             ),
           ],
         ),

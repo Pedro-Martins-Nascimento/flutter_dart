@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import 'models/correcao.dart';
 import 'firebase_options.dart';
 import 'router/app_router.dart';
 import 'services/auth_service.dart';
-import 'services/correcao_repository_firestore.dart';
+import 'services/correcao_repository.dart';
+import 'services/correcao_repository_do_professor.dart';
 import 'services/prova_repository.dart';
 import 'services/prova_repository_firestore.dart';
 import 'services/questoes_repository.dart';
@@ -43,9 +42,9 @@ class AppProviders extends StatelessWidget {
 class MyApp extends StatefulWidget {
   final AuthService? auth;
   final ProvaRepository? provas;
-  final Future<List<Correcao>> Function()? carregarCorrecoes;
+  final CorrecaoRepository? correcoes;
 
-  const MyApp({super.key, this.auth, this.provas, this.carregarCorrecoes});
+  const MyApp({super.key, this.auth, this.provas, this.correcoes});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -55,15 +54,10 @@ class _MyAppState extends State<MyApp> {
   late final AuthService _auth = widget.auth ?? AuthService();
   late final ProvaRepository _provas =
       widget.provas ?? ProvaRepositoryFirestore(uid: () => _auth.usuario!.uid);
-  late final GoRouter _router = criarRouter(
-    _auth,
-    _provas,
-    widget.carregarCorrecoes ??
-        () => CorrecaoRepositoryFirestore(
-          FirebaseFirestore.instance,
-          _auth.usuario!.uid,
-        ).listar(),
-  );
+  late final CorrecaoRepository _correcoes =
+      widget.correcoes ??
+      CorrecaoRepositoryDoProfessor(uid: () => _auth.usuario!.uid);
+  late final GoRouter _router = criarRouter(_auth, _provas, _correcoes);
 
   @override
   void dispose() {

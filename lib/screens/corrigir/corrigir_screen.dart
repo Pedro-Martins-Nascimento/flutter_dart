@@ -1,15 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 
 import '../../theme/app_theme.dart';
+import '../../services/correcao_repository.dart';
+import '../../services/localizar_versao.dart';
+import '../../services/prova_repository.dart';
 import '../../services/turmas_repository.dart';
 import '../../widgets/app_card.dart';
 
 const int _jaCorrigidas = 12;
 
 class CorrigirScreen extends StatefulWidget {
-  const CorrigirScreen({super.key});
+  final ProvaRepository provas;
+  final CorrecaoRepository correcoes;
+
+  const CorrigirScreen({
+    super.key,
+    required this.provas,
+    required this.correcoes,
+  });
 
   @override
   State<CorrigirScreen> createState() => _CorrigirScreenState();
@@ -56,7 +67,7 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
       ..showSnackBar(SnackBar(content: Text(mensagem)));
   }
 
-  void _capturar() {
+  Future<void> _capturar() async {
     final folha = _qrEmFoco;
     if (folha == null) return;
 
@@ -66,7 +77,25 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
     }
 
     setState(() {});
-    _avisar('Folha $folha lida e corrigida.');
+
+    // Se o QR bate com uma versão de prova gerada, segue para a correção com
+    // nota; senão, só marca a folha como lida.
+    final encontrada = await localizarVersaoPorQr(widget.provas, folha);
+    if (!mounted) return;
+    if (encontrada == null ||
+        await widget.correcoes.jaCorrigida(
+          encontrada.prova.id,
+          encontrada.versao.id,
+        )) {
+      if (mounted) _avisar('Folha $folha lida e corrigida.');
+      return;
+    }
+    if (!mounted) return;
+
+    context.push(
+      '/corrigir/versao',
+      extra: {'prova': encontrada.prova, 'versao': encontrada.versao},
+    );
   }
 
   Future<void> _alternarLanterna() async {
@@ -135,16 +164,30 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
             AppSpacing.s5,
             AppSpacing.s5,
-            AppSpacing.s5,
+            AppSpacing.s3,
             AppSpacing.s4,
           ),
-          child: Text(
-            'alinhe os 4 marcadores de canto da folha',
-            style: TextStyle(fontSize: 14, color: Colors.white),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'alinhe os 4 marcadores de canto da folha',
+                  style: TextStyle(fontSize: 14, color: Colors.white),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Ver corrigidas',
+                icon: const Icon(
+                  Icons.fact_check_outlined,
+                  color: Colors.white,
+                ),
+                onPressed: () => context.push('/corrigir/historico'),
+              ),
+            ],
           ),
         ),
         Expanded(child: _alvo()),
