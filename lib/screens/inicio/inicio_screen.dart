@@ -317,15 +317,24 @@ class InicioScreen extends StatelessWidget {
 
   Widget _conteudoEstatistica(BuildContext context, _Numeros numeros) {
     final linhas = _erroPorMateria(context, numeros);
-    if (linhas.isEmpty) {
-      return const Text(
-        'Ainda não há correções para calcular o erro por matéria.',
-        style: TextStyle(fontSize: 13, color: AppColors.textMuted),
-      );
-    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [for (final linha in linhas) _LinhaErro(linha: linha)],
+      children: [
+        if (linhas.isEmpty)
+          const Text(
+            'Ainda não há correções para calcular o erro por matéria.',
+            style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+          )
+        else
+          for (final linha in linhas) _LinhaErro(linha: linha),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            onPressed: () => context.push('/inicio/estatistica'),
+            child: const Text('Ver estatística completa'),
+          ),
+        ),
+      ],
     );
   }
 
