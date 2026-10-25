@@ -4,8 +4,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
 /// Pede onde salvar e grava a planilha. Devolve false se o professor cancelar.
-/// No navegador o arquivo é baixado; no desktop o seletor só devolve o
-/// caminho, então o arquivo é gravado aqui.
+/// No navegador o arquivo é baixado e o seletor sempre devolve null; no
+/// desktop ele só devolve o caminho, então o arquivo é gravado aqui.
 Future<bool> salvarXlsx(String nome, Uint8List bytes) async {
   final destino = await FilePicker.platform.saveFile(
     dialogTitle: 'Salvar relatório de notas',
@@ -14,7 +14,8 @@ Future<bool> salvarXlsx(String nome, Uint8List bytes) async {
     allowedExtensions: ['xlsx'],
     bytes: bytes,
   );
-  if (destino == null) return false;
+  // No navegador null não significa cancelamento: o download já começou.
+  if (destino == null) return kIsWeb;
 
   final desktop =
       !kIsWeb &&

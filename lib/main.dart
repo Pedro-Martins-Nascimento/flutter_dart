@@ -53,10 +53,15 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   late final AuthService _auth = widget.auth ?? AuthService();
   late final ProvaRepository _provas =
-      widget.provas ?? ProvaRepositoryFirestore(uid: () => _auth.usuario!.uid);
+      widget.provas ??
+      ProvaRepositoryFirestore(
+        uid: () => _auth.usuario?.uid ?? 'dev_professor',
+      );
   late final CorrecaoRepository _correcoes =
       widget.correcoes ??
-      CorrecaoRepositoryDoProfessor(uid: () => _auth.usuario!.uid);
+      CorrecaoRepositoryDoProfessor(
+        uid: () => _auth.usuario?.uid ?? 'dev_professor',
+      );
   late final GoRouter _router = criarRouter(_auth, _provas, _correcoes);
 
   @override
