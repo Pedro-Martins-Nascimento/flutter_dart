@@ -88,7 +88,6 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
 
   List<Aluno> get _alunosDisponiveis {
     final alunos = _turma?.alunos ?? const [];
-    if (alunos.isEmpty) return alunosMock;
     return [for (final aluno in alunos) Aluno(id: aluno.id, nome: aluno.nome)];
   }
 

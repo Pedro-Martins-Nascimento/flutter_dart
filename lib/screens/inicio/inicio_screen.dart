@@ -13,27 +13,16 @@ import '../../services/turmas_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 
-const List<_ResumoProva> _provasMock = [
-  _ResumoProva(
-    titulo: 'P1 — Matemática',
-    meta: '3º ano B — Matutino · 8 versões · 10 questões · 14/08',
-  ),
-  _ResumoProva(
-    titulo: 'Sub — Redes',
-    meta: 'Redes de Computadores — Noturno · 6 versões · 12 questões · 02/08',
-  ),
-  _ResumoProva(
-    titulo: 'P1 — Física',
-    meta: '2º ano A — Matutino · 4 versões · 8 questões · 28/07',
-  ),
-];
-
 class _ResumoProva {
   final String titulo;
   final String meta;
-  final String? provaId;
+  final String provaId;
 
-  const _ResumoProva({required this.titulo, required this.meta, this.provaId});
+  const _ResumoProva({
+    required this.titulo,
+    required this.meta,
+    required this.provaId,
+  });
 }
 
 class _Numeros {
@@ -351,6 +340,16 @@ class InicioScreen extends StatelessWidget {
     required List<ProvaResumo> provas,
     required double recuo,
   }) {
+    if (provas.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: recuo),
+        child: const Text(
+          'Nenhuma prova gerada ainda.',
+          style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -358,13 +357,7 @@ class InicioScreen extends StatelessWidget {
           _LinhaProva(
             resumo: prova,
             recuo: recuo,
-            onTap: () {
-              if (prova.provaId != null) {
-                _abrirProva(context, prova.provaId!);
-              } else {
-                context.push('/provas-geradas');
-              }
-            },
+            onTap: () => _abrirProva(context, prova.provaId),
           ),
       ],
     );
@@ -377,8 +370,6 @@ class InicioScreen extends StatelessWidget {
   }
 
   List<_ResumoProva> _ultimasProvas(List<ProvaResumo> geradas) {
-    if (geradas.isEmpty) return _provasMock;
-
     return [
       for (final prova in geradas.take(3))
         _ResumoProva(
