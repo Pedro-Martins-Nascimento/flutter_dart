@@ -1,16 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:provider/provider.dart';
 
+import '../../models/correcao.dart';
 import '../../theme/app_theme.dart';
 import '../../services/correcao_repository.dart';
 import '../../services/localizar_versao.dart';
+import '../../services/pendentes.dart';
 import '../../services/prova_repository.dart';
-import '../../services/turmas_repository.dart';
 import '../../widgets/app_card.dart';
-
-const int _jaCorrigidas = 12;
 
 class CorrigirScreen extends StatefulWidget {
   final ProvaRepository provas;
@@ -36,20 +36,36 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
 
   String? _qrEmFoco;
 
+  // Mesma conta do selo de pendentes da aba: versões geradas x correções salvas.
+  List<ProvaResumo> _provas = const [];
+  List<Correcao> _correcoes = const [];
+  late final StreamSubscription<List<ProvaResumo>> _inscricaoProvas;
+  late final StreamSubscription<List<Correcao>> _inscricaoCorrecoes;
+
+  @override
+  void initState() {
+    super.initState();
+    _inscricaoProvas = widget.provas.observar().listen(
+      (provas) => setState(() => _provas = provas),
+    );
+    _inscricaoCorrecoes = widget.correcoes.observar().listen(
+      (correcoes) => setState(() => _correcoes = correcoes),
+    );
+  }
+
   @override
   void dispose() {
+    _inscricaoProvas.cancel();
+    _inscricaoCorrecoes.cancel();
     _controller.dispose();
     super.dispose();
   }
 
-  int get _totalFolhas {
-    final turmas = context.read<TurmasRepository>().turmas;
-    return turmas.isEmpty ? 0 : turmas.first.qtdAlunos;
-  }
+  int get _totalFolhas => _provas.fold(0, (soma, p) => soma + p.totalVersoes);
 
-  int get _corrigidas => _jaCorrigidas + _folhasLidas.length;
+  int get _corrigidas => _totalFolhas - contarPendentes(_provas, _correcoes);
 
-  bool get _concluido => _corrigidas >= _totalFolhas;
+  bool get _concluido => _totalFolhas > 0 && _corrigidas >= _totalFolhas;
 
   void _aoDetectar(BarcodeCapture captura) {
     for (final codigo in captura.barcodes) {
@@ -108,8 +124,6 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
 
   @override
   Widget build(BuildContext context) {
-    context.watch<TurmasRepository>();
-
     return AppScaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
@@ -280,7 +294,7 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
                 onPressed: habilitado ? _capturar : null,
                 child: Text(
                   _concluido
-                      ? 'Turma concluída'
+                      ? 'Tudo corrigido'
                       : (_qrEmFoco == null
                             ? 'Aponte para o QR'
                             : 'Capturar folha'),

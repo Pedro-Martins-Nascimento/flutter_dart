@@ -127,30 +127,32 @@ class QuestoesRepository extends ChangeNotifier {
 
   // ---------- operações de escrita ----------
 
-  void criarMateria(String nome) {
+  Materia criarMateria(String nome) {
+    final materia = Materia(
+      id: 'mat_${DateTime.now().millisecondsSinceEpoch}',
+      nome: nome,
+    );
+
     if (_modoMemoria) {
-      _materias.add(
-        Materia(id: 'mat_${DateTime.now().millisecondsSinceEpoch}', nome: nome),
-      );
+      _materias.add(materia);
       notifyListeners();
-      return;
+      return materia;
     }
 
     final uid = __auth.currentUser?.uid;
     final db = __firestore;
-    if (uid == null || db == null) return;
+    if (uid == null || db == null) return materia;
 
-    final id = 'mat_${DateTime.now().millisecondsSinceEpoch}';
-    final materia = Materia(id: id, nome: nome);
     db
         .collection('professores')
         .doc(uid)
         .collection('materias')
-        .doc(id)
+        .doc(materia.id)
         .set(QuestaoMapper.materiaParaMapa(materia))
         .catchError(
           (e) => debugPrint('[QuestoesRepository] criarMateria: $e'),
         );
+    return materia;
   }
 
   void excluirMateria(String id) {

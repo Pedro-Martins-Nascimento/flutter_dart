@@ -2,6 +2,12 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+// Client OAuth "web" do projeto (client_type 3 no google-services.json).
+// O login nativo do Android precisa dele pra gerar o idToken do Firebase.
+const _googleServerClientId =
+    '184286969361-hjuetttnb9ntdpiqmjiamevhr97eoob9.apps.googleusercontent.com';
 
 class AuthErro implements Exception {
   final String mensagem;
@@ -13,7 +19,9 @@ class AuthErro implements Exception {
 }
 
 class AuthService extends ChangeNotifier {
-  AuthService({FirebaseAuth? auth}) : _auth = auth ?? FirebaseAuth.instance {
+  AuthService({FirebaseAuth? auth, Future<String?> Function()? tokenGoogle})
+    : _auth = auth ?? FirebaseAuth.instance,
+      _tokenGoogle = tokenGoogle ?? _tokenGoogleNativo {
     _usuario = _auth.currentUser;
     _inscricao = _auth.authStateChanges().listen((usuario) {
       _usuario = usuario;
@@ -22,6 +30,7 @@ class AuthService extends ChangeNotifier {
   }
 
   final FirebaseAuth _auth;
+  final Future<String?> Function() _tokenGoogle;
   late final StreamSubscription<User?> _inscricao;
   User? _usuario;
 
@@ -37,20 +46,50 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> entrarComGoogle() async {
-    final provedor = GoogleAuthProvider()
-      ..setCustomParameters({'prompt': 'select_account'});
     try {
       if (kIsWeb) {
+        final provedor = GoogleAuthProvider()
+          ..setCustomParameters({'prompt': 'select_account'});
         await _auth.signInWithPopup(provedor);
-      } else {
-        await _auth.signInWithProvider(provedor);
+        return;
       }
+
+      // No celular, o signInWithProvider passa pelo navegador e perde a
+      // sessão quando ele não é o Chrome ("falta do estado inicial").
+      // O login nativo do Google evita o navegador.
+      final idToken = await _tokenGoogle();
+      if (idToken == null) throw const AuthErro('Login com Google cancelado.');
+      await _auth.signInWithCredential(
+        GoogleAuthProvider.credential(idToken: idToken),
+      );
     } on FirebaseAuthException catch (e) {
       throw AuthErro(_mensagem(e.code));
+    } on GoogleSignInException catch (e) {
+      throw AuthErro(
+        e.code == GoogleSignInExceptionCode.canceled
+            ? 'Login com Google cancelado.'
+            : 'Não foi possível entrar com o Google. Tente novamente.',
+      );
     }
   }
 
-  Future<void> sair() => _auth.signOut();
+  static bool _googleIniciado = false;
+
+  static Future<String?> _tokenGoogleNativo() async {
+    final google = GoogleSignIn.instance;
+    if (!_googleIniciado) {
+      await google.initialize(serverClientId: _googleServerClientId);
+      _googleIniciado = true;
+    }
+    final conta = await google.authenticate();
+    return conta.authentication.idToken;
+  }
+
+  Future<void> sair() async {
+    // Sem isso, o próximo login reaproveita a mesma conta do Google.
+    if (_googleIniciado) await GoogleSignIn.instance.signOut();
+    await _auth.signOut();
+  }
 
   String _mensagem(String codigo) {
     switch (codigo) {

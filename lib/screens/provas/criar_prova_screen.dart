@@ -134,15 +134,11 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
     );
     if (nome == null || nome.trim().isEmpty) return;
 
-    final novaMateria = Materia(
-      id: 'mat_${DateTime.now().millisecondsSinceEpoch}',
-      nome: nome.trim(),
+    if (!mounted) return;
+    final novaMateria = context.read<QuestoesRepository>().criarMateria(
+      nome.trim(),
     );
-    setState(() {
-      _materiasDisponiveis.add(novaMateria);
-
-      materiasSelecionadas.add(novaMateria.id);
-    });
+    setState(() => materiasSelecionadas.add(novaMateria.id));
   }
 
   Future<void> _criarNovaTurma() async {
