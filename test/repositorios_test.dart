@@ -137,5 +137,11 @@ void main() {
       expect(repositorio.materias.map((m) => m.nome), contains('História'));
       expect(repositorio.questoes, isEmpty);
     });
+
+    test('criarMateria devolve a matéria criada', () {
+      final materia = repositorio.criarMateria('Física');
+
+      expect(repositorio.materiaPorId(materia.id)?.nome, 'Física');
+    });
   });
 }

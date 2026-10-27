@@ -1,4 +1,3 @@
-import 'package:flutter_dart/models/aluno.dart';
 import 'package:flutter_dart/models/turma.dart';
 import 'package:flutter_dart/services/alunos_para_pdf.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,10 +12,10 @@ void main() {
     Turma(id: 't2', nome: 'Turma vazia'),
   ];
 
-  test('turma sem nome, desconhecida ou sem alunos cai nos alunos de teste', () {
-    expect(alunosDaTurma(null, turmas), same(alunosMock));
-    expect(alunosDaTurma('Outra turma', turmas), same(alunosMock));
-    expect(alunosDaTurma('Turma vazia', turmas), same(alunosMock));
+  test('turma sem nome, desconhecida ou sem alunos devolve lista vazia', () {
+    expect(alunosDaTurma(null, turmas), isEmpty);
+    expect(alunosDaTurma('Outra turma', turmas), isEmpty);
+    expect(alunosDaTurma('Turma vazia', turmas), isEmpty);
   });
 
   test('turma com alunos devolve os alunos dela', () {

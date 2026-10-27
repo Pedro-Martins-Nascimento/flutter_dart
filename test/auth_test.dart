@@ -15,7 +15,10 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MyApp(
-        auth: AuthService(auth: firebase),
+        auth: AuthService(
+          auth: firebase,
+          tokenGoogle: () async => 'id-token-falso',
+        ),
         provas: ProvaRepositoryMemoria.comMocks(),
         correcoes: CorrecaoRepositoryMemoria(),
       ),
