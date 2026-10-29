@@ -2,7 +2,10 @@
 
 Aplicativo Flutter de uso exclusivo do professor para **gerar provas embaralhadas por aluno e corrigi-las pela câmera**, a partir de um QR code impresso em cada versão.
 
-Projeto acadêmico desenvolvido em grupo. Esta é a entrega **N2**: o app agora tem **login real (Firebase Authentication)** e **guarda os dados no Cloud Firestore**, separados por professor. Turmas, alunos, matérias, questões, provas e correções continuam salvos depois que o app é fechado.
+Projeto acadêmico desenvolvido em grupo, entregue em etapas:
+
+- **N1**: telas principais navegáveis, construídas em Flutter/Dart e populadas com **dados fictícios (mock)**, sem banco de dados.
+- **N2** (entrega atual): o app agora tem **login real (Firebase Authentication)** e **guarda os dados no Cloud Firestore**, separados por professor. Turmas, alunos, matérias, questões, provas e correções continuam salvos depois que o app é fechado.
 
 ---
 
@@ -19,25 +22,6 @@ Eliminar o trabalho manual de corrigir provas de múltipla escolha e, de quebra,
 O professor monta a prova a partir de um banco de questões, o app gera várias versões embaralhadas — cada uma com um QR code próprio ligado ao seu gabarito —, exporta tudo em PDF pronto para impressão e, depois da aplicação, corrige as folhas apontando a câmera do celular.
 
 O aluno não usa o aplicativo: existe apenas como cadastro dentro de uma turma.
-
----
-
-## Escopo delimitado
-
-### Dentro da N2
-
-- Login com e-mail e senha ou com conta Google (Firebase Authentication).
-- Dados salvos no Cloud Firestore, em `professores/{uid}/...`: cada professor só enxerga os próprios dados.
-- Fluxo completo de montagem da prova: turmas → alunos → banco de questões → criar prova → gerar versões → exportar PDF.
-- Correção: leitura do QR pela câmera, revisão das alternativas pelo professor, nota calculada e salva.
-- Resultado por aluno, estatística da turma, boletim em PDF e relatório de notas em Excel.
-- Layout responsivo: navegação inferior no celular e menu lateral em telas largas.
-
-### Fora da N2
-
-- Reconhecimento real das marcações da folha (OMR). Hoje as alternativas aparecem **pré-preenchidas por sorteio** e o professor confere cada uma antes de confirmar (veja RF14).
-- Recuperação de senha: o botão "Esqueci minha senha" avisa que ainda não está disponível.
-- Modo offline (o cliente já declarou que não haverá).
 
 ---
 
@@ -79,6 +63,29 @@ O aluno não usa o aplicativo: existe apenas como cadastro dentro de uma turma.
 | RNF06 | Funcionar em dispositivos Android comuns |
 | RNF07 | Dados vinculados somente ao professor autenticado |
 
+---
+
+## Entrega N2 (atual)
+
+Integração com banco de dados real: os dados mock da N1 foram substituídos por Firebase Authentication e Cloud Firestore.
+
+### Escopo delimitado da N2
+
+#### Dentro da N2
+
+- Login com e-mail e senha ou com conta Google (Firebase Authentication).
+- Dados salvos no Cloud Firestore, em `professores/{uid}/...`: cada professor só enxerga os próprios dados.
+- Fluxo completo de montagem da prova: turmas → alunos → banco de questões → criar prova → gerar versões → exportar PDF.
+- Correção: leitura do QR pela câmera, revisão das alternativas pelo professor, nota calculada e salva.
+- Resultado por aluno, estatística da turma, boletim em PDF e relatório de notas em Excel.
+- Layout responsivo: navegação inferior no celular e menu lateral em telas largas.
+
+#### Fora da N2
+
+- Reconhecimento real das marcações da folha (OMR). Hoje as alternativas aparecem **pré-preenchidas por sorteio** e o professor confere cada uma antes de confirmar (veja RF14).
+- Recuperação de senha: o botão "Esqueci minha senha" avisa que ainda não está disponível.
+- Modo offline (o cliente já declarou que não haverá).
+
 ### O que a N2 entrega de cada requisito
 
 Legenda: ✅ implementado · 🟡 parcial ou simulado · ⏳ previsto para as próximas entregas
@@ -105,6 +112,56 @@ Legenda: ✅ implementado · 🟡 parcial ou simulado · ⏳ previsto para as pr
 | RF18 | Início › Estatística completa | ✅ acerto por matéria, questões com mais erros, média por prova e ranking de alunos |
 | RF19 | Provas geradas | ✅ exporta as notas da prova em `.xlsx` |
 | RNF07 | Firestore | ✅ regras em `firestore.rules`: cada professor só lê e grava em `professores/{uid}` |
+
+---
+
+## Entrega N1
+
+Telas principais navegáveis, com dados fictícios (mock) e sem banco de dados.
+
+### Escopo delimitado da N1
+
+#### Dentro da N1
+
+- Telas principais construídas em Flutter/Dart e navegáveis por botão.
+- Dados **mock**, mantidos em memória durante a execução.
+- Fluxo completo de montagem da prova: turmas → alunos → banco de questões → criar prova → gerar versões → exportar PDF.
+- Leitura de QR code pela câmera do dispositivo na tela de Correção.
+- Layout responsivo: navegação inferior no celular e menu lateral em telas largas.
+
+#### Fora da N1
+
+- Banco de dados e persistência entre execuções — os dados somem ao fechar o app.
+- Autenticação real: a tela de Login valida os campos, mas não verifica credenciais.
+- Reconhecimento das marcações da folha (OMR) e cálculo de nota a partir da imagem.
+- Tela de resultado por aluno e exportação de relatório em Excel.
+- Modo offline (o cliente já declarou que não haverá).
+
+### O que a N1 entregou de cada requisito
+
+Legenda: ✅ implementado com mock · 🟡 parcial ou simulado · ⏳ previsto para as próximas entregas
+
+| Cód. | Onde está | Status na N1 |
+|---|---|---|
+| RF01 | Login | 🟡 formulário com validação de e-mail e senha; não há verificação de credenciais |
+| RF02 | — | ✅ por construção: não existe fluxo de aluno no app |
+| RF03 | Turmas | ✅ |
+| RF04 | Turmas › Importar lista | ✅ leitura real de arquivo `.xlsx` escolhido pelo usuário |
+| RF05 | Turmas › detalhe da turma | ✅ criar, editar e remover aluno |
+| RF06 | Questões | ✅ matérias com criação e exclusão |
+| RF07 | Questões › formulário | ✅ enunciado, alternativas, gabarito e exclusão |
+| RF08 | Provas › Nova prova | ✅ |
+| RF09 | Provas › Nova prova | ✅ mesma prova embaralhada ou conjuntos diferentes |
+| RF10 | Provas › Gerar versões | ✅ QR próprio por versão, impresso no PDF |
+| RF11 | Provas › Gerar versões | ✅ vínculo opcional com aluno da turma |
+| RF12 | Provas › Gerar versões / Editor de layout | ✅ PDF gerado e enviado para impressão/compartilhamento |
+| RF13 | Corrigir | ✅ câmera real lendo o QR da folha |
+| RF14 | Corrigir | 🟡 a folha é marcada como corrigida após a leitura do QR; a imagem ainda não é processada |
+| RF15 | — | ⏳ |
+| RF16 | Início | 🟡 média e contagem exibidas a partir de dados mock |
+| RF17 | — | ⏳ |
+| RF18 | Início | 🟡 erro por matéria da turma, com dados mock |
+| RF19 | — | ⏳ |
 
 ---
 
