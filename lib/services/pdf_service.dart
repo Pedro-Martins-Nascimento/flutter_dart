@@ -8,6 +8,7 @@ import '../models/aluno.dart';
 import '../models/correcao.dart';
 import '../models/questao.dart';
 import '../models/versao_prova.dart';
+import 'layout_folha.dart';
 
 class PdfService {
   /// Boletim de um aluno: nota, acertos e o gabarito questão a questão (o que
@@ -125,7 +126,7 @@ class PdfService {
     int? forcarQuantidadeParaTeste,
     double tamanhoFonte = 11,
     double espacamento = 16,
-    double margem = 28,
+    double margem = LayoutFolha.margemPadrao,
     List<Aluno> alunos = const [],
   }) async {
     final doc = await _criarDocumentoBase();
@@ -147,7 +148,7 @@ class PdfService {
     int? forcarQuantidadeParaTeste,
     double tamanhoFonte = 11,
     double espacamento = 16,
-    double margem = 28,
+    double margem = LayoutFolha.margemPadrao,
     List<Aluno> alunos = const [],
   }) async {
     final doc = await _criarDocumentoBase();
@@ -200,13 +201,15 @@ class PdfService {
   pw.Widget _buildHeader(VersaoProva versao) {
     return pw.Container(
       width: double.infinity,
-      height: 70,
+      height: LayoutFolha.alturaCabecalho,
       child: pw.Stack(
         children: [
           pw.Positioned(left: 0, top: 0, child: _cornerMarker()),
           pw.Positioned(right: 0, top: 0, child: _cornerMarker()),
           pw.Padding(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 20),
+            padding: const pw.EdgeInsets.symmetric(
+              horizontal: LayoutFolha.paddingHorizontalCabecalho,
+            ),
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
@@ -251,8 +254,8 @@ class PdfService {
                 pw.BarcodeWidget(
                   barcode: pw.Barcode.qrCode(),
                   data: versao.qrCode,
-                  width: 48,
-                  height: 48,
+                  width: LayoutFolha.ladoQr,
+                  height: LayoutFolha.ladoQr,
                 ),
               ],
             ),
@@ -265,7 +268,7 @@ class PdfService {
   pw.Widget _buildFooterMarkers() {
     return pw.Container(
       width: double.infinity,
-      height: 24,
+      height: LayoutFolha.alturaRodape,
       child: pw.Stack(
         children: [
           pw.Positioned(left: 0, bottom: 0, child: _cornerMarker()),
@@ -344,7 +347,11 @@ class PdfService {
   }
 
   pw.Widget _cornerMarker() {
-    return pw.Container(width: 16, height: 16, color: PdfColors.black);
+    return pw.Container(
+      width: LayoutFolha.ladoMarcador,
+      height: LayoutFolha.ladoMarcador,
+      color: PdfColors.black,
+    );
   }
 
   List<pw.Widget> _buildQuestoes(
@@ -397,15 +404,19 @@ class PdfService {
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
                           pw.Container(
-                            width: 10,
-                            height: 10,
-                            margin: const pw.EdgeInsets.only(top: 2),
+                            width: LayoutFolha.diametroBolinha,
+                            height: LayoutFolha.diametroBolinha,
+                            margin: const pw.EdgeInsets.only(
+                              top: LayoutFolha.margemTopoBolinha,
+                            ),
                             decoration: pw.BoxDecoration(
                               shape: pw.BoxShape.circle,
-                              border: pw.Border.all(width: 0.8),
+                              border: pw.Border.all(
+                                width: LayoutFolha.bordaBolinha,
+                              ),
                             ),
                           ),
-                          pw.SizedBox(width: 6),
+                          pw.SizedBox(width: LayoutFolha.espacoBolinhaTexto),
                           pw.Expanded(
                             child: pw.Text(
                               '${String.fromCharCode(65 + alt)}) ${questaoVersao.alternativas[alt]}',
