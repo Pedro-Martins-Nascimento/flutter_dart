@@ -11,6 +11,12 @@ import '../models/versao_prova.dart';
 import 'layout_folha.dart';
 
 class PdfService {
+  /// [criarDocumento] troca o documento-base (as fontes vêm da internet pelo
+  /// Google Fonts). Serve para testar sem rede.
+  PdfService({this._criarDocumento});
+
+  final Future<pw.Document> Function()? _criarDocumento;
+
   /// Boletim de um aluno: nota, acertos e o gabarito questão a questão (o que
   /// ele marcou e o que era certo).
   Future<Uint8List> gerarBoletimAluno(Correcao correcao) =>
@@ -129,18 +135,14 @@ class PdfService {
     double margem = LayoutFolha.margemPadrao,
     List<Aluno> alunos = const [],
   }) async {
-    final doc = await _criarDocumentoBase();
-    doc.addPage(
-      _construirPaginaVersao(
-        versao,
-        forcarQuantidadeParaTeste,
-        tamanhoFonte,
-        espacamento,
-        margem,
-        alunos,
-      ),
+    return gerarPdfProvas(
+      [versao],
+      forcarQuantidadeParaTeste: forcarQuantidadeParaTeste,
+      tamanhoFonte: tamanhoFonte,
+      espacamento: espacamento,
+      margem: margem,
+      alunos: alunos,
     );
-    return doc.save();
   }
 
   Future<Uint8List> gerarPdfProvas(
@@ -151,23 +153,36 @@ class PdfService {
     double margem = LayoutFolha.margemPadrao,
     List<Aluno> alunos = const [],
   }) async {
-    final doc = await _criarDocumentoBase();
-    for (final versao in versoes) {
-      doc.addPage(
-        _construirPaginaVersao(
-          versao,
-          forcarQuantidadeParaTeste,
-          tamanhoFonte,
-          espacamento,
-          margem,
-          alunos,
-        ),
-      );
+    Future<Uint8List> montar({required bool questoesInteiras}) async {
+      final doc = await _criarDocumentoBase();
+      for (final versao in versoes) {
+        doc.addPage(
+          _construirPaginaVersao(
+            versao,
+            forcarQuantidadeParaTeste,
+            tamanhoFonte,
+            espacamento,
+            margem,
+            alunos,
+            questoesInteiras,
+          ),
+        );
+      }
+      return doc.save();
     }
-    return doc.save();
+
+    try {
+      return await montar(questoesInteiras: true);
+    } on Exception {
+      // Uma questão maior que a página inteira não cabe sem ser cortada. É raro,
+      // então só nesse caso o PDF é refeito permitindo o corte.
+      return montar(questoesInteiras: false);
+    }
   }
 
   Future<pw.Document> _criarDocumentoBase() async {
+    final injetado = _criarDocumento;
+    if (injetado != null) return injetado();
     final fontRegular = await PdfGoogleFonts.notoSansRegular();
     final fontBold = await PdfGoogleFonts.notoSansBold();
     return pw.Document(
@@ -182,6 +197,7 @@ class PdfService {
     double espacamento,
     double margem,
     List<Aluno> alunos,
+    bool questoesInteiras,
   ) {
     return pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
@@ -194,6 +210,7 @@ class PdfService {
         tamanhoFonte,
         espacamento,
         alunos,
+        questoesInteiras,
       ),
     );
   }
@@ -360,6 +377,7 @@ class PdfService {
     double tamanhoFonte,
     double espacamento,
     List<Aluno> alunos,
+    bool questoesInteiras,
   ) {
     final questoes = versao.questoes;
     final semForcarTeste =
@@ -383,7 +401,7 @@ class PdfService {
         ...lista.asMap().entries.map((entry) {
           final numero = entry.key + 1;
           final questaoVersao = entry.value;
-          return pw.Padding(
+          final questaoWidget = pw.Padding(
             padding: pw.EdgeInsets.only(bottom: espacamento),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -393,44 +411,48 @@ class PdfService {
                   style: pw.TextStyle(fontSize: tamanhoFonte),
                 ),
                 pw.SizedBox(height: 6),
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: List.generate(questaoVersao.alternativas.length, (
-                    alt,
-                  ) {
-                    return pw.Padding(
-                      padding: const pw.EdgeInsets.only(bottom: 4),
-                      child: pw.Row(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Container(
-                            width: LayoutFolha.diametroBolinha,
-                            height: LayoutFolha.diametroBolinha,
-                            margin: const pw.EdgeInsets.only(
-                              top: LayoutFolha.margemTopoBolinha,
-                            ),
-                            decoration: pw.BoxDecoration(
-                              shape: pw.BoxShape.circle,
-                              border: pw.Border.all(
-                                width: LayoutFolha.bordaBolinha,
-                              ),
+                // Alternativas direto na Column da questão (sem Column dentro de
+                // Column): assim o PDF consegue dividir uma questão muito alta
+                // entre as alternativas, quando ela não cabe numa página.
+                ...List.generate(questaoVersao.alternativas.length, (alt) {
+                  return pw.Padding(
+                    padding: const pw.EdgeInsets.only(bottom: 4),
+                    child: pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Container(
+                          width: LayoutFolha.diametroBolinha,
+                          height: LayoutFolha.diametroBolinha,
+                          margin: const pw.EdgeInsets.only(
+                            top: LayoutFolha.margemTopoBolinha,
+                          ),
+                          decoration: pw.BoxDecoration(
+                            shape: pw.BoxShape.circle,
+                            border: pw.Border.all(
+                              width: LayoutFolha.bordaBolinha,
                             ),
                           ),
-                          pw.SizedBox(width: LayoutFolha.espacoBolinhaTexto),
-                          pw.Expanded(
-                            child: pw.Text(
-                              '${String.fromCharCode(65 + alt)}) ${questaoVersao.alternativas[alt]}',
-                              style: pw.TextStyle(fontSize: tamanhoFonte - 1),
-                            ),
+                        ),
+                        pw.SizedBox(width: LayoutFolha.espacoBolinhaTexto),
+                        pw.Expanded(
+                          child: pw.Text(
+                            '${String.fromCharCode(65 + alt)}) ${questaoVersao.alternativas[alt]}',
+                            style: pw.TextStyle(fontSize: tamanhoFonte - 1),
                           ),
-                        ],
-                      ),
-                    );
-                  }),
-                ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
               ],
             ),
           );
+          // Inseparable: a questão inteira (enunciado e alternativas) vai para
+          // a página seguinte em vez de ser cortada no meio, o que atrapalharia
+          // a leitura das bolinhas.
+          return questoesInteiras
+              ? pw.Inseparable(child: questaoWidget)
+              : questaoWidget;
         }),
     ];
   }
