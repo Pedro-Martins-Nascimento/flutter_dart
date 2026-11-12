@@ -7,6 +7,7 @@ import '../../models/versao_prova.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../services/alunos_para_pdf.dart';
+import '../../services/layout_folha.dart';
 import '../../services/pdf_service.dart';
 import '../../services/prova_repository.dart';
 import '../../services/turmas_repository.dart';
@@ -58,7 +59,7 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
 
   double _tamanhoFonte = 11;
   double _espacamento = 16;
-  double _margem = 28;
+  double _margem = LayoutFolha.margemPadrao;
 
   int _quantidadeQuestoesTeste = 8;
 
@@ -194,8 +195,8 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
             _sliderLinha(
               label: 'Margem da página',
               valor: _margem,
-              min: 14,
-              max: 48,
+              min: LayoutFolha.margemMinima,
+              max: LayoutFolha.margemMaxima,
               divisoes: 34,
               sufixo: 'pt',
               onChanged: (v) => setState(() => _margem = v),
