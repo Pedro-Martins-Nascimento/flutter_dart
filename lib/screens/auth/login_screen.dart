@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
+import 'estilo_auth.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,8 +14,6 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  static const _estiloTexto = TextStyle(fontSize: 17, color: AppColors.text);
-
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _senhaController = TextEditingController();
@@ -26,22 +26,6 @@ class _LoginScreenState extends State<LoginScreen> {
     _emailController.dispose();
     _senhaController.dispose();
     super.dispose();
-  }
-
-  String? _validarEmail(String? valor) {
-    final texto = (valor ?? '').trim();
-    if (texto.isEmpty) return 'Informe seu e-mail';
-    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(texto)) {
-      return 'E-mail inválido';
-    }
-    return null;
-  }
-
-  String? _validarSenha(String? valor) {
-    final texto = valor ?? '';
-    if (texto.isEmpty) return 'Informe sua senha';
-    if (texto.length < 6) return 'A senha deve ter ao menos 6 caracteres';
-    return null;
   }
 
   Future<void> _entrar() async {
@@ -82,31 +66,6 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-
-  Widget _rotulo(String texto) => Padding(
-    padding: const EdgeInsets.only(bottom: AppSpacing.s2),
-    child: Text(
-      texto,
-      style: const TextStyle(fontSize: 14, color: AppColors.textMuted),
-    ),
-  );
-
-  InputBorder _linha(Color cor, [double espessura = 1]) => UnderlineInputBorder(
-    borderSide: BorderSide(color: cor, width: espessura),
-  );
-
-  InputDecoration _decoracao(String hint, {Widget? sufixo}) => InputDecoration(
-    hintText: hint,
-    hintStyle: const TextStyle(fontSize: 17, color: AppColors.neutral500),
-    suffixIcon: sufixo,
-    filled: false,
-    contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.s2),
-    border: _linha(AppColors.divider),
-    enabledBorder: _linha(AppColors.divider),
-    focusedBorder: _linha(AppColors.accent, 1.5),
-    errorBorder: _linha(AppColors.error),
-    focusedErrorBorder: _linha(AppColors.error, 1.5),
-  );
 
   @override
   Widget build(BuildContext context) {
@@ -154,42 +113,33 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: AppSpacing.s8),
 
-                    _rotulo('E-mail'),
+                    rotuloAuth('E-mail'),
                     TextFormField(
                       controller: _emailController,
-                      validator: _validarEmail,
+                      validator: validarEmail,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.email],
-                      style: _estiloTexto,
-                      decoration: _decoracao('professor@escola.edu.br'),
+                      style: estiloTextoAuth,
+                      decoration: decoracaoAuth('professor@escola.edu.br'),
                     ),
                     const SizedBox(height: AppSpacing.s6),
 
-                    _rotulo('Senha'),
+                    rotuloAuth('Senha'),
                     TextFormField(
                       controller: _senhaController,
-                      validator: _validarSenha,
+                      validator: validarSenha,
                       obscureText: !_senhaVisivel,
                       textInputAction: TextInputAction.done,
                       autofillHints: const [AutofillHints.password],
                       onFieldSubmitted: (_) {
                         if (!_carregando) _entrar();
                       },
-                      style: _estiloTexto,
-                      decoration: _decoracao(
+                      style: estiloTextoAuth,
+                      decoration: decoracaoAuth(
                         '••••••••',
-                        sufixo: IconButton(
-                          icon: Icon(
-                            _senhaVisivel
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            size: 20,
-                            color: AppColors.textMuted,
-                          ),
-                          tooltip: _senhaVisivel
-                              ? 'Ocultar senha'
-                              : 'Mostrar senha',
+                        sufixo: BotaoVerSenha(
+                          visivel: _senhaVisivel,
                           onPressed: () =>
                               setState(() => _senhaVisivel = !_senhaVisivel),
                         ),
@@ -197,28 +147,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: AppSpacing.s8),
 
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.text,
-                          disabledBackgroundColor: AppColors.text.withValues(
-                            alpha: 0.35,
-                          ),
-                        ),
-                        onPressed: _carregando ? null : _entrar,
-                        child: _carregando
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text('Entrar'),
-                      ),
+                    BotaoPrincipalAuth(
+                      texto: 'Entrar',
+                      carregando: _carregando,
+                      onPressed: _entrar,
                     ),
                     const SizedBox(height: AppSpacing.s3),
 
@@ -249,6 +181,27 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       onPressed: _esqueciSenha,
                       child: const Text('Esqueci minha senha'),
+                    ),
+                    const SizedBox(height: AppSpacing.s4),
+                    const Divider(color: AppColors.divider),
+                    const SizedBox(height: AppSpacing.s4),
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        const Text(
+                          'Ainda não tem conta?',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _carregando
+                              ? null
+                              : () => context.push('/cadastro'),
+                          child: const Text('Criar conta'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
