@@ -45,6 +45,25 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  Future<void> criarConta({
+    required String nome,
+    required String email,
+    required String senha,
+  }) async {
+    try {
+      final credencial = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: senha,
+      );
+      await credencial.user?.updateDisplayName(nome);
+      await credencial.user?.reload();
+      _usuario = _auth.currentUser;
+      notifyListeners();
+    } on FirebaseAuthException catch (e) {
+      throw AuthErro(_mensagemCadastro(e.code));
+    }
+  }
+
   Future<void> entrarComGoogle() async {
     try {
       if (kIsWeb) {
@@ -113,6 +132,25 @@ class AuthService extends ChangeNotifier {
         return 'Este método de login não está habilitado no Firebase.';
       default:
         return 'Não foi possível entrar. Tente novamente.';
+    }
+  }
+
+  String _mensagemCadastro(String codigo) {
+    switch (codigo) {
+      case 'email-already-in-use':
+        return 'Já existe uma conta com este e-mail.';
+      case 'invalid-email':
+        return 'E-mail inválido.';
+      case 'weak-password':
+        return 'Senha fraca. Use ao menos 6 caracteres.';
+      case 'network-request-failed':
+        return 'Sem conexão com a internet.';
+      case 'too-many-requests':
+        return 'Muitas tentativas. Tente novamente em alguns minutos.';
+      case 'operation-not-allowed':
+        return 'Cadastro com e-mail e senha não está habilitado no Firebase.';
+      default:
+        return 'Não foi possível criar a conta. Tente novamente.';
     }
   }
 
