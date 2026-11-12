@@ -23,6 +23,9 @@ enum ProblemaFoto {
   ),
   desfocada(
     'A foto está desfocada. Segure o celular firme e espere a câmera focar.',
+  ),
+  naoAnalisada(
+    'Não consegui analisar a foto. Aponte a câmera para a folha de novo e capture outra vez.',
   );
 
   const ProblemaFoto(this.mensagem);
@@ -49,17 +52,19 @@ class LimitesFoto {
   static const double simetriaMinima = 0.8;
   static const double toleranciaProporcao = 0.12;
   static const double nitidezMinima = 0.3;
+  static const int maximoCandidatas = 16;
 }
 
-AvaliacaoFoto? avaliarFotoCodificada(Uint8List bytes) {
-  final img.Image? imagem;
+AvaliacaoFoto avaliarFotoCodificada(Uint8List bytes) {
   try {
-    imagem = img.decodeImage(bytes);
+    final imagem = img.decodeImage(bytes);
+    if (imagem == null) {
+      return const AvaliacaoFoto([ProblemaFoto.naoAnalisada]);
+    }
+    return avaliarFoto(imagem);
   } catch (_) {
-    return null;
+    return const AvaliacaoFoto([ProblemaFoto.naoAnalisada]);
   }
-  if (imagem == null) return null;
-  return avaliarFoto(imagem);
 }
 
 AvaliacaoFoto avaliarFoto(img.Image imagem) {
@@ -104,6 +109,65 @@ class _Mancha {
   Point<double> get centro => Point(cx, cy);
 }
 
+class _Geometria {
+  _Geometria(List<_Mancha> m)
+    : lados = [
+        for (var i = 0; i < 4; i++)
+          m[i].centro.distanceTo(m[(i + 1) % 4].centro),
+      ],
+      area = _areaPoligono(m.map((e) => e.centro).toList());
+
+  final List<double> lados;
+  final double area;
+
+  double get ladoA => (lados[0] + lados[2]) / 2;
+  double get ladoB => (lados[1] + lados[3]) / 2;
+  double get proporcao => min(ladoA, ladoB) / max(ladoA, ladoB);
+  double get larguraFolha => min(ladoA, ladoB);
+
+  bool get simetrica =>
+      min(lados[0], lados[2]) / max(lados[0], lados[2]) >=
+          LimitesFoto.simetriaMinima &&
+      min(lados[1], lados[3]) / max(lados[1], lados[3]) >=
+          LimitesFoto.simetriaMinima;
+}
+
+double _areaPoligono(List<Point<double>> pontos) {
+  var soma = 0.0;
+  for (var i = 0; i < pontos.length; i++) {
+    final a = pontos[i];
+    final b = pontos[(i + 1) % pontos.length];
+    soma += a.x * b.y - b.x * a.y;
+  }
+  return soma.abs() / 2;
+}
+
+double _proporcaoDaFolha(double margem) {
+  final cantos = LayoutFolha.marcadoresDeCanto(margem: margem);
+  final h = cantos[1].center.dx - cantos[0].center.dx;
+  final v = cantos[2].center.dy - cantos[0].center.dy;
+  return min(h, v) / max(h, v);
+}
+
+double _marcadorRelativo(double margem) =>
+    LayoutFolha.ladoMarcador /
+    (LayoutFolha.larguraPagina - 2 * margem - LayoutFolha.ladoMarcador);
+
+final _proporcoes = [
+  _proporcaoDaFolha(LayoutFolha.margemMinima),
+  _proporcaoDaFolha(LayoutFolha.margemMaxima),
+];
+final _proporcaoMinima = _proporcoes.reduce(min);
+final _proporcaoMaxima = _proporcoes.reduce(max);
+final _marcadorMinimo = _marcadorRelativo(LayoutFolha.margemMinima);
+final _marcadorMaximo = _marcadorRelativo(LayoutFolha.margemMaxima);
+
+double _desvioDaProporcao(double proporcao) {
+  if (proporcao < _proporcaoMinima) return _proporcaoMinima - proporcao;
+  if (proporcao > _proporcaoMaxima) return proporcao - _proporcaoMaxima;
+  return 0;
+}
+
 AvaliacaoFoto _avaliar(_Cinza imagem) {
   final problemas = <ProblemaFoto>[];
   final total = imagem.pixels.length;
@@ -117,88 +181,131 @@ AvaliacaoFoto _avaliar(_Cinza imagem) {
     if (p >= 250) estourados++;
   }
 
-  int percentil(double fracao) {
-    var acumulado = 0;
-    for (var v = 0; v < 256; v++) {
-      acumulado += histograma[v];
-      if (acumulado >= total * fracao) return v;
-    }
-    return 255;
-  }
-
   if (soma / total < LimitesFoto.brilhoMinimo) {
     return const AvaliacaoFoto([ProblemaFoto.escura]);
   }
-  if (estourados / total > LimitesFoto.fracaoEstouradaMaxima) {
-    problemas.add(ProblemaFoto.reflexo);
-  } else if (percentil(0.98) - percentil(0.02) <
-      LimitesFoto.contrasteMinimo * 1.5) {
-    return const AvaliacaoFoto([ProblemaFoto.escura]);
-  }
+  final comReflexo = estourados / total > LimitesFoto.fracaoEstouradaMaxima;
+  if (comReflexo) problemas.add(ProblemaFoto.reflexo);
 
   final marcadores = _acharMarcadores(imagem);
   if (marcadores == null) {
+    int percentil(double fracao) {
+      var acumulado = 0;
+      for (var v = 0; v < 256; v++) {
+        acumulado += histograma[v];
+        if (acumulado >= total * fracao) return v;
+      }
+      return 255;
+    }
+
+    final apagada =
+        percentil(0.99) - percentil(0.01) < LimitesFoto.contrasteMinimo * 1.5;
+    if (apagada && !comReflexo) {
+      return const AvaliacaoFoto([ProblemaFoto.escura]);
+    }
     return AvaliacaoFoto([...problemas, ProblemaFoto.marcadores]);
   }
 
-  final [se, sd, ie, id] = marcadores;
-  final topo = se.centro.distanceTo(sd.centro);
-  final base = ie.centro.distanceTo(id.centro);
-  final esquerda = se.centro.distanceTo(ie.centro);
-  final direita = sd.centro.distanceTo(id.centro);
-
-  final cantos = LayoutFolha.marcadoresDeCanto();
-  final esperadaH = cantos[1].center.dx - cantos[0].center.dx;
-  final esperadaV = cantos[2].center.dy - cantos[0].center.dy;
-  final proporcaoEsperada =
-      min(esperadaH, esperadaV) / max(esperadaH, esperadaV);
-
-  final horizontal = (topo + base) / 2;
-  final vertical = (esquerda + direita) / 2;
-  final proporcao = min(horizontal, vertical) / max(horizontal, vertical);
-
-  if (min(topo, base) / max(topo, base) < LimitesFoto.simetriaMinima ||
-      min(esquerda, direita) / max(esquerda, direita) <
-          LimitesFoto.simetriaMinima ||
-      (proporcao - proporcaoEsperada).abs() > LimitesFoto.toleranciaProporcao) {
+  final geometria = _Geometria(marcadores);
+  if (!geometria.simetrica ||
+      _desvioDaProporcao(geometria.proporcao) >
+          LimitesFoto.toleranciaProporcao) {
     problemas.add(ProblemaFoto.inclinada);
   }
-
-  final quadrilatero = [se.centro, sd.centro, id.centro, ie.centro];
-  var area = 0.0;
-  for (var i = 0; i < 4; i++) {
-    final a = quadrilatero[i];
-    final b = quadrilatero[(i + 1) % 4];
-    area += a.x * b.y - b.x * a.y;
-  }
-  if (area.abs() / 2 / total < LimitesFoto.areaMinimaDaFolha) {
+  if (geometria.area / total < LimitesFoto.areaMinimaDaFolha) {
     problemas.add(ProblemaFoto.longe);
   }
 
   final bordas = marcadores.map((m) => _bordas(imagem, m)).toList();
-  final contraste =
-      bordas.map((b) => b.contraste).reduce((a, b) => a + b) / bordas.length;
-  if (contraste < LimitesFoto.contrasteMinimo) {
-    problemas.insert(0, ProblemaFoto.escura);
-  } else {
-    final nitidezH =
-        bordas.map((b) => b.horizontal).reduce((a, b) => a + b) / bordas.length;
-    final nitidezV =
-        bordas.map((b) => b.vertical).reduce((a, b) => a + b) / bordas.length;
-    if (min(nitidezH, nitidezV) < LimitesFoto.nitidezMinima) {
-      problemas.add(ProblemaFoto.desfocada);
-    }
+  double media(double Function(_Borda) valor) =>
+      bordas.map(valor).reduce((a, b) => a + b) / bordas.length;
+
+  if (media((b) => b.contraste) < LimitesFoto.contrasteMinimo) {
+    if (!comReflexo) problemas.insert(0, ProblemaFoto.escura);
+  } else if (min(media((b) => b.horizontal), media((b) => b.vertical)) <
+      LimitesFoto.nitidezMinima) {
+    problemas.add(ProblemaFoto.desfocada);
   }
 
   return AvaliacaoFoto(problemas);
 }
 
 List<_Mancha>? _acharMarcadores(_Cinza imagem) {
+  final candidatas = _candidatas(imagem)
+    ..sort((a, b) => b.area.compareTo(a.area));
+  final topo = candidatas.take(LimitesFoto.maximoCandidatas).toList();
+  if (topo.length < 4) return null;
+
+  List<_Mancha>? melhor;
+  var melhorArea = 0.0;
+  final n = topo.length;
+  for (var a = 0; a < n; a++) {
+    for (var b = a + 1; b < n; b++) {
+      for (var c = b + 1; c < n; c++) {
+        for (var d = c + 1; d < n; d++) {
+          final grupo = _emOrdem([topo[a], topo[b], topo[c], topo[d]]);
+          if (grupo == null) continue;
+          final geometria = _Geometria(grupo);
+          if (geometria.area <= melhorArea) continue;
+          if (_plausivel(grupo, geometria)) {
+            melhor = grupo;
+            melhorArea = geometria.area;
+          }
+        }
+      }
+    }
+  }
+  return melhor;
+}
+
+List<_Mancha>? _emOrdem(List<_Mancha> grupo) {
+  final areas = grupo.map((m) => m.area);
+  if (areas.reduce(max) / areas.reduce(min) > 2.5) return null;
+
+  final cx = grupo.map((m) => m.cx).reduce((a, b) => a + b) / 4;
+  final cy = grupo.map((m) => m.cy).reduce((a, b) => a + b) / 4;
+  final ordenado = [...grupo]
+    ..sort(
+      (p, q) =>
+          atan2(p.cy - cy, p.cx - cx).compareTo(atan2(q.cy - cy, q.cx - cx)),
+    );
+
+  int? sinal;
+  for (var i = 0; i < 4; i++) {
+    final a = ordenado[i].centro;
+    final b = ordenado[(i + 1) % 4].centro;
+    final c = ordenado[(i + 2) % 4].centro;
+    final cruz = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+    if (cruz == 0) return null;
+    final s = cruz.sign.toInt();
+    if (sinal != null && s != sinal) return null;
+    sinal = s;
+  }
+  return ordenado;
+}
+
+bool _plausivel(List<_Mancha> grupo, _Geometria geometria) {
+  if (_desvioDaProporcao(geometria.proporcao) >
+      2 * LimitesFoto.toleranciaProporcao) {
+    return false;
+  }
+  final largura = geometria.larguraFolha;
+  if (largura <= 0) return false;
+  for (final m in grupo) {
+    final relativo = sqrt(m.area) / largura;
+    if (relativo < _marcadorMinimo * 0.4 || relativo > _marcadorMaximo * 2.5) {
+      return false;
+    }
+  }
+  return true;
+}
+
+List<_Mancha> _candidatas(_Cinza imagem) {
   final w = imagem.largura;
   final h = imagem.altura;
   final raio = max(8, max(w, h) ~/ 24);
 
-  final integral = Int64List((w + 1) * (h + 1));
+  final integral = Int32List((w + 1) * (h + 1));
   for (var y = 0; y < h; y++) {
     var linha = 0;
     for (var x = 0; x < w; x++) {
@@ -261,58 +368,23 @@ List<_Mancha>? _acharMarcadores(_Cinza imagem) {
     }
     final mancha = _Mancha(minX, minY, maxX, maxY, area);
     final aspecto = mancha.largura / mancha.altura;
-    if (mancha.largura >= 5 &&
+    final naBorda = minX <= 0 || minY <= 0 || maxX >= w - 1 || maxY >= h - 1;
+    if (!naBorda &&
+        mancha.largura >= 5 &&
         mancha.altura >= 5 &&
         aspecto >= 0.5 &&
         aspecto <= 2 &&
-        area / (mancha.largura * mancha.altura) >= 0.7 &&
+        area / (mancha.largura * mancha.altura) >= 0.6 &&
         area <= areaMaxima) {
       candidatas.add(mancha);
     }
   }
-  if (candidatas.length < 4) return null;
-
-  _Mancha extremo(double Function(_Mancha) chave) =>
-      candidatas.reduce((a, b) => chave(a) <= chave(b) ? a : b);
-
-  final se = extremo((m) => m.cx + m.cy);
-  final id = extremo((m) => -(m.cx + m.cy));
-  final sd = extremo((m) => -(m.cx - m.cy));
-  final ie = extremo((m) => m.cx - m.cy);
-  final marcadores = [se, sd, ie, id];
-  if (marcadores.toSet().length < 4) return null;
-
-  for (final m in marcadores) {
-    if (m.minX <= 0 || m.minY <= 0 || m.maxX >= w - 1 || m.maxY >= h - 1) {
-      return null;
-    }
-  }
-
-  final areas = marcadores.map((m) => m.area);
-  if (areas.reduce(max) / areas.reduce(min) > 3) return null;
-
-  final larguraFolha = min(
-    (se.centro.distanceTo(sd.centro) + ie.centro.distanceTo(id.centro)) / 2,
-    (se.centro.distanceTo(ie.centro) + sd.centro.distanceTo(id.centro)) / 2,
-  );
-  if (larguraFolha <= 0) return null;
-  final esperado =
-      LayoutFolha.ladoMarcador /
-      (LayoutFolha.larguraPagina -
-          2 * LayoutFolha.margemPadrao -
-          LayoutFolha.ladoMarcador);
-  for (final m in marcadores) {
-    final relativo = sqrt(m.area) / larguraFolha;
-    if (relativo < esperado * 0.4 || relativo > esperado * 2.5) return null;
-  }
-
-  return marcadores;
+  return candidatas;
 }
 
-({double horizontal, double vertical, double contraste}) _bordas(
-  _Cinza imagem,
-  _Mancha m,
-) {
+typedef _Borda = ({double horizontal, double vertical, double contraste});
+
+_Borda _bordas(_Cinza imagem, _Mancha m) {
   final alcance = max(3, max(m.largura, m.altura) ~/ 2);
   final cy = m.cy.round();
   final cx = m.cx.round();
