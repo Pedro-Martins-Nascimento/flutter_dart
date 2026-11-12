@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -10,6 +11,7 @@ import '../../services/correcao_repository.dart';
 import '../../services/localizar_versao.dart';
 import '../../services/pendentes.dart';
 import '../../services/prova_repository.dart';
+import '../../services/qualidade_foto.dart';
 import '../../widgets/app_card.dart';
 
 class CorrigirScreen extends StatefulWidget {
@@ -26,15 +28,31 @@ class CorrigirScreen extends StatefulWidget {
   State<CorrigirScreen> createState() => _CorrigirScreenState();
 }
 
+bool get _verificaFoto =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS);
+
 class _CorrigirScreenState extends State<CorrigirScreen> {
+  static const _intervaloDeteccao = Duration(milliseconds: 500);
+  static const _validadeFoto = Duration(milliseconds: 1500);
+
   final _controller = MobileScannerController(
     formats: const [BarcodeFormat.qrCode],
-    detectionSpeed: DetectionSpeed.noDuplicates,
+    detectionSpeed: _verificaFoto
+        ? DetectionSpeed.normal
+        : DetectionSpeed.noDuplicates,
+    detectionTimeoutMs: _intervaloDeteccao.inMilliseconds,
+    returnImage: _verificaFoto,
   );
 
   final _folhasLidas = <String>{};
 
   String? _qrEmFoco;
+  Uint8List? _ultimaFoto;
+  DateTime? _vistaEm;
+  bool _verificando = false;
 
   // Mesma conta do selo de pendentes da aba: versões geradas x correções salvas.
   List<ProvaResumo> _provas = const [];
@@ -71,6 +89,8 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
     for (final codigo in captura.barcodes) {
       final valor = codigo.rawValue;
       if (valor != null && valor.isNotEmpty) {
+        _ultimaFoto = captura.image;
+        _vistaEm = DateTime.now();
         if (valor != _qrEmFoco) setState(() => _qrEmFoco = valor);
         return;
       }
@@ -85,14 +105,38 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
 
   Future<void> _capturar() async {
     final folha = _qrEmFoco;
-    if (folha == null) return;
+    if (folha == null || _verificando) return;
 
-    if (!_folhasLidas.add(folha)) {
+    if (_folhasLidas.contains(folha)) {
       _avisar('Folha $folha já tinha sido corrigida.');
       return;
     }
 
-    setState(() {});
+    if (_verificaFoto) {
+      final vistaEm = _vistaEm;
+      if (vistaEm == null ||
+          DateTime.now().difference(vistaEm) > _validadeFoto) {
+        setState(() => _qrEmFoco = null);
+        _avisar(
+          'Não estou vendo a folha. Aponte a câmera para o QR e capture de novo.',
+        );
+        return;
+      }
+      final avaliacao = await _avaliarFoto(_ultimaFoto);
+      if (!mounted) return;
+      if (!avaliacao.aprovada) {
+        await _pedirNovaFoto(avaliacao);
+        _ultimaFoto = null;
+        _vistaEm = null;
+        return;
+      }
+    } else {
+      _avisar(
+        'Neste dispositivo a qualidade da foto não é verificada. Confira as respostas com atenção.',
+      );
+    }
+
+    setState(() => _folhasLidas.add(folha));
 
     // Se o QR bate com uma versão de prova gerada, segue para a correção com
     // nota; senão, só marca a folha como lida.
@@ -111,6 +155,64 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
     context.push(
       '/corrigir/versao',
       extra: {'prova': encontrada.prova, 'versao': encontrada.versao},
+    );
+  }
+
+  Future<AvaliacaoFoto> _avaliarFoto(Uint8List? foto) async {
+    if (foto == null) {
+      return const AvaliacaoFoto([ProblemaFoto.naoAnalisada]);
+    }
+    setState(() => _verificando = true);
+    try {
+      return await compute(avaliarFotoCodificada, foto);
+    } catch (_) {
+      return const AvaliacaoFoto([ProblemaFoto.naoAnalisada]);
+    } finally {
+      if (mounted) setState(() => _verificando = false);
+    }
+  }
+
+  Future<void> _pedirNovaFoto(AvaliacaoFoto avaliacao) {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(
+          Icons.no_photography_outlined,
+          color: AppColors.warning,
+        ),
+        title: const Text('Tire uma nova foto'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final problema in avaliacao.problemas)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.s2),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Icon(
+                        Icons.warning_amber_rounded,
+                        size: 18,
+                        color: AppColors.warning,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.s2),
+                    Expanded(child: Text(problema.mensagem)),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Tirar nova foto'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -271,7 +373,7 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
   }
 
   Widget _barraInferior() {
-    final habilitado = _qrEmFoco != null && !_concluido;
+    final habilitado = _qrEmFoco != null && !_concluido && !_verificando;
 
     return Container(
       decoration: const BoxDecoration(
@@ -295,6 +397,8 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
                 child: Text(
                   _concluido
                       ? 'Tudo corrigido'
+                      : _verificando
+                      ? 'Verificando foto…'
                       : (_qrEmFoco == null
                             ? 'Aponte para o QR'
                             : 'Capturar folha'),
