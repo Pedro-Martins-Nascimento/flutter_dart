@@ -138,7 +138,12 @@ GoRouter criarRouter(
             ),
             GoRoute(
               path: '/criar-prova',
-              builder: (context, state) => const CriarProvaScreen(),
+              builder: (context, state) {
+                final extra = state.extra;
+                return CriarProvaScreen(
+                  editando: extra is ProvaGerada ? extra : null,
+                );
+              },
               routes: [
                 GoRoute(
                   path: 'questao/:materiaId',

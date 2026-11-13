@@ -135,17 +135,21 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     if (versoes.isEmpty || _salva) return;
 
     setState(() => _salva = true); // evita salvar duas vezes com toque duplo
+    final editando = widget.dados?.editando;
+    final prova = ProvaGerada(
+      id: editando?.id ?? 'pg_${DateTime.now().millisecondsSinceEpoch}',
+      nome: _provaNome,
+      materia: _materiaTexto,
+      turma: _turmaTexto,
+      criadoEm: editando?.criadoEm ?? DateTime.now(),
+      versoes: versoes,
+    );
     try {
-      await widget.repository.criar(
-        ProvaGerada(
-          id: 'pg_${DateTime.now().millisecondsSinceEpoch}',
-          nome: _provaNome,
-          materia: _materiaTexto,
-          turma: _turmaTexto,
-          criadoEm: DateTime.now(),
-          versoes: versoes,
-        ),
-      );
+      if (editando != null) {
+        await widget.repository.editar(prova);
+      } else {
+        await widget.repository.criar(prova);
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() => _salva = false);
@@ -159,7 +163,13 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(content: Text('Prova salva em Provas geradas.')),
+        SnackBar(
+          content: Text(
+            editando != null
+                ? 'Prova atualizada.'
+                : 'Prova salva em Provas geradas.',
+          ),
+        ),
       );
     context.go('/provas-geradas');
   }
