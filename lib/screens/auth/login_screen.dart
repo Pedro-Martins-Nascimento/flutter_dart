@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_page.dart';
 import 'estilo_auth.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -86,14 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: AppColors.accent,
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                      ),
-                    ),
+                    const AppMarca(tamanho: 48),
                     const SizedBox(height: AppSpacing.s8),
 
                     Text(
@@ -105,8 +99,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     const Text(
                       'Entrar',
                       style: TextStyle(
-                        fontSize: 34,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: -0.8,
                         color: AppColors.text,
                       ),
@@ -156,7 +150,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     SizedBox(
                       width: double.infinity,
-                      height: 56,
+                      height: 52,
                       child: OutlinedButton.icon(
                         onPressed: _carregando ? null : _entrarComGoogle,
                         icon: const Text(

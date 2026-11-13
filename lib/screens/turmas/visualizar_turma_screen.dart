@@ -469,27 +469,21 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
                     ),
                   ),
                   const SizedBox(width: AppSpacing.s2),
-                  InkWell(
-                    onTap: _deletarTurma,
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: AppColors.accent,
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.accent.withValues(alpha: 0.15),
-                            blurRadius: 6,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
+                  IconButton(
+                    tooltip: 'Excluir turma',
+                    onPressed: _deletarTurma,
+                    style: IconButton.styleFrom(
+                      fixedSize: const Size(44, 44),
+                      backgroundColor: AppColors.surface,
+                      side: const BorderSide(color: AppColors.neutral300),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
                       ),
-                      child: const Icon(
-                        Icons.delete_outline,
-                        color: Colors.white,
-                        size: 20,
-                      ),
+                    ),
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: AppColors.error,
+                      size: 20,
                     ),
                   ),
                 ],

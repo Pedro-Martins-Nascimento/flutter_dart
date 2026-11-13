@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_page.dart';
 import 'estilo_auth.dart';
 
 class CriarContaScreen extends StatefulWidget {
@@ -94,6 +95,8 @@ class _CriarContaScreenState extends State<CriarContaScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const AppMarca(tamanho: 48),
+                      const SizedBox(height: AppSpacing.s8),
                       Text(
                         'Correção de provas',
                         style: Theme.of(context).textTheme.bodyMedium
@@ -103,8 +106,8 @@ class _CriarContaScreenState extends State<CriarContaScreen> {
                       const Text(
                         'Criar conta',
                         style: TextStyle(
-                          fontSize: 34,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 30,
+                          fontWeight: FontWeight.w700,
                           letterSpacing: -0.8,
                           color: AppColors.text,
                         ),

@@ -154,10 +154,10 @@ class InicioScreen extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _dataPorExtenso(DateTime.now()),
-          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+          _dataPorExtenso(DateTime.now()).toUpperCase(),
+          style: AppTheme.kicker,
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: 6),
         Text(
           'Correção de provas',
           style: TextStyle(
@@ -254,26 +254,38 @@ class InicioScreen extends StatelessWidget {
   }) {
     const tituloErros = 'Erro por matéria';
 
+    const recuoCard = AppSpacing.s5;
+
     if (!largo) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _Bloco(
-            titulo: tituloErros,
-            recuo: recuo,
-            child: _conteudoEstatistica(context, numeros),
-          ),
-          _Bloco(
-            titulo: 'Últimas provas',
-            recuo: recuo,
-            conteudoSemRecuo: true,
-            child: _conteudoProvas(context, provas: provas, recuo: recuo),
-          ),
-        ],
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.s4,
+          AppSpacing.s2,
+          AppSpacing.s4,
+          AppSpacing.s6,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _Bloco(
+              titulo: tituloErros,
+              emCard: true,
+              recuo: recuoCard,
+              child: _conteudoEstatistica(context, numeros),
+            ),
+            const SizedBox(height: AppSpacing.s3),
+            _Bloco(
+              titulo: 'Últimas provas',
+              emCard: true,
+              recuo: recuoCard,
+              conteudoSemRecuo: true,
+              child: _conteudoProvas(context, provas: provas, recuo: recuoCard),
+            ),
+          ],
+        ),
       );
     }
 
-    const recuoCard = AppSpacing.s5;
     return Padding(
       padding: EdgeInsets.fromLTRB(recuo, AppSpacing.s2, recuo, 0),
       child: Row(
@@ -439,10 +451,7 @@ class _Bloco extends StatelessWidget {
       children: [
         Padding(
           padding: EdgeInsets.symmetric(horizontal: recuo),
-          child: Text(
-            titulo.toUpperCase(),
-            style: AppTheme.kicker.copyWith(fontSize: 11, letterSpacing: 0.7),
-          ),
+          child: Text(titulo.toUpperCase(), style: AppTheme.kicker),
         ),
         const SizedBox(height: AppSpacing.s3),
         if (conteudoSemRecuo)
