@@ -4,14 +4,17 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/correcao.dart';
 import '../../theme/app_theme.dart';
+import '../../services/alunos_para_pdf.dart';
 import '../../services/correcao_repository.dart';
 import '../../services/localizar_versao.dart';
 import '../../services/pendentes.dart';
 import '../../services/prova_repository.dart';
 import '../../services/qualidade_foto.dart';
+import '../../services/turmas_repository.dart';
 import '../../widgets/app_card.dart';
 
 class CorrigirScreen extends StatefulWidget {
@@ -26,6 +29,27 @@ class CorrigirScreen extends StatefulWidget {
 
   @override
   State<CorrigirScreen> createState() => _CorrigirScreenState();
+}
+
+/// O que o app sabe da folha que está na frente da câmera.
+enum _SituacaoFolha { identificando, pronta, jaCorrigida, desconhecida }
+
+class _FolhaEmFoco {
+  final String qr;
+  final _SituacaoFolha situacao;
+  final VersaoEncontrada? encontrada;
+  final String? alunoNome;
+
+  const _FolhaEmFoco(this.qr, this.situacao, {this.encontrada, this.alunoNome});
+
+  /// Nome do aluno, ou da prova quando a versão não tem aluno vinculado.
+  String get titulo => alunoNome ?? encontrada?.prova.nome ?? 'Folha';
+
+  String? get detalhe {
+    final prova = encontrada?.prova;
+    if (prova == null || alunoNome == null) return prova?.turma;
+    return prova.turma == null ? prova.nome : '${prova.nome} · ${prova.turma}';
+  }
 }
 
 bool get _verificaFoto =>
@@ -47,9 +71,8 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
     returnImage: _verificaFoto,
   );
 
-  final _folhasLidas = <String>{};
-
   String? _qrEmFoco;
+  _FolhaEmFoco? _folha;
   Uint8List? _ultimaFoto;
   DateTime? _vistaEm;
   bool _verificando = false;
@@ -91,26 +114,69 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
       if (valor != null && valor.isNotEmpty) {
         _ultimaFoto = captura.image;
         _vistaEm = DateTime.now();
-        if (valor != _qrEmFoco) setState(() => _qrEmFoco = valor);
+        if (valor != _qrEmFoco) {
+          setState(() => _qrEmFoco = valor);
+          _identificar(valor);
+        }
         return;
       }
     }
   }
 
-  void _avisar(String mensagem) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(mensagem)));
+  /// Descobre de quem é a folha assim que o QR aparece, para o professor
+  /// conferir o nome antes de capturar.
+  Future<void> _identificar(String qr) async {
+    setState(() => _folha = _FolhaEmFoco(qr, _SituacaoFolha.identificando));
+    final folha = await _consultar(qr);
+    if (!mounted || _qrEmFoco != qr) return;
+    setState(() => _folha = folha);
   }
 
-  Future<void> _capturar() async {
-    final folha = _qrEmFoco;
-    if (folha == null || _verificando) return;
-
-    if (_folhasLidas.contains(folha)) {
-      _avisar('Folha $folha já tinha sido corrigida.');
-      return;
+  Future<_FolhaEmFoco> _consultar(String qr) async {
+    try {
+      final encontrada = await localizarVersaoPorQr(widget.provas, qr);
+      if (encontrada == null) {
+        return _FolhaEmFoco(qr, _SituacaoFolha.desconhecida);
+      }
+      final jaCorrigida = await widget.correcoes.jaCorrigida(
+        encontrada.prova.id,
+        encontrada.versao.id,
+      );
+      return _FolhaEmFoco(
+        qr,
+        jaCorrigida ? _SituacaoFolha.jaCorrigida : _SituacaoFolha.pronta,
+        encontrada: encontrada,
+        alunoNome: _nomeDoAluno(encontrada),
+      );
+    } catch (_) {
+      return _FolhaEmFoco(qr, _SituacaoFolha.desconhecida);
     }
+  }
+
+  String? _nomeDoAluno(VersaoEncontrada encontrada) {
+    final alunoId = encontrada.versao.alunoId;
+    if (alunoId == null) return null;
+    final turmas = context.read<TurmasRepository>().turmas;
+    for (final aluno in alunosDaTurma(encontrada.prova.turma, turmas)) {
+      if (aluno.id == alunoId) return aluno.nome;
+    }
+    return null;
+  }
+
+  void _avisar(String mensagem, {SnackBarAction? acao}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(mensagem), action: acao));
+  }
+
+  SnackBarAction get _verCorrigidas => SnackBarAction(
+    label: 'Ver',
+    onPressed: () => context.push('/corrigir/historico'),
+  );
+
+  Future<void> _capturar() async {
+    final qr = _qrEmFoco;
+    if (qr == null || _verificando) return;
 
     if (_verificaFoto) {
       final vistaEm = _vistaEm;
@@ -118,7 +184,7 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
           DateTime.now().difference(vistaEm) > _validadeFoto) {
         setState(() => _qrEmFoco = null);
         _avisar(
-          'Não estou vendo a folha. Aponte a câmera para o QR e capture de novo.',
+          'Não estou vendo a folha. Aponte a câmera para ela e capture de novo.',
         );
         return;
       }
@@ -136,26 +202,28 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
       );
     }
 
-    setState(() => _folhasLidas.add(folha));
-
-    // Se o QR bate com uma versão de prova gerada, segue para a correção com
-    // nota; senão, só marca a folha como lida.
-    final encontrada = await localizarVersaoPorQr(widget.provas, folha);
+    // Consulta de novo: outra correção pode ter sido salva nesse meio-tempo.
+    final folha = await _consultar(qr);
     if (!mounted) return;
-    if (encontrada == null ||
-        await widget.correcoes.jaCorrigida(
-          encontrada.prova.id,
-          encontrada.versao.id,
-        )) {
-      if (mounted) _avisar('Folha $folha lida e corrigida.');
-      return;
+    setState(() => _folha = folha);
+
+    switch (folha.situacao) {
+      case _SituacaoFolha.desconhecida:
+        _avisar('Esta folha não é de nenhuma prova gerada no app.');
+      case _SituacaoFolha.jaCorrigida:
+        _avisar(
+          'A folha de ${folha.titulo} já foi corrigida.',
+          acao: _verCorrigidas,
+        );
+      case _SituacaoFolha.identificando:
+        break;
+      case _SituacaoFolha.pronta:
+        final encontrada = folha.encontrada!;
+        context.push(
+          '/corrigir/versao',
+          extra: {'prova': encontrada.prova, 'versao': encontrada.versao},
+        );
     }
-    if (!mounted) return;
-
-    context.push(
-      '/corrigir/versao',
-      extra: {'prova': encontrada.prova, 'versao': encontrada.versao},
-    );
   }
 
   Future<AvaliacaoFoto> _avaliarFoto(Uint8List? foto) async {
@@ -268,8 +336,7 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
 
   String _mensagemDeErro(MobileScannerException erro) {
     return switch (erro.errorCode) {
-      MobileScannerErrorCode.permissionDenied =>
-        'Sem permissão de câmera.\nLibere o acesso nas configurações.',
+      MobileScannerErrorCode.permissionDenied => 'Sem permissão de câmera.\nLibere o acesso nas configurações do aparelho.',
       MobileScannerErrorCode.unsupported =>
         'Este dispositivo não tem câmera disponível.',
       _ => 'Não foi possível abrir a câmera.',
@@ -291,8 +358,12 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
             children: [
               const Expanded(
                 child: Text(
-                  'alinhe os 4 marcadores de canto da folha',
-                  style: TextStyle(fontSize: 14, color: Colors.white),
+                  'Enquadre a folha nos 4 cantos',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               IconButton(
@@ -314,36 +385,24 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
             AppSpacing.s5,
             AppSpacing.s5,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Wrap(
+            spacing: AppSpacing.s2,
+            runSpacing: AppSpacing.s2,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Wrap(
-                spacing: AppSpacing.s2,
-                runSpacing: AppSpacing.s2,
-                children: [
-                  _Selo(
-                    _qrEmFoco == null ? 'Procurando folha' : 'Folha detectada',
-                    alerta: _qrEmFoco != null,
-                  ),
-                  ValueListenableBuilder<MobileScannerState>(
-                    valueListenable: _controller,
-                    builder: (context, estado, _) {
-                      if (estado.torchState == TorchState.unavailable) {
-                        return const SizedBox.shrink();
-                      }
-                      final ligada = estado.torchState == TorchState.on;
-                      return _Selo(
-                        ligada ? 'Lanterna ligada' : 'Lanterna',
-                        aoTocar: _alternarLanterna,
-                      );
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.s3),
-              Text(
-                'QR: ${_qrEmFoco ?? '—'}',
-                style: const TextStyle(fontSize: 14, color: Colors.white),
+              _SeloFolha(_folha),
+              ValueListenableBuilder<MobileScannerState>(
+                valueListenable: _controller,
+                builder: (context, estado, _) {
+                  if (estado.torchState == TorchState.unavailable) {
+                    return const SizedBox.shrink();
+                  }
+                  final ligada = estado.torchState == TorchState.on;
+                  return _BotaoLanterna(
+                    ligada: ligada,
+                    aoTocar: _alternarLanterna,
+                  );
+                },
               ),
             ],
           ),
@@ -373,7 +432,24 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
   }
 
   Widget _barraInferior() {
-    final habilitado = _qrEmFoco != null && !_concluido && !_verificando;
+    final situacao = _folha?.situacao;
+    final habilitado =
+        _qrEmFoco != null &&
+        !_concluido &&
+        !_verificando &&
+        situacao == _SituacaoFolha.pronta;
+
+    final rotulo = _concluido
+        ? 'Tudo corrigido'
+        : _verificando
+        ? 'Verificando foto…'
+        : switch (situacao) {
+            null => 'Aponte para uma folha',
+            _SituacaoFolha.identificando => 'Lendo a folha…',
+            _SituacaoFolha.jaCorrigida => 'Folha já corrigida',
+            _SituacaoFolha.desconhecida => 'Folha não reconhecida',
+            _SituacaoFolha.pronta => 'Capturar folha',
+          };
 
     return Container(
       decoration: const BoxDecoration(
@@ -388,33 +464,30 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
               height: 56,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.text,
-                  disabledBackgroundColor: AppColors.text.withValues(
-                    alpha: 0.35,
-                  ),
+                  disabledForegroundColor: Colors.white,
                 ),
                 onPressed: habilitado ? _capturar : null,
-                child: Text(
-                  _concluido
-                      ? 'Tudo corrigido'
-                      : _verificando
-                      ? 'Verificando foto…'
-                      : (_qrEmFoco == null
-                            ? 'Aponte para o QR'
-                            : 'Capturar folha'),
-                ),
+                child: Text(rotulo),
               ),
             ),
           ),
           const SizedBox(width: AppSpacing.s4),
-          Text(
-            '$_corrigidas de $_totalFolhas\ncorrigidas',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 13,
-              height: 1.35,
-              color: AppColors.textMuted,
-            ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$_corrigidas/$_totalFolhas',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.text,
+                ),
+              ),
+              const Text(
+                'corrigidas',
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+              ),
+            ],
           ),
         ],
       ),
@@ -509,36 +582,127 @@ class _Marcador extends StatelessWidget {
   }
 }
 
-class _Selo extends StatelessWidget {
-  final String texto;
-  final bool alerta;
-  final VoidCallback? aoTocar;
+/// Pílula sobre a câmera dizendo de quem é a folha enquadrada.
+class _SeloFolha extends StatelessWidget {
+  final _FolhaEmFoco? folha;
 
-  const _Selo(this.texto, {this.alerta = false, this.aoTocar});
+  const _SeloFolha(this.folha);
 
   @override
   Widget build(BuildContext context) {
-    final conteudo = Container(
+    final folha = this.folha;
+    return switch (folha?.situacao) {
+      null => const _Pilula(
+        icone: Icons.radio_button_unchecked,
+        texto: 'Procurando folha',
+      ),
+      _SituacaoFolha.identificando => const _Pilula(
+        icone: Icons.more_horiz,
+        texto: 'Lendo a folha…',
+      ),
+      _SituacaoFolha.desconhecida => const _Pilula(
+        icone: Icons.warning_amber_rounded,
+        corIcone: AppColors.warning,
+        texto: 'Folha não reconhecida',
+      ),
+      _SituacaoFolha.jaCorrigida => _Pilula(
+        icone: Icons.check_circle,
+        corIcone: AppColors.neutral400,
+        texto: folha!.titulo,
+        detalhe: 'já corrigida',
+      ),
+      _SituacaoFolha.pronta => _Pilula(
+        icone: Icons.check_circle,
+        corIcone: AppColors.success,
+        texto: folha!.titulo,
+        detalhe: folha.detalhe,
+        clara: true,
+      ),
+    };
+  }
+}
+
+class _Pilula extends StatelessWidget {
+  final IconData icone;
+  final Color corIcone;
+  final String texto;
+  final String? detalhe;
+  final bool clara;
+
+  const _Pilula({
+    required this.icone,
+    required this.texto,
+    this.corIcone = AppColors.neutral300,
+    this.detalhe,
+    this.clara = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final corTexto = clara ? AppColors.text : Colors.white;
+    return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.s4,
-        vertical: AppSpacing.s3,
+        vertical: AppSpacing.s2 + 2,
       ),
-      color: alerta ? AppColors.accentLight : AppColors.surface,
-      child: Text(
-        texto,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-          color: alerta ? Colors.white : AppColors.text,
-        ),
+      decoration: BoxDecoration(
+        color: clara ? AppColors.surface : Colors.black.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(AppRadius.full),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icone, size: 16, color: corIcone),
+          const SizedBox(width: AppSpacing.s2),
+          Flexible(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: texto,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  if (detalhe != null)
+                    TextSpan(
+                      text: ' · $detalhe',
+                      style: TextStyle(
+                        color: clara
+                            ? AppColors.neutral700
+                            : AppColors.neutral300,
+                      ),
+                    ),
+                ],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 14, color: corTexto),
+            ),
+          ),
+        ],
       ),
     );
+  }
+}
 
-    if (aoTocar == null) return conteudo;
+class _BotaoLanterna extends StatelessWidget {
+  final bool ligada;
+  final VoidCallback aoTocar;
 
+  const _BotaoLanterna({required this.ligada, required this.aoTocar});
+
+  @override
+  Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
-      child: InkWell(onTap: aoTocar, child: conteudo),
+      color: ligada ? AppColors.surface : Colors.black.withValues(alpha: 0.45),
+      shape: const CircleBorder(),
+      child: IconButton(
+        tooltip: ligada ? 'Desligar lanterna' : 'Ligar lanterna',
+        onPressed: aoTocar,
+        icon: Icon(
+          ligada ? Icons.flashlight_on : Icons.flashlight_off_outlined,
+          color: ligada ? AppColors.text : Colors.white,
+        ),
+      ),
     );
   }
 }
