@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../models/correcao.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/app_page.dart';
 import '../../services/notas_da_prova.dart';
 import '../../services/prova_repository.dart';
 import '../../services/relatorio_excel.dart';
@@ -42,121 +43,57 @@ class ListarProvasScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AppFaixa(
-              bordaBase: const BorderSide(color: AppColors.divider),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.s6,
-                vertical: AppSpacing.s6,
+            AppPageHeader(
+              kicker: 'Provas',
+              titulo: 'Provas geradas',
+              acao: AppNovoButton(
+                rotulo: 'Nova prova',
+                onPressed: () => context.push('/criar-prova'),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Provas', style: AppTheme.kicker),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Provas geradas',
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                color: AppColors.text,
-                                fontWeight: FontWeight.w700,
-                              ),
+            ),
+            Expanded(
+              child: AppMaxWidth(
+                child: provas.isEmpty
+                    ? AppEstadoVazio(
+                        icone: Icons.description_outlined,
+                        titulo: 'Nenhuma prova gerada ainda',
+                        mensagem:
+                            'Monte uma prova escolhendo turma, matérias e questões — '
+                            'as versões geradas ficam guardadas aqui.',
+                        acao: AppNovoButton(
+                          rotulo: 'Nova prova',
+                          onPressed: () => context.push('/criar-prova'),
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.s3),
-                  InkWell(
-                    onTap: () => context.push('/criar-prova'),
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppColors.accent,
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.accent.withValues(alpha: 0.2),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
+                      )
+                    : ListView(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.s4,
+                          AppSpacing.s2,
+                          AppSpacing.s4,
+                          AppSpacing.s8,
+                        ),
+                        children: [
+                          AppListGroup(
+                            children: [
+                              for (final prova in provas)
+                                AppListRow(
+                                  titulo: prova.nome,
+                                  subtitulo: _subtitulo(prova),
+                                  onTap: () => _abrir(context, prova),
+                                  menu: _MenuProva(
+                                    onExportar: () =>
+                                        _exportarNotas(context, prova),
+                                    onExcluir: () => _excluir(context, prova),
+                                  ),
+                                ),
+                            ],
                           ),
                         ],
                       ),
-                      child: const Icon(Icons.add, color: Colors.white),
-                    ),
-                  ),
-                ],
               ),
-            ),
-
-            Expanded(
-              child: provas.isEmpty
-                  ? _vazio(context)
-                  : ListView.separated(
-                      itemCount: provas.length,
-                      padding: EdgeInsets.zero,
-                      separatorBuilder: (context, indice) =>
-                          const Divider(height: 1),
-                      itemBuilder: (context, indice) {
-                        final prova = provas[indice];
-                        return _ProvaItem(
-                          titulo: prova.nome,
-                          meta: _subtitulo(prova),
-                          onTap: () => _abrir(context, prova),
-                          onExportar: () => _exportarNotas(context, prova),
-                          onExcluir: () => _excluir(context, prova),
-                        );
-                      },
-                    ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _vazio(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.s6,
-        AppSpacing.s8 + AppSpacing.s6,
-        AppSpacing.s6,
-        AppSpacing.s6,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Nenhuma prova gerada ainda',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: AppColors.text,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.s3),
-          const SizedBox(
-            width: 280,
-            child: Text(
-              'Monte uma prova escolhendo turma, matérias e questões — '
-              'as versões geradas ficam guardadas aqui.',
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.55,
-                color: AppColors.textMuted,
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.s5),
-          ElevatedButton(
-            onPressed: () => context.push('/criar-prova'),
-            child: const Text('Nova prova'),
-          ),
-        ],
       ),
     );
   }
@@ -229,9 +166,11 @@ class ListarProvasScreen extends StatelessWidget {
   String _subtitulo(ProvaResumo prova) {
     final partes = <String>[prova.materia];
     if (prova.turma != null) partes.add(prova.turma!);
-    partes.add('${prova.totalVersoes} versão(ões)');
+    partes.add(
+      '${prova.totalVersoes} ${prova.totalVersoes == 1 ? 'versão' : 'versões'}',
+    );
     partes.add(_formatarData(prova.criadoEm));
-    return partes.join(' • ');
+    return partes.join(' · ');
   }
 
   String _formatarData(DateTime data) {
@@ -243,80 +182,20 @@ class ListarProvasScreen extends StatelessWidget {
   }
 }
 
-class _ProvaItem extends StatelessWidget {
-  final String titulo;
-  final String meta;
-  final VoidCallback onTap;
+class _MenuProva extends StatelessWidget {
   final VoidCallback onExportar;
   final VoidCallback onExcluir;
 
-  const _ProvaItem({
-    required this.titulo,
-    required this.meta,
-    required this.onTap,
+  const _MenuProva({
     required this.onExportar,
     required this.onExcluir,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.s6,
-          vertical: AppSpacing.s5,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    titulo,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.text,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    meta,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            _MenuProva(onExportar: onExportar, onExcluir: onExcluir),
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.neutral400,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MenuProva extends StatelessWidget {
-  final VoidCallback onExportar;
-  final VoidCallback onExcluir;
-
-  const _MenuProva({required this.onExportar, required this.onExcluir});
-
-  @override
-  Widget build(BuildContext context) {
-    return PopupMenuButton<void>(
+    return AppMenuMais(
       tooltip: 'Opções da prova',
-      icon: const Icon(Icons.more_vert, size: 20, color: AppColors.neutral500),
-      itemBuilder: (context) => [
+      itens: (context) => [
         PopupMenuItem<void>(
           onTap: onExportar,
           child: const Text('Exportar notas (.xlsx)'),

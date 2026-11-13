@@ -29,7 +29,7 @@ void main() {
     await abrir(tester, repo);
     await tester.pump();
     expect(find.text('P1 — Matemática'), findsOneWidget);
-    expect(find.textContaining('4 versão(ões)'), findsOneWidget);
+    expect(find.textContaining('4 versões'), findsOneWidget);
 
     await repo.criar(
       ProvaGerada(
