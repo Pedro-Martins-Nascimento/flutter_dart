@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import 'app_conta.dart';
 import 'app_page.dart';
 
 /// Bolinha com a quantidade pendente de um item do menu.
@@ -262,6 +263,8 @@ class AppNavRail extends StatelessWidget {
                     ),
                   );
                 }),
+                const Spacer(),
+                const AppContaRail(),
               ],
             ),
           ),

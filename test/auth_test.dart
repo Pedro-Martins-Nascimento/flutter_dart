@@ -39,7 +39,7 @@ void main() {
 
     await preencherLogin(tester);
 
-    expect(find.byTooltip('Sair'), findsOneWidget);
+    expect(find.byTooltip('Conta'), findsOneWidget);
   });
 
   testWidgets('senha errada mostra mensagem e continua no login', (
@@ -63,7 +63,7 @@ void main() {
     await tester.tap(find.text('Entrar com Google'));
     await tester.pumpAndSettle();
 
-    expect(find.byTooltip('Sair'), findsOneWidget);
+    expect(find.byTooltip('Conta'), findsOneWidget);
   });
 
   Future<void> preencherCadastro(
@@ -89,7 +89,7 @@ void main() {
 
     await preencherCadastro(tester);
 
-    expect(find.byTooltip('Sair'), findsOneWidget);
+    expect(find.byTooltip('Conta'), findsOneWidget);
     expect(firebase.currentUser?.email, 'ana@escola.com');
     expect(firebase.currentUser?.displayName, 'Ana Souza');
   });
@@ -100,7 +100,7 @@ void main() {
     await preencherCadastro(tester, confirmacao: '654321');
 
     expect(find.text('As senhas não conferem'), findsOneWidget);
-    expect(find.byTooltip('Sair'), findsNothing);
+    expect(find.byTooltip('Conta'), findsNothing);
   });
 
   testWidgets('e-mail já cadastrado mostra mensagem', (tester) async {
@@ -113,7 +113,7 @@ void main() {
     await preencherCadastro(tester);
 
     expect(find.text('Já existe uma conta com este e-mail.'), findsOneWidget);
-    expect(find.byTooltip('Sair'), findsNothing);
+    expect(find.byTooltip('Conta'), findsNothing);
   });
 
   testWidgets('do cadastro dá para voltar ao login', (tester) async {
@@ -127,11 +127,29 @@ void main() {
     expect(find.text('Entrar com Google'), findsOneWidget);
   });
 
+  testWidgets('no desktop, sair fica no rodapé do menu lateral', (
+    tester,
+  ) async {
+    await abrirApp(tester, MockFirebaseAuth(signedIn: true));
+    tester.view.physicalSize = const Size(1280, 800);
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Conta'), findsNothing);
+    await tester.tap(find.byTooltip('Sair'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Sair'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Entrar com Google'), findsOneWidget);
+  });
+
   testWidgets('sair volta para o login', (tester) async {
     await abrirApp(tester, MockFirebaseAuth(signedIn: true));
-    expect(find.byTooltip('Sair'), findsOneWidget);
+    expect(find.byTooltip('Conta'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Sair'));
+    await tester.tap(find.byTooltip('Conta'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sair da conta'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Sair'));
     await tester.pumpAndSettle();
