@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/correcao.dart';
-import '../../services/auth_service.dart';
 import '../../services/correcao_repository.dart';
 import '../../services/estatistica_service.dart';
 import '../../services/pendentes.dart';
@@ -12,6 +11,7 @@ import '../../services/questoes_repository.dart';
 import '../../services/turmas_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/app_conta.dart';
 
 class _ResumoProva {
   final String titulo;
@@ -154,10 +154,10 @@ class InicioScreen extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _dataPorExtenso(DateTime.now()),
-          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+          _dataPorExtenso(DateTime.now()).toUpperCase(),
+          style: AppTheme.kicker,
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: 6),
         Text(
           'Correção de provas',
           style: TextStyle(
@@ -170,6 +170,8 @@ class InicioScreen extends StatelessWidget {
         ),
       ],
     );
+
+    final comAvatar = MediaQuery.sizeOf(context).width < AppLayout.largo;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -187,15 +189,17 @@ class InicioScreen extends StatelessWidget {
                 _AcaoCorrigir(),
                 const SizedBox(width: AppSpacing.s3),
                 _AcaoNovaProva(),
-                const SizedBox(width: AppSpacing.s2),
-                _BotaoSair(),
+                if (comAvatar) ...[
+                  const SizedBox(width: AppSpacing.s3),
+                  const AppMenuConta(),
+                ],
               ],
             )
           : Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(child: titulo),
-                _BotaoSair(),
+                const AppMenuConta(),
               ],
             ),
     );
@@ -254,26 +258,38 @@ class InicioScreen extends StatelessWidget {
   }) {
     const tituloErros = 'Erro por matéria';
 
+    const recuoCard = AppSpacing.s5;
+
     if (!largo) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _Bloco(
-            titulo: tituloErros,
-            recuo: recuo,
-            child: _conteudoEstatistica(context, numeros),
-          ),
-          _Bloco(
-            titulo: 'Últimas provas',
-            recuo: recuo,
-            conteudoSemRecuo: true,
-            child: _conteudoProvas(context, provas: provas, recuo: recuo),
-          ),
-        ],
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.s4,
+          AppSpacing.s2,
+          AppSpacing.s4,
+          AppSpacing.s6,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _Bloco(
+              titulo: tituloErros,
+              emCard: true,
+              recuo: recuoCard,
+              child: _conteudoEstatistica(context, numeros),
+            ),
+            const SizedBox(height: AppSpacing.s3),
+            _Bloco(
+              titulo: 'Últimas provas',
+              emCard: true,
+              recuo: recuoCard,
+              conteudoSemRecuo: true,
+              child: _conteudoProvas(context, provas: provas, recuo: recuoCard),
+            ),
+          ],
+        ),
       );
     }
 
-    const recuoCard = AppSpacing.s5;
     return Padding(
       padding: EdgeInsets.fromLTRB(recuo, AppSpacing.s2, recuo, 0),
       child: Row(
@@ -439,10 +455,7 @@ class _Bloco extends StatelessWidget {
       children: [
         Padding(
           padding: EdgeInsets.symmetric(horizontal: recuo),
-          child: Text(
-            titulo.toUpperCase(),
-            style: AppTheme.kicker.copyWith(fontSize: 11, letterSpacing: 0.7),
-          ),
+          child: Text(titulo.toUpperCase(), style: AppTheme.kicker),
         ),
         const SizedBox(height: AppSpacing.s3),
         if (conteudoSemRecuo)
@@ -655,37 +668,4 @@ String _dataCurta(DateTime data) {
   final dia = data.day.toString().padLeft(2, '0');
   final mes = data.month.toString().padLeft(2, '0');
   return '$dia/$mes';
-}
-
-class _BotaoSair extends StatelessWidget {
-  Future<void> _confirmar(BuildContext context) async {
-    final confirmado = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Sair da conta?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Sair'),
-          ),
-        ],
-      ),
-    );
-    if (confirmado == true && context.mounted) {
-      await context.read<AuthService>().sair();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: 'Sair',
-      icon: const Icon(Icons.logout, color: AppColors.textMuted),
-      onPressed: () => _confirmar(context),
-    );
-  }
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import 'app_conta.dart';
+import 'app_page.dart';
 
 /// Bolinha com a quantidade pendente de um item do menu.
 class _SeloContador extends StatelessWidget {
@@ -31,8 +33,43 @@ class _SeloContador extends StatelessWidget {
   }
 }
 
+class _ItemNav {
+  final String rotulo;
+  final IconData icone;
+  final IconData iconeAtivo;
+
+  const _ItemNav(this.rotulo, this.icone, this.iconeAtivo);
+}
+
+const _itensNav = [
+  _ItemNav('Início', Icons.home_outlined, Icons.home_rounded),
+  _ItemNav('Turmas', Icons.groups_outlined, Icons.groups_rounded),
+  _ItemNav('Questões', Icons.quiz_outlined, Icons.quiz_rounded),
+  _ItemNav('Provas', Icons.description_outlined, Icons.description_rounded),
+  _ItemNav(
+    'Corrigir',
+    Icons.document_scanner_outlined,
+    Icons.document_scanner_rounded,
+  ),
+];
+
+Widget _iconeComSelo(_ItemNav item, bool ativo, int selo, Color cor) {
+  final icone = Icon(
+    ativo ? item.iconeAtivo : item.icone,
+    size: 22,
+    color: cor,
+  );
+  if (selo <= 0) return icone;
+  return Badge(
+    backgroundColor: AppColors.accent,
+    textColor: Colors.white,
+    label: Text(selo > 99 ? '99+' : '$selo'),
+    child: icone,
+  );
+}
+
 class AppBottomNav extends StatelessWidget {
-  static const itens = ['Início', 'Turmas', 'Questões', 'Provas', 'Corrigir'];
+  static final itens = [for (final item in _itensNav) item.rotulo];
 
   final int indiceAtual;
   final ValueChanged<int> aoTocar;
@@ -58,52 +95,58 @@ class AppBottomNav extends StatelessWidget {
         child: SafeArea(
           top: false,
           child: SizedBox(
-            height: 58,
+            height: 64,
             child: Row(
-              children: List.generate(itens.length, (indice) {
+              children: List.generate(_itensNav.length, (indice) {
+                final item = _itensNav[indice];
                 final ativo = indice == indiceAtual;
+                final cor = ativo ? AppColors.text : AppColors.neutral500;
                 return Expanded(
-                  child: InkWell(
-                    onTap: () => aoTocar(indice),
-                    child: Column(
-                      children: [
-                        Container(
-                          height: 3,
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.s2,
-                          ),
-                          color: ativo ? AppColors.text : Colors.transparent,
-                        ),
-                        Expanded(
-                          child: Center(
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    itens[indice],
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: ativo
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-                                      color: ativo
-                                          ? AppColors.text
-                                          : AppColors.textMuted,
-                                    ),
-                                  ),
-                                ),
-                                if ((selos[indice] ?? 0) > 0) ...[
-                                  const SizedBox(width: 4),
-                                  _SeloContador(selos[indice]!),
-                                ],
-                              ],
+                  child: Semantics(
+                    selected: ativo,
+                    button: true,
+                    child: InkResponse(
+                      onTap: () => aoTocar(indice),
+                      radius: 36,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ativo
+                                  ? AppColors.neutral200
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.full,
+                              ),
+                            ),
+                            child: _iconeComSelo(
+                              item,
+                              ativo,
+                              selos[indice] ?? 0,
+                              cor,
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 4),
+                          Text(
+                            item.rotulo,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: ativo
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              color: cor,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -117,7 +160,7 @@ class AppBottomNav extends StatelessWidget {
 }
 
 class AppNavRail extends StatelessWidget {
-  static const double largura = 208;
+  static const double largura = 232;
 
   final int indiceAtual;
   final ValueChanged<int> aoTocar;
@@ -141,81 +184,89 @@ class AppNavRail extends StatelessWidget {
         ),
         child: SafeArea(
           right: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.s5,
-                  AppSpacing.s6,
-                  AppSpacing.s5,
-                  AppSpacing.s6,
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        color: AppColors.accent,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.s3),
-                    const Expanded(
-                      child: Text(
-                        'Correção de provas',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          height: 1.25,
-                          color: AppColors.text,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              ...List.generate(AppBottomNav.itens.length, (indice) {
-                final ativo = indice == indiceAtual;
-                return InkWell(
-                  onTap: () => aoTocar(indice),
-                  child: SizedBox(
-                    height: 44,
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 3,
-                          height: double.infinity,
-                          color: ativo ? AppColors.text : Colors.transparent,
-                        ),
-                        const SizedBox(width: AppSpacing.s5 - 3),
-                        Expanded(
-                          child: Text(
-                            AppBottomNav.itens[indice],
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: ativo
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: ativo
-                                  ? AppColors.text
-                                  : AppColors.textMuted,
-                            ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s3),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpacing.s2,
+                    AppSpacing.s6,
+                    AppSpacing.s2,
+                    AppSpacing.s8,
+                  ),
+                  child: Row(
+                    children: [
+                      AppMarca(tamanho: 30),
+                      SizedBox(width: AppSpacing.s3),
+                      Expanded(
+                        child: Text(
+                          'Correção de provas',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.2,
+                            color: AppColors.text,
                           ),
                         ),
-                        if ((selos[indice] ?? 0) > 0) ...[
-                          _SeloContador(selos[indice]!),
-                          const SizedBox(width: AppSpacing.s4),
-                        ],
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                );
-              }),
-            ],
+                ),
+                ...List.generate(_itensNav.length, (indice) {
+                  final item = _itensNav[indice];
+                  final ativo = indice == indiceAtual;
+                  final cor = ativo ? AppColors.text : AppColors.textMuted;
+                  final selo = selos[indice] ?? 0;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Material(
+                      color: ativo ? AppColors.neutral200 : Colors.transparent,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                        onTap: () => aoTocar(indice),
+                        child: SizedBox(
+                          height: 42,
+                          child: Row(
+                            children: [
+                              const SizedBox(width: AppSpacing.s3),
+                              Icon(
+                                ativo ? item.iconeAtivo : item.icone,
+                                size: 20,
+                                color: cor,
+                              ),
+                              const SizedBox(width: AppSpacing.s3),
+                              Expanded(
+                                child: Text(
+                                  item.rotulo,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: ativo
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                    color: cor,
+                                  ),
+                                ),
+                              ),
+                              if (selo > 0) ...[
+                                _SeloContador(selo),
+                                const SizedBox(width: AppSpacing.s3),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+                const Spacer(),
+                const AppContaRail(),
+              ],
+            ),
           ),
         ),
       ),

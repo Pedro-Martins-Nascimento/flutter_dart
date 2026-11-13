@@ -6,6 +6,7 @@ import '../../models/questao.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../models/turma.dart';
+import '../../services/provas_repository.dart' show ProvaGerada;
 import '../../services/questoes_repository.dart';
 import '../../services/turmas_repository.dart';
 
@@ -16,6 +17,7 @@ class DadosProva {
   final List<Questao> questoes;
   final ModoProva modo;
   final int versoes;
+  final ProvaGerada? editando;
 
   DadosProva({
     required this.nomeProva,
@@ -24,6 +26,7 @@ class DadosProva {
     required this.questoes,
     required this.modo,
     required this.versoes,
+    this.editando,
   });
 
   String get materiasResumo => materias.map((m) => m.nome).join(', ');
@@ -33,7 +36,9 @@ const _minVersoes = 1;
 const _maxVersoes = 12;
 
 class CriarProvaScreen extends StatefulWidget {
-  const CriarProvaScreen({super.key});
+  final ProvaGerada? editando;
+
+  const CriarProvaScreen({super.key, this.editando});
 
   @override
   State<CriarProvaScreen> createState() => _CriarProvaScreenState();
@@ -54,6 +59,55 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
   final TextEditingController nomeProvaController = TextEditingController();
 
   int versoesAGerar = 4;
+
+  late final String _assinaturaInicial;
+
+  bool get _editando => widget.editando != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final prova = widget.editando;
+    if (prova != null) _preencherCom(prova);
+    _assinaturaInicial = _assinatura;
+  }
+
+  void _preencherCom(ProvaGerada prova) {
+    nomeProvaController.text = prova.nome;
+
+    final noBanco = {for (final q in _bancoDeQuestoes) q.id};
+    for (final versao in prova.versoes) {
+      for (final q in versao.questoes) {
+        if (!noBanco.contains(q.questao.id)) continue;
+        questoesSelecionadas.add(q.questao.id);
+        materiasSelecionadas.add(q.questao.materiaId);
+      }
+    }
+
+    for (final turma in _turmasDisponiveis) {
+      if (turma.nome == prova.turma) turmaSelecionadaId = turma.id;
+    }
+
+    final conjuntos = {
+      for (final versao in prova.versoes)
+        (versao.questoes.map((q) => q.questao.id).toList()..sort()).join(','),
+    };
+    modoSelecionado = conjuntos.length > 1
+        ? ModoProva.conjuntosDiferentes
+        : ModoProva.mesmaEmbaralhada;
+    if (prova.versoes.isNotEmpty) {
+      versoesAGerar = prova.versoes.length.clamp(_minVersoes, _maxVersoes);
+    }
+  }
+
+  String get _assinatura => [
+    nomeProvaController.text.trim(),
+    turmaSelecionadaId ?? '',
+    (materiasSelecionadas.toList()..sort()).join(','),
+    (questoesSelecionadas.toList()..sort()).join(','),
+    modoSelecionado.name,
+    versoesAGerar,
+  ].join('|');
 
   @override
   void dispose() {
@@ -176,6 +230,7 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
           .toList(),
       modo: modoSelecionado,
       versoes: versoesAGerar,
+      editando: widget.editando,
     );
 
     context.push('/gerar-provas', extra: dados);
@@ -191,6 +246,15 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
       if (questoes.isNotEmpty) grupos[materia] = questoes;
     }
     return grupos;
+  }
+
+  String _nomesSelecionados() {
+    final nomes = [
+      for (final materia in _materiasDisponiveis)
+        if (materiasSelecionadas.contains(materia.id)) materia.nome,
+    ];
+    if (nomes.length <= 1) return nomes.join();
+    return '${nomes.sublist(0, nomes.length - 1).join(', ')} e ${nomes.last}';
   }
 
   Widget _listaDeQuestoes() {
@@ -290,11 +354,7 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
     );
   }
 
-  bool get _temRascunho =>
-      nomeProvaController.text.trim().isNotEmpty ||
-      turmaSelecionadaId != null ||
-      materiasSelecionadas.isNotEmpty ||
-      questoesSelecionadas.isNotEmpty;
+  bool get _temRascunho => _assinatura != _assinaturaInicial;
 
   Future<bool> _confirmarSaida() async {
     if (!_temRascunho) return true;
@@ -302,8 +362,14 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
     final sair = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Descartar esta prova?'),
-        content: const Text('O que você preencheu aqui será perdido.'),
+        title: Text(
+          _editando ? 'Descartar as alterações?' : 'Descartar esta prova?',
+        ),
+        content: Text(
+          _editando
+              ? 'As mudanças nesta prova serão perdidas.'
+              : 'O que você preencheu aqui será perdido.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -344,7 +410,7 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
       child: AppScaffold(
         backgroundColor: AppColors.bg,
         appBar: AppBar(
-          title: const Text('Nova prova'),
+          title: Text(_editando ? 'Editar prova' : 'Nova prova'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: AppColors.text),
             onPressed: _sair,
@@ -354,6 +420,37 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
         body: ListView(
           padding: const EdgeInsets.all(AppSpacing.s6),
           children: [
+            if (_editando) ...[
+              AppCard(
+                backgroundColor: AppColors.warning100,
+                border: Border.all(
+                  color: AppColors.warning.withValues(alpha: 0.4),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 20,
+                      color: AppColors.warning,
+                    ),
+                    SizedBox(width: AppSpacing.s3),
+                    Expanded(
+                      child: Text(
+                        'Ao salvar, as versões são geradas de novo. '
+                        'Folhas desta prova que já foram impressas deixam de valer.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.45,
+                          color: AppColors.text,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.s6),
+            ],
             Text('NOME DA PROVA', style: AppTheme.kicker),
             const SizedBox(height: AppSpacing.s2),
             TextField(
@@ -422,7 +519,7 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
               ],
             ),
             const SizedBox(height: AppSpacing.s2),
-            if (questoesDisponiveis.isEmpty)
+            if (materiasSelecionadas.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: AppSpacing.s4),
                 child: Text(
@@ -430,8 +527,44 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
                   style: TextStyle(color: AppColors.textMuted),
                 ),
               )
-            else
-              _listaDeQuestoes(),
+            else ...[
+              if (questoesDisponiveis.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s3),
+                  child: Text(
+                    'Ainda não há questões em ${_nomesSelecionados()}. '
+                    'Crie a primeira sem sair desta tela.',
+                    style: const TextStyle(color: AppColors.textMuted),
+                  ),
+                )
+              else
+                _listaDeQuestoes(),
+              const SizedBox(height: AppSpacing.s2),
+              Wrap(
+                spacing: AppSpacing.s2,
+                runSpacing: AppSpacing.s2,
+                children: [
+                  for (final materia in _materiasDisponiveis)
+                    if (materiasSelecionadas.contains(materia.id))
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            context.push('/criar-prova/questao/${materia.id}'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 40),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.s4,
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: Text('Nova questão em ${materia.nome}'),
+                      ),
+                ],
+              ),
+            ],
 
             const SizedBox(height: AppSpacing.s6),
             Text('MODO', style: AppTheme.kicker),

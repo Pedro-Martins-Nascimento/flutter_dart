@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 
-const estiloTextoAuth = TextStyle(fontSize: 17, color: AppColors.text);
+const estiloTextoAuth = TextStyle(fontSize: 16, color: AppColors.text);
 
 final _regexEmail = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
@@ -24,26 +24,16 @@ Widget rotuloAuth(String texto) => Padding(
   padding: const EdgeInsets.only(bottom: AppSpacing.s2),
   child: Text(
     texto,
-    style: const TextStyle(fontSize: 14, color: AppColors.textMuted),
+    style: const TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: AppColors.text,
+    ),
   ),
 );
 
-InputBorder _linha(Color cor, [double espessura = 1]) => UnderlineInputBorder(
-  borderSide: BorderSide(color: cor, width: espessura),
-);
-
-InputDecoration decoracaoAuth(String hint, {Widget? sufixo}) => InputDecoration(
-  hintText: hint,
-  hintStyle: const TextStyle(fontSize: 17, color: AppColors.neutral500),
-  suffixIcon: sufixo,
-  filled: false,
-  contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.s2),
-  border: _linha(AppColors.divider),
-  enabledBorder: _linha(AppColors.divider),
-  focusedBorder: _linha(AppColors.accent, 1.5),
-  errorBorder: _linha(AppColors.error),
-  focusedErrorBorder: _linha(AppColors.error, 1.5),
-);
+InputDecoration decoracaoAuth(String hint, {Widget? sufixo}) =>
+    InputDecoration(hintText: hint, suffixIcon: sufixo);
 
 class BotaoPrincipalAuth extends StatelessWidget {
   final String texto;
@@ -61,12 +51,8 @@ class BotaoPrincipalAuth extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: 52,
       child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.text,
-          disabledBackgroundColor: AppColors.text.withValues(alpha: 0.35),
-        ),
         onPressed: carregando ? null : onPressed,
         child: carregando
             ? const SizedBox(

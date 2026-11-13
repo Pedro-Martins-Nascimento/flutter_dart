@@ -1,8 +1,11 @@
+import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dart/services/auth_service.dart';
 import 'package:flutter_dart/services/pendentes.dart';
 import 'package:flutter_dart/services/prova_repository.dart';
 import 'package:flutter_dart/widgets/app_bottom_nav.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 
 import 'correcao_fixtures.dart';
 
@@ -40,7 +43,11 @@ void main() {
   });
 
   group('selo no menu', () {
-    Widget menu(Widget filho) => MaterialApp(home: Scaffold(body: filho));
+    Widget menu(Widget filho) => ChangeNotifierProvider(
+      create: (_) =>
+          AuthService(auth: MockFirebaseAuth(), tokenGoogle: () async => null),
+      child: MaterialApp(home: Scaffold(body: filho)),
+    );
 
     testWidgets('barra inferior mostra a quantidade na aba Corrigir', (
       tester,

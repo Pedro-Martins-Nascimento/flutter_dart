@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/turma.dart';
 import '../../services/turmas_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/app_page.dart';
 
 class CriarTurmaScreen extends StatelessWidget {
   const CriarTurmaScreen({super.key});
@@ -20,126 +20,49 @@ class CriarTurmaScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AppFaixa(
-              bordaBase: const BorderSide(color: AppColors.divider),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.s6,
-                vertical: AppSpacing.s6,
+            AppPageHeader(
+              kicker: 'Turmas',
+              titulo: 'Minhas turmas',
+              acao: AppNovoButton(
+                rotulo: 'Nova turma',
+                onPressed: () => context.push('/turmas/nova'),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Turmas', style: AppTheme.kicker),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Minhas turmas',
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                color: AppColors.text,
-                                fontWeight: FontWeight.w700,
-                              ),
+            ),
+            Expanded(
+              child: AppMaxWidth(
+                child: turmas.isEmpty
+                    ? AppEstadoVazio(
+                        icone: Icons.groups_outlined,
+                        titulo: 'Nenhuma turma ainda',
+                        mensagem: 'Crie uma turma para cadastrar os alunos e vincular as provas.',
+                        acao: AppNovoButton(
+                          rotulo: 'Nova turma',
+                          onPressed: () => context.push('/turmas/nova'),
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.s3),
-
-                  InkWell(
-                    onTap: () => context.push('/turmas/nova'),
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppColors.accent,
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.accent.withValues(alpha: 0.2),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
+                      )
+                    : ListView(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.s4,
+                          AppSpacing.s2,
+                          AppSpacing.s4,
+                          AppSpacing.s8,
+                        ),
+                        children: [
+                          AppListGroup(
+                            children: [
+                              for (final turma in turmas)
+                                AppListRow(
+                                  titulo: turma.nome,
+                                  subtitulo:
+                                      '${turma.alunos.length} ${turma.alunos.length == 1 ? 'aluno' : 'alunos'}',
+                                  onTap: () =>
+                                      context.push('/turmas/${turma.id}'),
+                                ),
+                            ],
                           ),
                         ],
                       ),
-                      child: const Icon(Icons.add, color: Colors.white),
-                    ),
-                  ),
-                ],
               ),
-            ),
-
-            Expanded(
-              child: AppMaxWidth(
-                child: ListView.separated(
-                  itemCount: turmas.length,
-                  padding: EdgeInsets.zero,
-                  separatorBuilder: (context, index) =>
-                      const Divider(height: 1, indent: 0),
-                  itemBuilder: (context, index) {
-                    final turma = turmas[index];
-                    return _TurmaItem(
-                      turma: turma,
-                      onTap: () => context.push('/turmas/${turma.id}'),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TurmaItem extends StatelessWidget {
-  final Turma turma;
-  final VoidCallback onTap;
-
-  const _TurmaItem({required this.turma, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.s6,
-          vertical: AppSpacing.s5,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    turma.nome,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.text,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${turma.alunos.length} alunos',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.neutral400,
-              size: 20,
             ),
           ],
         ),
