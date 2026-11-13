@@ -193,6 +193,15 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
     return grupos;
   }
 
+  String _nomesSelecionados() {
+    final nomes = [
+      for (final materia in _materiasDisponiveis)
+        if (materiasSelecionadas.contains(materia.id)) materia.nome,
+    ];
+    if (nomes.length <= 1) return nomes.join();
+    return '${nomes.sublist(0, nomes.length - 1).join(', ')} e ${nomes.last}';
+  }
+
   Widget _listaDeQuestoes() {
     final grupos = _questoesPorMateria;
     final agrupar = grupos.length > 1;
@@ -422,7 +431,7 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
               ],
             ),
             const SizedBox(height: AppSpacing.s2),
-            if (questoesDisponiveis.isEmpty)
+            if (materiasSelecionadas.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: AppSpacing.s4),
                 child: Text(
@@ -430,8 +439,44 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
                   style: TextStyle(color: AppColors.textMuted),
                 ),
               )
-            else
-              _listaDeQuestoes(),
+            else ...[
+              if (questoesDisponiveis.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s3),
+                  child: Text(
+                    'Ainda não há questões em ${_nomesSelecionados()}. '
+                    'Crie a primeira sem sair desta tela.',
+                    style: const TextStyle(color: AppColors.textMuted),
+                  ),
+                )
+              else
+                _listaDeQuestoes(),
+              const SizedBox(height: AppSpacing.s2),
+              Wrap(
+                spacing: AppSpacing.s2,
+                runSpacing: AppSpacing.s2,
+                children: [
+                  for (final materia in _materiasDisponiveis)
+                    if (materiasSelecionadas.contains(materia.id))
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            context.push('/criar-prova/questao/${materia.id}'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 40),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.s4,
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: Text('Nova questão em ${materia.nome}'),
+                      ),
+                ],
+              ),
+            ],
 
             const SizedBox(height: AppSpacing.s6),
             Text('MODO', style: AppTheme.kicker),

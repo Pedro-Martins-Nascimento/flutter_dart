@@ -139,6 +139,14 @@ GoRouter criarRouter(
             GoRoute(
               path: '/criar-prova',
               builder: (context, state) => const CriarProvaScreen(),
+              routes: [
+                GoRoute(
+                  path: 'questao/:materiaId',
+                  builder: (context, state) => QuestaoFormScreen(
+                    materiaId: state.pathParameters['materiaId']!,
+                  ),
+                ),
+              ],
             ),
             GoRoute(
               path: '/gerar-provas',
