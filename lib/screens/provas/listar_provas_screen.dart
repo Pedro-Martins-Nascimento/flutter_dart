@@ -12,7 +12,7 @@ import '../../widgets/app_page.dart';
 import '../../services/notas_da_prova.dart';
 import '../../services/docx_service.dart';
 import '../../services/prova_repository.dart';
-import '../../services/provas_repository.dart' show ProvaGerada;
+import '../../models/prova_gerada.dart';
 import '../../services/relatorio_excel.dart';
 import '../../services/salvar_arquivo.dart' show salvarDocx, salvarXlsx;
 import '../../services/turmas_repository.dart';

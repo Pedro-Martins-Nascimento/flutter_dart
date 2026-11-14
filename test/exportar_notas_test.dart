@@ -6,7 +6,7 @@ import 'package:flutter_dart/models/correcao.dart';
 import 'package:flutter_dart/models/turma.dart';
 import 'package:flutter_dart/screens/provas/listar_provas_screen.dart';
 import 'package:flutter_dart/services/prova_repository_memoria.dart';
-import 'package:flutter_dart/services/provas_repository.dart';
+import 'package:flutter_dart/models/prova_gerada.dart';
 import 'package:flutter_dart/services/relatorio_excel.dart';
 import 'package:flutter_dart/services/turmas_repository.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -7,7 +7,7 @@ import 'prova_repository_contrato.dart';
 void main() {
   ProvaRepositoryFirestore repositorio(
     FakeFirebaseFirestore firestore,
-    String uid,
+    String? uid,
   ) => ProvaRepositoryFirestore(uid: () => uid, firestore: firestore);
 
   group('ProvaRepositoryFirestore', () {
@@ -83,6 +83,21 @@ void main() {
       expect(await ana.listar(), hasLength(1));
       expect(await beto.listar(), isEmpty);
       expect(await beto.buscar('a'), isNull);
+    });
+
+    test('sem professor logado (uid nulo): leituras vazias e escritas ignoradas', () async {
+      final firestore = FakeFirebaseFirestore();
+      final semLogin = repositorio(firestore, null);
+      final p = prova('p1', versoes: 2);
+
+      await semLogin.criar(p);
+      await semLogin.editar(prova('p1', versoes: 1));
+      await semLogin.atualizarVersao('p1', p.versoes.first);
+      await semLogin.excluir('p1');
+
+      expect(await semLogin.listar(), isEmpty);
+      expect(await semLogin.observar().first, isEmpty);
+      expect(await semLogin.buscar('p1'), isNull);
     });
   });
 }

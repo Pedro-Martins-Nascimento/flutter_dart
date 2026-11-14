@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dart/models/questao.dart';
 import 'package:flutter_dart/screens/inicio/estatistica_completa_screen.dart';
 import 'package:flutter_dart/services/correcao_repository_memoria.dart';
 import 'package:flutter_dart/services/questoes_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/provas_exemplo.dart';
 import 'package:provider/provider.dart';
 
 import 'correcao_fixtures.dart';

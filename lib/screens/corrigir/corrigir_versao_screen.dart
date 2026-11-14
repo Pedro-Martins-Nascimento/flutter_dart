@@ -15,7 +15,8 @@ import '../../models/questao.dart';
 import '../../models/versao_prova.dart';
 import '../../services/alunos_para_pdf.dart';
 import '../../services/correcao_repository.dart';
-import '../../services/provas_repository.dart' show ProvaGerada;
+import '../../services/firebase_erro.dart';
+import '../../models/prova_gerada.dart';
 import '../../services/turmas_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
@@ -98,11 +99,17 @@ class _CorrigirVersaoScreenState extends State<CorrigirVersaoScreen> {
     setState(() => _salvando = true);
     try {
       await widget.correcoes.salvar(correcao);
-    } catch (_) {
+    } catch (erro) {
       if (!mounted) return;
       setState(() => _salvando = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível salvar a correção.')),
+        SnackBar(
+          content: Text(
+            eErroDeConexao(erro)
+                ? 'Sem conexão. A correção não foi salva.'
+                : 'Não foi possível salvar a correção.',
+          ),
+        ),
       );
       return;
     }

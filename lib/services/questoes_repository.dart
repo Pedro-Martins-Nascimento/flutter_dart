@@ -182,7 +182,7 @@ class QuestoesRepository extends ChangeNotifier {
     );
   }
 
-  void salvarQuestao(Questao questao) {
+  Future<void> salvarQuestao(Questao questao) async {
     if (_modoMemoria) {
       final i = _questoes.indexWhere((q) => q.id == questao.id);
       if (i >= 0) {
@@ -198,15 +198,12 @@ class QuestoesRepository extends ChangeNotifier {
     final db = __firestore;
     if (uid == null || db == null) return;
 
-    db
+    await db
         .collection('professores')
         .doc(uid)
         .collection('questoes')
         .doc(questao.id)
-        .set(QuestaoMapper.questaoParaMapa(questao))
-        .catchError(
-          (e) => debugPrint('[QuestoesRepository] salvarQuestao: $e'),
-        );
+        .set(QuestaoMapper.questaoParaMapa(questao));
   }
 
   void excluirQuestao(String id) {
