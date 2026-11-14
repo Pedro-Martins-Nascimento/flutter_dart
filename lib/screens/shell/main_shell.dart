@@ -7,6 +7,7 @@ import '../../services/pendentes.dart';
 import '../../services/prova_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_bottom_nav.dart';
+import '../../widgets/aviso_sem_conexao.dart';
 
 class MainShell extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
@@ -52,21 +53,33 @@ class MainShell extends StatelessWidget {
       builder: (context, restricoes) {
         if (restricoes.maxWidth >= AppLayout.largo) {
           return Scaffold(
-            body: Row(
+            body: Column(
               children: [
-                AppNavRail(
-                  indiceAtual: navigationShell.currentIndex,
-                  aoTocar: _irPara,
-                  selos: selos,
+                const AvisoSemConexao(),
+                Expanded(
+                  child: Row(
+                    children: [
+                      AppNavRail(
+                        indiceAtual: navigationShell.currentIndex,
+                        aoTocar: _irPara,
+                        selos: selos,
+                      ),
+                      Expanded(child: navigationShell),
+                    ],
+                  ),
                 ),
-                Expanded(child: navigationShell),
               ],
             ),
           );
         }
 
         return Scaffold(
-          body: navigationShell,
+          body: Column(
+            children: [
+              const AvisoSemConexao(),
+              Expanded(child: navigationShell),
+            ],
+          ),
           bottomNavigationBar: AppBottomNav(
             indiceAtual: navigationShell.currentIndex,
             aoTocar: _irPara,

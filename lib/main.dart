@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'router/app_router.dart';
 import 'services/auth_service.dart';
+import 'services/conexao_service.dart';
 import 'services/correcao_repository.dart';
 import 'services/correcao_repository_do_professor.dart';
 import 'services/prova_repository.dart';
@@ -22,15 +23,22 @@ Future<void> main() async {
 
 class AppProviders extends StatelessWidget {
   final AuthService auth;
+  final ConexaoService? conexao;
   final Widget child;
 
-  const AppProviders({super.key, required this.auth, required this.child});
+  const AppProviders({
+    super.key,
+    required this.auth,
+    this.conexao,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: auth),
+        ChangeNotifierProvider(create: (_) => conexao ?? ConexaoService()),
         ChangeNotifierProvider(create: (_) => TurmasRepository()),
         ChangeNotifierProvider(create: (_) => QuestoesRepository()),
       ],
@@ -41,10 +49,17 @@ class AppProviders extends StatelessWidget {
 
 class MyApp extends StatefulWidget {
   final AuthService? auth;
+  final ConexaoService? conexao;
   final ProvaRepository? provas;
   final CorrecaoRepository? correcoes;
 
-  const MyApp({super.key, this.auth, this.provas, this.correcoes});
+  const MyApp({
+    super.key,
+    this.auth,
+    this.conexao,
+    this.provas,
+    this.correcoes,
+  });
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -75,6 +90,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return AppProviders(
       auth: _auth,
+      conexao: widget.conexao,
       child: MaterialApp.router(
         title: 'Correção de Provas',
 

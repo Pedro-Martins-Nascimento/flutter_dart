@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_page.dart';
+import '../../widgets/aviso_sem_conexao.dart';
 import 'estilo_auth.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -73,8 +74,12 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
+        child: Column(
+          children: [
+            const AvisoSemConexao(),
+            Expanded(
+              child: Center(
+                child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.s6,
               vertical: AppSpacing.s8,
@@ -202,6 +207,9 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
+              ),
+            ),
+          ],
         ),
       ),
     );
