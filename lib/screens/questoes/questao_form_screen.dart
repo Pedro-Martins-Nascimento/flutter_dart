@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/questao.dart';
+import '../../services/firebase_erro.dart';
 import '../../services/questoes_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
@@ -76,7 +77,7 @@ class _QuestaoFormScreenState extends State<QuestaoFormScreen> {
     });
   }
 
-  void _salvar() {
+  Future<void> _salvar() async {
     final enunciado = _enunciado.text.trim();
     if (enunciado.isEmpty) {
       _avisar('Escreva o enunciado da questão.');
@@ -97,7 +98,18 @@ class _QuestaoFormScreenState extends State<QuestaoFormScreen> {
       respostaCorreta: _correta,
     );
 
-    context.read<QuestoesRepository>().salvarQuestao(questao);
+    try {
+      await context.read<QuestoesRepository>().salvarQuestao(questao);
+    } catch (erro) {
+      if (!mounted) return;
+      _avisar(
+        eErroDeConexao(erro)
+            ? 'Sem conexão. A questão não foi salva.'
+            : 'Não foi possível salvar a questão.',
+      );
+      return;
+    }
+    if (!mounted) return;
     context.pop();
   }
 

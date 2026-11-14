@@ -12,7 +12,8 @@ import '../../models/versao_prova.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../services/prova_repository.dart';
-import '../../services/provas_repository.dart' show ProvaGerada;
+import '../../services/firebase_erro.dart';
+import '../../models/prova_gerada.dart';
 import '../../services/pdf_service.dart';
 import '../../services/questoes_repository.dart';
 import '../../services/turmas_repository.dart';
@@ -135,22 +136,32 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     if (versoes.isEmpty || _salva) return;
 
     setState(() => _salva = true); // evita salvar duas vezes com toque duplo
+    final editando = widget.dados?.editando;
+    final prova = ProvaGerada(
+      id: editando?.id ?? 'pg_${DateTime.now().millisecondsSinceEpoch}',
+      nome: _provaNome,
+      materia: _materiaTexto,
+      turma: _turmaTexto,
+      criadoEm: editando?.criadoEm ?? DateTime.now(),
+      versoes: versoes,
+    );
     try {
-      await widget.repository.criar(
-        ProvaGerada(
-          id: 'pg_${DateTime.now().millisecondsSinceEpoch}',
-          nome: _provaNome,
-          materia: _materiaTexto,
-          turma: _turmaTexto,
-          criadoEm: DateTime.now(),
-          versoes: versoes,
-        ),
-      );
-    } catch (_) {
+      if (editando != null) {
+        await widget.repository.editar(prova);
+      } else {
+        await widget.repository.criar(prova);
+      }
+    } catch (erro) {
       if (!mounted) return;
       setState(() => _salva = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível salvar a prova.')),
+        SnackBar(
+          content: Text(
+            eErroDeConexao(erro)
+                ? 'Sem conexão. A prova não foi salva.'
+                : 'Não foi possível salvar a prova.',
+          ),
+        ),
       );
       return;
     }
@@ -159,7 +170,13 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(content: Text('Prova salva em Provas geradas.')),
+        SnackBar(
+          content: Text(
+            editando != null
+                ? 'Prova atualizada.'
+                : 'Prova salva em Provas geradas.',
+          ),
+        ),
       );
     context.go('/provas-geradas');
   }

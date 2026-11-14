@@ -11,7 +11,7 @@ import 'correcao_repository_firestore.dart';
 class CorrecaoRepositoryDoProfessor implements CorrecaoRepository {
   CorrecaoRepositoryDoProfessor({required this.uid, this.firestore});
 
-  final String Function() uid;
+  final String? Function() uid;
   final FirebaseFirestore? firestore;
 
   CorrecaoRepository get _repo => CorrecaoRepositoryFirestore(

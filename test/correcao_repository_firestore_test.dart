@@ -36,5 +36,18 @@ void main() {
       expect(await beto.buscar('a'), isNull);
       expect(await beto.jaCorrigida('p1', 'v1'), isFalse);
     });
+
+    test('sem uid (nulo ou vazio): leituras vazias e escritas ignoradas sem gravar', () async {
+      final firestore = FakeFirebaseFirestore();
+      final semLogin = CorrecaoRepositoryFirestore(firestore, null);
+
+      await semLogin.salvar(correcao('a'));
+      await semLogin.excluir('a');
+
+      expect(await semLogin.listar(), isEmpty);
+      expect(await semLogin.observar().first, isEmpty);
+      expect(await semLogin.buscar('a'), isNull);
+      expect(await semLogin.jaCorrigida('p1', 'v1'), isFalse);
+    });
   });
 }

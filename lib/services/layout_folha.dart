@@ -15,6 +15,8 @@ class LayoutFolha {
   /// Margem padrão. O editor de layout pode trocar, por isso as funções abaixo
   /// recebem a margem em uso.
   static const double margemPadrao = 28;
+  static const double margemMinima = 14;
+  static const double margemMaxima = 48;
 
   // Marcadores de canto (quadrados pretos usados para alinhar a foto).
   static const double ladoMarcador = 16;

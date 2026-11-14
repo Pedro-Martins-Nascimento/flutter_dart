@@ -2,7 +2,7 @@
 // trocar a implementação (memória, Firestore) não exige mexer nelas.
 
 import '../models/versao_prova.dart';
-import 'provas_repository.dart' show ProvaGerada;
+import '../models/prova_gerada.dart';
 
 /// Dados de uma prova para o histórico: tudo menos as versões.
 ///

@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../models/versao_prova.dart';
+import '../screens/auth/criar_conta_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../models/questao.dart';
 import '../screens/corrigir/corrigir_screen.dart';
@@ -24,7 +25,7 @@ import '../services/auth_service.dart';
 import '../services/correcao_repository.dart';
 import '../services/prova_repository.dart';
 import '../screens/shell/main_shell.dart';
-import '../services/provas_repository.dart';
+import '../models/prova_gerada.dart';
 
 GoRouter criarRouter(
   AuthService auth,
@@ -34,13 +35,19 @@ GoRouter criarRouter(
   initialLocation: '/login',
   refreshListenable: auth,
   redirect: (context, state) {
-    final naTelaDeLogin = state.matchedLocation == '/login';
-    if (!auth.logado) return naTelaDeLogin ? null : '/login';
-    if (naTelaDeLogin) return '/inicio';
+    final telaPublica =
+        state.matchedLocation == '/login' ||
+        state.matchedLocation == '/cadastro';
+    if (!auth.logado) return telaPublica ? null : '/login';
+    if (telaPublica) return '/inicio';
     return null;
   },
   routes: [
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+    GoRoute(
+      path: '/cadastro',
+      builder: (context, state) => const CriarContaScreen(),
+    ),
 
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) => MainShell(
@@ -131,7 +138,20 @@ GoRouter criarRouter(
             ),
             GoRoute(
               path: '/criar-prova',
-              builder: (context, state) => const CriarProvaScreen(),
+              builder: (context, state) {
+                final extra = state.extra;
+                return CriarProvaScreen(
+                  editando: extra is ProvaGerada ? extra : null,
+                );
+              },
+              routes: [
+                GoRoute(
+                  path: 'questao/:materiaId',
+                  builder: (context, state) => QuestaoFormScreen(
+                    materiaId: state.pathParameters['materiaId']!,
+                  ),
+                ),
+              ],
             ),
             GoRoute(
               path: '/gerar-provas',

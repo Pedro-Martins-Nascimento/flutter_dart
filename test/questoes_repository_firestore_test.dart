@@ -233,5 +233,25 @@ void main() {
       expect(repo.materias, isEmpty);
       expect(repo.questoes, isEmpty);
     });
+
+    test('sem login: leituras vazias e escritas ignoradas sem gravar no Firestore', () async {
+      final authDeslogado = MockFirebaseAuth(signedIn: false);
+      final repoDeslogado = QuestoesRepository(auth: authDeslogado, firestore: firestore);
+      await _aguardar(repoDeslogado);
+
+      expect(repoDeslogado.materias, isEmpty);
+      expect(repoDeslogado.questoes, isEmpty);
+
+      final mat = repoDeslogado.criarMateria('Biologia');
+      repoDeslogado.salvarQuestao(_questao('q_bio', mat.id));
+      repoDeslogado.excluirQuestao('q_bio');
+      repoDeslogado.excluirMateria(mat.id);
+
+      await _aguardar(repoDeslogado);
+      expect(repoDeslogado.materias, isEmpty);
+      expect(repoDeslogado.questoes, isEmpty);
+
+      repoDeslogado.dispose();
+    });
   });
 }

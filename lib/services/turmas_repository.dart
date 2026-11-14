@@ -16,7 +16,8 @@ class TurmasRepository extends ChangeNotifier {
     FirebaseFirestore? firestore,
     List<Turma>? iniciais,
   })  : _auth = auth,
-        _firestore = firestore {
+        _firestore = firestore,
+        _authExplicito = auth != null {
     if (iniciais != null) {
       _turmas = List.of(iniciais);
       _modoMemoria = true;
@@ -27,6 +28,7 @@ class TurmasRepository extends ChangeNotifier {
 
   final FirebaseAuth? _auth;
   final FirebaseFirestore? _firestore;
+  final bool _authExplicito;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _inscricao;
   StreamSubscription<User?>? _authInscricao;
   List<Turma> _turmas = [];
@@ -56,7 +58,7 @@ class TurmasRepository extends ChangeNotifier {
 
   void _ouvirAuth() {
     try {
-      if (Firebase.apps.isEmpty) return;
+      if (!_authExplicito && Firebase.apps.isEmpty) return;
       _authInscricao = __auth.authStateChanges().listen((usuario) {
         _inscricao?.cancel();
         if (usuario == null) {
@@ -116,12 +118,16 @@ class TurmasRepository extends ChangeNotifier {
               .doc(uid)
               .collection('turmas')
               .doc(id)
-              .set(TurmaMapper.turmaParaMapa(turma));
-        } else {
+              .set(TurmaMapper.turmaParaMapa(turma))
+              .catchError((e) => debugPrint('[TurmasRepository] criar: $e'));
+        } else if (db == null) {
           _turmas.insert(0, turma);
           notifyListeners();
+        } else {
+          debugPrint('[TurmasRepository] criar ignorado: sem professor logado');
         }
-      } catch (_) {
+      } catch (e) {
+        debugPrint('[TurmasRepository] criar: $e');
         _turmas.insert(0, turma);
         notifyListeners();
       }
@@ -143,12 +149,16 @@ class TurmasRepository extends ChangeNotifier {
               .doc(uid)
               .collection('turmas')
               .doc(id)
-              .delete();
-        } else {
+              .delete()
+              .catchError((e) => debugPrint('[TurmasRepository] excluir: $e'));
+        } else if (db == null) {
           _turmas.removeWhere((t) => t.id == id);
           notifyListeners();
+        } else {
+          debugPrint('[TurmasRepository] excluir ignorado: sem professor logado');
         }
-      } catch (_) {
+      } catch (e) {
+        debugPrint('[TurmasRepository] excluir: $e');
         _turmas.removeWhere((t) => t.id == id);
         notifyListeners();
       }
@@ -193,9 +203,9 @@ class TurmasRepository extends ChangeNotifier {
       }
     } else {
       try {
-        final uid = __auth.currentUser?.uid ?? 'dev_professor';
+        final uid = __auth.currentUser?.uid;
         final db = __firestore;
-        if (db != null) {
+        if (uid != null && db != null) {
           await db
               .collection('professores')
               .doc(uid)
@@ -207,7 +217,7 @@ class TurmasRepository extends ChangeNotifier {
                 {'id': a.id, 'nome': a.nome, 'matricula': a.matricula},
             ],
           }, SetOptions(merge: true));
-        } else {
+        } else if (db == null) {
           final indice = _turmas.indexWhere((t) => t.id == turmaId);
           if (indice >= 0) {
             _turmas[indice] = Turma(
@@ -218,8 +228,11 @@ class TurmasRepository extends ChangeNotifier {
             );
             notifyListeners();
           }
+        } else {
+          debugPrint('[TurmasRepository] _atualizarAlunosTurma ignorado: sem professor logado');
         }
-      } catch (_) {
+      } catch (e) {
+        debugPrint('[TurmasRepository] _atualizarAlunosTurma: $e');
         final indice = _turmas.indexWhere((t) => t.id == turmaId);
         if (indice >= 0) {
           _turmas[indice] = Turma(

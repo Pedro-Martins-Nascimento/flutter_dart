@@ -1,5 +1,5 @@
 import '../models/versao_prova.dart';
-import 'provas_repository.dart' show ProvaGerada;
+import '../models/prova_gerada.dart';
 import 'prova_repository.dart';
 
 typedef VersaoEncontrada = ({ProvaGerada prova, VersaoProva versao});

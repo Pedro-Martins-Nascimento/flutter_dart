@@ -6,6 +6,7 @@ import '../../models/questao.dart';
 import '../../services/questoes_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/app_page.dart';
 
 class MateriasScreen extends StatefulWidget {
   const MateriasScreen({super.key});
@@ -90,91 +91,41 @@ class _MateriasScreenState extends State<MateriasScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AppFaixa(
-              bordaBase: const BorderSide(color: AppColors.divider),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.s6,
-                vertical: AppSpacing.s6,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Banco de questões', style: AppTheme.kicker),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Matérias',
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                color: AppColors.text,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.s3),
-                  InkWell(
-                    onTap: _novaMateria,
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppColors.accent,
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.accent.withValues(alpha: 0.2),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(Icons.add, color: Colors.white),
-                    ),
-                  ),
-                ],
+            AppPageHeader(
+              kicker: 'Banco de questões',
+              titulo: 'Matérias',
+              acao: AppNovoButton(
+                rotulo: 'Nova matéria',
+                onPressed: _novaMateria,
               ),
             ),
-
             Expanded(
               child: AppMaxWidth(
                 child: materias.isEmpty
-                    ? const Padding(
-                        padding: EdgeInsets.all(AppSpacing.s6),
-                        child: Text(
-                          'Nenhuma matéria ainda. Toque em + para criar a primeira.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textMuted,
-                          ),
+                    ? AppEstadoVazio(
+                        icone: Icons.quiz_outlined,
+                        titulo: 'Nenhuma matéria ainda',
+                        mensagem: 'Nenhuma matéria ainda. Toque em + para criar a primeira.',
+                        acao: AppNovoButton(
+                          rotulo: 'Nova matéria',
+                          onPressed: _novaMateria,
                         ),
                       )
-                    : ListView.separated(
-                        itemCount: materias.length,
-                        padding: EdgeInsets.zero,
-                        separatorBuilder: (context, indice) =>
-                            const Divider(height: 1),
-                        itemBuilder: (context, indice) {
-                          final materia = materias[indice];
-                          final total = repositorio
-                              .questoesDaMateria(materia.id)
-                              .length;
-
-                          return _MateriaItem(
-                            nome: materia.nome,
-                            onExcluir: () => _excluirMateria(materia, total),
-                            meta: total == 0
-                                ? 'Nenhuma questão'
-                                : '$total ${total == 1 ? 'questão' : 'questões'}',
-                            onTap: () =>
-                                context.push('/questoes/${materia.id}'),
-                          );
-                        },
+                    : ListView(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.s4,
+                          AppSpacing.s2,
+                          AppSpacing.s4,
+                          AppSpacing.s8,
+                        ),
+                        children: [
+                          AppListGroup(
+                            children: [
+                              for (final materia in materias)
+                                _linhaMateria(repositorio, materia),
+                            ],
+                          ),
+                        ],
                       ),
               ),
             ),
@@ -183,79 +134,26 @@ class _MateriasScreenState extends State<MateriasScreen> {
       ),
     );
   }
-}
 
-class _MateriaItem extends StatelessWidget {
-  final String nome;
-  final String meta;
-  final VoidCallback onTap;
-  final VoidCallback onExcluir;
-
-  const _MateriaItem({
-    required this.nome,
-    required this.meta,
-    required this.onTap,
-    required this.onExcluir,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.s6,
-          vertical: AppSpacing.s5,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    nome,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.text,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    meta,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
+  Widget _linhaMateria(QuestoesRepository repositorio, Materia materia) {
+    final total = repositorio.questoesDaMateria(materia.id).length;
+    return AppListRow(
+      titulo: materia.nome,
+      subtitulo: total == 0
+          ? 'Nenhuma questão'
+          : '$total ${total == 1 ? 'questão' : 'questões'}',
+      onTap: () => context.push('/questoes/${materia.id}'),
+      menu: AppMenuMais(
+        tooltip: 'Excluir matéria',
+        itens: (context) => [
+          PopupMenuItem<void>(
+            onTap: () => _excluirMateria(materia, total),
+            child: const Text(
+              'Excluir matéria',
+              style: TextStyle(color: AppColors.error),
             ),
-            PopupMenuButton<void>(
-              tooltip: 'Excluir matéria',
-              icon: const Icon(
-                Icons.more_vert,
-                size: 20,
-                color: AppColors.neutral500,
-              ),
-              itemBuilder: (context) => [
-                PopupMenuItem<void>(
-                  onTap: onExcluir,
-                  child: const Text(
-                    'Excluir matéria',
-                    style: TextStyle(color: AppColors.error),
-                  ),
-                ),
-              ],
-            ),
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.neutral400,
-              size: 20,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

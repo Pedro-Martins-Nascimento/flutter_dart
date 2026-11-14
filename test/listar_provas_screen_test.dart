@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dart/screens/provas/listar_provas_screen.dart';
+import 'package:flutter_dart/models/prova_gerada.dart';
 import 'package:flutter_dart/services/prova_repository_memoria.dart';
-import 'package:flutter_dart/services/provas_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/provas_exemplo.dart';
 
 void main() {
   Future<void> abrir(WidgetTester tester, ProvaRepositoryMemoria repo) =>
@@ -25,11 +27,11 @@ void main() {
   testWidgets('mostra as provas do repository e acompanha mudanças', (
     tester,
   ) async {
-    final repo = ProvaRepositoryMemoria.comMocks();
+    final repo = await criarProvaRepositoryMemoriaComMocks();
     await abrir(tester, repo);
     await tester.pump();
     expect(find.text('P1 — Matemática'), findsOneWidget);
-    expect(find.textContaining('4 versão(ões)'), findsOneWidget);
+    expect(find.textContaining('4 versões'), findsOneWidget);
 
     await repo.criar(
       ProvaGerada(
