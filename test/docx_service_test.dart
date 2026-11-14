@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_dart/models/questao.dart';
 import 'package:flutter_dart/models/versao_prova.dart';
 import 'package:flutter_dart/services/docx_service.dart';
-import 'package:flutter_dart/services/provas_repository.dart';
+import 'package:flutter_dart/models/prova_gerada.dart';
 
 void main() {
   test('gera um docx com versões, alternativas e quebras de página', () {

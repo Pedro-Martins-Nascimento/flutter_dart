@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 
 import '../models/versao_prova.dart';
-import 'provas_repository.dart';
+import '../models/prova_gerada.dart';
 
 class DocxService {
   Uint8List gerar(ProvaGerada prova) {
