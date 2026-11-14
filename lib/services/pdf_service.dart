@@ -153,7 +153,7 @@ class PdfService {
     double margem = LayoutFolha.margemPadrao,
     List<Aluno> alunos = const [],
   }) async {
-    Future<Uint8List> montar({required bool questoesInteiras}) async {
+    Future<Uint8List> montar(Set<QuestaoNaVersao> questoesAltas) async {
       final doc = await _criarDocumentoBase();
       for (final versao in versoes) {
         doc.addPage(
@@ -164,7 +164,7 @@ class PdfService {
             espacamento,
             margem,
             alunos,
-            questoesInteiras,
+            questoesAltas,
           ),
         );
       }
@@ -172,12 +172,70 @@ class PdfService {
     }
 
     try {
-      return await montar(questoesInteiras: true);
+      return await montar(const {});
     } on Exception {
-      // Uma questão maior que a página inteira não cabe sem ser cortada. É raro,
-      // então só nesse caso o PDF é refeito permitindo o corte.
-      return montar(questoesInteiras: false);
+      // Falhou. Só se refaz o PDF se o motivo for uma questão que não cabe
+      // inteira nem numa página vazia: essas (e só essas) passam a poder ser
+      // divididas, e as demais continuam inteiras. Qualquer outro erro
+      // (fonte, dado inválido, layout) segue para quem chamou.
+      final altas = await _questoesMaisAltasQuePagina(
+        versoes,
+        forcarQuantidadeParaTeste,
+        tamanhoFonte,
+        espacamento,
+        margem,
+      );
+      if (altas.isEmpty) rethrow;
+      return montar(altas);
     }
+  }
+
+  /// Mede cada questão sozinha numa página vazia, com o mesmo cabeçalho,
+  /// rodapé e margem do PDF. Devolve as que não cabem inteiras mas cabem
+  /// divididas. Se uma questão não couber nem dividida, o erro dela é
+  /// propagado, porque aí o problema não é só a altura.
+  Future<Set<QuestaoNaVersao>> _questoesMaisAltasQuePagina(
+    List<VersaoProva> versoes,
+    int? forcarQuantidadeParaTeste,
+    double tamanhoFonte,
+    double espacamento,
+    double margem,
+  ) async {
+    final doc = await _criarDocumentoBase();
+    final altas = <QuestaoNaVersao>{};
+    final medidas = <QuestaoNaVersao>{};
+
+    for (final versao in versoes) {
+      final lista = _listaDeQuestoes(versao, forcarQuantidadeParaTeste);
+      for (var i = 0; i < lista.length; i++) {
+        final questaoVersao = lista[i];
+        if (!medidas.add(questaoVersao)) continue;
+
+        pw.Page paginaCom({required bool inteira}) {
+          final questao = _buildQuestao(
+            i + 1,
+            questaoVersao,
+            tamanhoFonte,
+            espacamento,
+          );
+          return _paginaDaVersao(
+            versao,
+            margem,
+            () => [inteira ? pw.Inseparable(child: questao) : questao],
+          );
+        }
+
+        try {
+          doc.addPage(paginaCom(inteira: true));
+        } on Exception {
+          // Não coube inteira. Se dividida também não couber, este addPage
+          // lança e o erro sobe.
+          doc.addPage(paginaCom(inteira: false));
+          altas.add(questaoVersao);
+        }
+      }
+    }
+    return altas;
   }
 
   Future<pw.Document> _criarDocumentoBase() async {
@@ -197,21 +255,35 @@ class PdfService {
     double espacamento,
     double margem,
     List<Aluno> alunos,
-    bool questoesInteiras,
+    Set<QuestaoNaVersao> questoesAltas,
+  ) {
+    return _paginaDaVersao(
+      versao,
+      margem,
+      () => _buildQuestoes(
+        versao,
+        forcarQuantidadeParaTeste,
+        tamanhoFonte,
+        espacamento,
+        alunos,
+        questoesAltas,
+      ),
+    );
+  }
+
+  /// Página A4 da versão, com cabeçalho e rodapé de marcadores. É a mesma
+  /// usada na medição das questões, para as duas terem o mesmo espaço útil.
+  pw.Page _paginaDaVersao(
+    VersaoProva versao,
+    double margem,
+    List<pw.Widget> Function() corpo,
   ) {
     return pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: pw.EdgeInsets.all(margem),
       header: (context) => _buildHeader(versao),
       footer: (context) => _buildFooterMarkers(),
-      build: (context) => _buildQuestoes(
-        versao,
-        forcarQuantidadeParaTeste,
-        tamanhoFonte,
-        espacamento,
-        alunos,
-        questoesInteiras,
-      ),
+      build: (context) => corpo(),
     );
   }
 
@@ -377,17 +449,9 @@ class PdfService {
     double tamanhoFonte,
     double espacamento,
     List<Aluno> alunos,
-    bool questoesInteiras,
+    Set<QuestaoNaVersao> questoesAltas,
   ) {
-    final questoes = versao.questoes;
-    final semForcarTeste =
-        forcarQuantidadeParaTeste == null || questoes.isEmpty;
-    final lista = semForcarTeste
-        ? questoes
-        : List.generate(
-            forcarQuantidadeParaTeste,
-            (i) => questoes[i % questoes.length],
-          );
+    final lista = _listaDeQuestoes(versao, forcarQuantidadeParaTeste);
 
     return [
       _buildCabecalhoIdentificacao(versao, alunos),
@@ -399,61 +463,88 @@ class PdfService {
         )
       else
         ...lista.asMap().entries.map((entry) {
-          final numero = entry.key + 1;
-          final questaoVersao = entry.value;
-          final questaoWidget = pw.Padding(
-            padding: pw.EdgeInsets.only(bottom: espacamento),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  '$numero. ${questaoVersao.questao.enunciado}',
-                  style: pw.TextStyle(fontSize: tamanhoFonte),
-                ),
-                pw.SizedBox(height: 6),
-                // Alternativas direto na Column da questão (sem Column dentro de
-                // Column): assim o PDF consegue dividir uma questão muito alta
-                // entre as alternativas, quando ela não cabe numa página.
-                ...List.generate(questaoVersao.alternativas.length, (alt) {
-                  return pw.Padding(
-                    padding: const pw.EdgeInsets.only(bottom: 4),
-                    child: pw.Row(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Container(
-                          width: LayoutFolha.diametroBolinha,
-                          height: LayoutFolha.diametroBolinha,
-                          margin: const pw.EdgeInsets.only(
-                            top: LayoutFolha.margemTopoBolinha,
-                          ),
-                          decoration: pw.BoxDecoration(
-                            shape: pw.BoxShape.circle,
-                            border: pw.Border.all(
-                              width: LayoutFolha.bordaBolinha,
-                            ),
-                          ),
-                        ),
-                        pw.SizedBox(width: LayoutFolha.espacoBolinhaTexto),
-                        pw.Expanded(
-                          child: pw.Text(
-                            '${String.fromCharCode(65 + alt)}) ${questaoVersao.alternativas[alt]}',
-                            style: pw.TextStyle(fontSize: tamanhoFonte - 1),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ],
-            ),
+          final questaoWidget = _buildQuestao(
+            entry.key + 1,
+            entry.value,
+            tamanhoFonte,
+            espacamento,
           );
           // Inseparable: a questão inteira (enunciado e alternativas) vai para
           // a página seguinte em vez de ser cortada no meio, o que atrapalharia
-          // a leitura das bolinhas.
-          return questoesInteiras
-              ? pw.Inseparable(child: questaoWidget)
-              : questaoWidget;
+          // a leitura das bolinhas. Só as questões que não cabem nem numa
+          // página vazia (questoesAltas) podem ser divididas.
+          return questoesAltas.contains(entry.value)
+              ? questaoWidget
+              : pw.Inseparable(child: questaoWidget);
         }),
     ];
+  }
+
+  /// Questões da versão, repetidas até [forcarQuantidadeParaTeste] se vier.
+  List<QuestaoNaVersao> _listaDeQuestoes(
+    VersaoProva versao,
+    int? forcarQuantidadeParaTeste,
+  ) {
+    final questoes = versao.questoes;
+    final semForcarTeste =
+        forcarQuantidadeParaTeste == null || questoes.isEmpty;
+    return semForcarTeste
+        ? questoes
+        : List.generate(
+            forcarQuantidadeParaTeste,
+            (i) => questoes[i % questoes.length],
+          );
+  }
+
+  pw.Widget _buildQuestao(
+    int numero,
+    QuestaoNaVersao questaoVersao,
+    double tamanhoFonte,
+    double espacamento,
+  ) {
+    return pw.Padding(
+      padding: pw.EdgeInsets.only(bottom: espacamento),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            '$numero. ${questaoVersao.questao.enunciado}',
+            style: pw.TextStyle(fontSize: tamanhoFonte),
+          ),
+          pw.SizedBox(height: 6),
+          // Alternativas direto na Column da questão (sem Column dentro de
+          // Column): assim o PDF consegue dividir uma questão muito alta
+          // entre as alternativas, quando ela não cabe numa página.
+          ...List.generate(questaoVersao.alternativas.length, (alt) {
+            return pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 4),
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Container(
+                    width: LayoutFolha.diametroBolinha,
+                    height: LayoutFolha.diametroBolinha,
+                    margin: const pw.EdgeInsets.only(
+                      top: LayoutFolha.margemTopoBolinha,
+                    ),
+                    decoration: pw.BoxDecoration(
+                      shape: pw.BoxShape.circle,
+                      border: pw.Border.all(width: LayoutFolha.bordaBolinha),
+                    ),
+                  ),
+                  pw.SizedBox(width: LayoutFolha.espacoBolinhaTexto),
+                  pw.Expanded(
+                    child: pw.Text(
+                      '${String.fromCharCode(65 + alt)}) ${questaoVersao.alternativas[alt]}',
+                      style: pw.TextStyle(fontSize: tamanhoFonte - 1),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
   }
 }

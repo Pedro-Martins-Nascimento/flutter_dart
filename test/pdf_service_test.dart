@@ -72,16 +72,90 @@ void main() {
     expect(_paginasDaQuestao(paginas, 1), {0});
   });
 
-  test('questão mais alta que a página é cortada em vez de falhar', () async {
+  test('questão mais alta que a página é dividida em vez de falhar', () async {
     // 60 alternativas passam de uma página, mas cada pedaço cabe: o PDF tem
-    // que sair (com a questão 2 dividida) e não pode ser derrubado.
+    // que sair, com a questão 2 dividida.
     final bytes = await _servico().gerarPdfVersao(
       _versao([_questao(1), _questao(2, alternativas: 60), _questao(3)]),
     );
     final paginas = _textoPorPagina(bytes);
-    expect(_paginasDaQuestao(paginas, 1), isNotEmpty);
-    expect(_paginasDaQuestao(paginas, 3), isNotEmpty);
+    expect(_paginasDaQuestao(paginas, 2).length, greaterThan(1));
+    expect(_paginasDaQuestao(paginas, 1), hasLength(1));
+    expect(_paginasDaQuestao(paginas, 3), hasLength(1));
   });
+
+  test(
+    'uma questão alta só libera o corte dela, as outras ficam inteiras',
+    () async {
+      // A questão alta fica no meio, com questões normais antes e depois, e a
+      // quantidade e o tamanho variam para a quebra de página cair em pontos
+      // diferentes. Nenhuma questão normal pode ser cortada.
+      for (var linhas = 1; linhas <= 3; linhas++) {
+        for (var antes = 2; antes <= 9; antes++) {
+          const depois = 6;
+          final questoes = [
+            for (var i = 1; i <= antes; i++) _questao(i, linhas: linhas),
+            _questao(antes + 1, alternativas: 60),
+            for (var i = 1; i <= depois; i++)
+              _questao(antes + 1 + i, linhas: linhas),
+          ];
+          final paginas = _textoPorPagina(
+            await _servico().gerarPdfVersao(_versao(questoes)),
+          );
+          final alta = antes + 1;
+          expect(
+            _paginasDaQuestao(paginas, alta).length,
+            greaterThan(1),
+            reason: 'a questão alta deveria ser dividida',
+          );
+          for (var q = 1; q <= questoes.length; q++) {
+            if (q == alta) continue;
+            expect(
+              _paginasDaQuestao(paginas, q),
+              hasLength(1),
+              reason:
+                  'questão normal $q cortada ($antes antes, $linhas linhas)',
+            );
+          }
+        }
+      }
+    },
+  );
+
+  test('erro que não é questão alta não é escondido pelo plano B', () async {
+    // A primeira montagem falha por outro motivo (aqui, a fábrica do
+    // documento). Nenhuma questão é alta demais, então o erro original sobe.
+    var chamadas = 0;
+    final servico = PdfService(
+      criarDocumento: () async {
+        chamadas++;
+        if (chamadas == 1) throw const FormatException('falha de fonte');
+        return pw.Document(
+          compress: false,
+          theme: pw.ThemeData.withFont(
+            base: pw.Font.helvetica(),
+            bold: pw.Font.helveticaBold(),
+          ),
+        );
+      },
+    );
+    await expectLater(
+      servico.gerarPdfVersao(_versao([_questao(1), _questao(2)])),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test(
+    'parágrafo maior que a página continua dando erro, sem plano B',
+    () async {
+      // Um enunciado de um parágrafo só, mais alto que a página, não dá para
+      // dividir nem inteiro nem em pedaços: o erro tem que aparecer.
+      await expectLater(
+        _servico().gerarPdfVersao(_versao([_questao(1, linhas: 120)])),
+        throwsA(isA<Exception>()),
+      );
+    },
+  );
 
   test('nenhuma questão é cortada entre duas páginas', () async {
     // Varia o tamanho do enunciado para a quebra de página cair em pontos
