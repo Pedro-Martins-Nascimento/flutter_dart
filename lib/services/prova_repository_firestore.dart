@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart';
 import '../models/versao_prova.dart';
 import 'prova_mapper.dart';
 import 'prova_repository.dart';
-import 'provas_repository.dart' show ProvaGerada;
+import '../models/prova_gerada.dart';
 
 class ProvaRepositoryFirestore implements ProvaRepository {
   /// [uid] é lido a cada chamada, porque o repositório é criado antes do login.

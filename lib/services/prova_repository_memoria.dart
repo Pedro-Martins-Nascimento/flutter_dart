@@ -6,23 +6,13 @@
 
 import 'dart:async';
 
+import '../models/prova_gerada.dart';
 import '../models/versao_prova.dart';
 import 'prova_mapper.dart';
 import 'prova_repository.dart';
-import 'provas_repository.dart' show ProvaGerada, ProvasRepository;
 
 class ProvaRepositoryMemoria implements ProvaRepository {
   ProvaRepositoryMemoria();
-
-  /// Já começa com as provas de exemplo de [ProvasRepository]. Sai quando o
-  /// histórico passar a vir do Firestore.
-  factory ProvaRepositoryMemoria.comMocks() {
-    final repo = ProvaRepositoryMemoria();
-    for (final prova in ProvasRepository().provas) {
-      repo._gravar(prova);
-    }
-    return repo;
-  }
 
   final Map<String, Map<String, dynamic>> _provas = {};
   // Mapa literal preserva a ordem de inserção, então as versões voltam em

@@ -15,7 +15,7 @@ import '../../models/questao.dart';
 import '../../models/versao_prova.dart';
 import '../../services/alunos_para_pdf.dart';
 import '../../services/correcao_repository.dart';
-import '../../services/provas_repository.dart' show ProvaGerada;
+import '../../models/prova_gerada.dart';
 import '../../services/turmas_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
