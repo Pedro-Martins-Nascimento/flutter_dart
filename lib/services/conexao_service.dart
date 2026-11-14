@@ -4,8 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 
 class ConexaoService extends ChangeNotifier {
-  ConexaoService({Connectivity? connectivity, bool? onlineInicial})
-      : _connectivity = connectivity {
+  ConexaoService({this.connectivity, bool? onlineInicial}) {
     if (onlineInicial != null) {
       _online = onlineInicial;
     } else {
@@ -13,14 +12,14 @@ class ConexaoService extends ChangeNotifier {
     }
   }
 
-  final Connectivity? _connectivity;
+  final Connectivity? connectivity;
   StreamSubscription<List<ConnectivityResult>>? _subscription;
   bool _online = true;
 
   bool get online => _online;
   bool get offline => !_online;
 
-  Connectivity get _instancia => _connectivity ?? Connectivity();
+  Connectivity get _instancia => connectivity ?? Connectivity();
 
   Future<void> _iniciar() async {
     try {
@@ -57,4 +56,3 @@ class ConexaoService extends ChangeNotifier {
     super.dispose();
   }
 }
-

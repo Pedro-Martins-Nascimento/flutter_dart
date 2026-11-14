@@ -9,13 +9,13 @@ class AvisoSemConexao extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final offline = context.select<ConexaoService, bool>((s) => s.offline);
+    final offline = context.watch<ConexaoService?>()?.offline ?? false;
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 250),
       transitionBuilder: (child, animation) => SizeTransition(
         sizeFactor: animation,
-        axisAlignment: -1.0,
+        alignment: Alignment.topCenter,
         child: child,
       ),
       child: offline
@@ -54,4 +54,3 @@ class AvisoSemConexao extends StatelessWidget {
     );
   }
 }
-
