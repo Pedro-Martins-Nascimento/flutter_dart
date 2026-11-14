@@ -6,7 +6,7 @@ import '../../models/questao.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../models/turma.dart';
-import '../../services/provas_repository.dart' show ProvaGerada;
+import '../../models/prova_gerada.dart';
 import '../../services/questoes_repository.dart';
 import '../../services/turmas_repository.dart';
 

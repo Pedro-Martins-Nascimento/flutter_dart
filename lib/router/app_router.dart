@@ -25,7 +25,7 @@ import '../services/auth_service.dart';
 import '../services/correcao_repository.dart';
 import '../services/prova_repository.dart';
 import '../screens/shell/main_shell.dart';
-import '../services/provas_repository.dart';
+import '../models/prova_gerada.dart';
 
 GoRouter criarRouter(
   AuthService auth,

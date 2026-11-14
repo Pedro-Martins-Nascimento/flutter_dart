@@ -4,7 +4,7 @@
 import 'package:flutter_dart/models/questao.dart';
 import 'package:flutter_dart/models/versao_prova.dart';
 import 'package:flutter_dart/services/prova_repository.dart';
-import 'package:flutter_dart/services/provas_repository.dart';
+import 'package:flutter_dart/models/prova_gerada.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 ProvaGerada prova(String id, {int diasAtras = 0, int versoes = 2}) {

@@ -1,8 +1,6 @@
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dart/models/correcao.dart';
-import 'package:flutter_dart/models/questao.dart';
-import 'package:flutter_dart/models/turma.dart';
 import 'package:flutter_dart/router/app_router.dart';
 import 'package:flutter_dart/services/auth_service.dart';
 import 'package:flutter_dart/services/correcao_repository_memoria.dart';
@@ -11,6 +9,8 @@ import 'package:flutter_dart/services/questoes_repository.dart';
 import 'package:flutter_dart/services/turmas_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+
+import 'helpers/provas_exemplo.dart';
 
 void main() {
   Future<void> abrir(
@@ -59,7 +59,7 @@ void main() {
   testWidgets('sem correções, edita tudo e regrava no mesmo registro', (
     tester,
   ) async {
-    final provas = ProvaRepositoryMemoria.comMocks();
+    final provas = await criarProvaRepositoryMemoriaComMocks();
     final original = (await provas.listar()).first;
     await abrir(tester, provas, CorrecaoRepositoryMemoria());
 
@@ -89,7 +89,7 @@ void main() {
   });
 
   testWidgets('com correção salva, só deixa renomear', (tester) async {
-    final provas = ProvaRepositoryMemoria.comMocks();
+    final provas = await criarProvaRepositoryMemoriaComMocks();
     final original = (await provas.listar()).first;
     final completa = (await provas.buscar(original.id))!;
     final correcoes = CorrecaoRepositoryMemoria();
