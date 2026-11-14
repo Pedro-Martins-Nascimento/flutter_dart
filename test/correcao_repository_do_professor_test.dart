@@ -31,5 +31,22 @@ void main() {
         isTrue,
       );
     });
+
+    test('sem login (uid nulo): leituras vazias e escritas ignoradas', () async {
+      final firestore = FakeFirebaseFirestore();
+      String? uid;
+      final repo = CorrecaoRepositoryDoProfessor(
+        uid: () => uid,
+        firestore: firestore,
+      );
+
+      await repo.salvar(correcao('c1'));
+      await repo.excluir('c1');
+
+      expect(await repo.listar(), isEmpty);
+      expect(await repo.observar().first, isEmpty);
+      expect(await repo.buscar('c1'), isNull);
+      expect(await repo.jaCorrigida('p1', 'v1'), isFalse);
+    });
   });
 }
