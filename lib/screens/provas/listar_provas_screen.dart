@@ -10,22 +10,25 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_page.dart';
 import '../../services/notas_da_prova.dart';
+import '../../services/docx_service.dart';
 import '../../services/prova_repository.dart';
 import '../../models/prova_gerada.dart';
 import '../../services/relatorio_excel.dart';
-import '../../services/salvar_arquivo.dart';
+import '../../services/salvar_arquivo.dart' show salvarDocx, salvarXlsx;
 import '../../services/turmas_repository.dart';
 
 class ListarProvasScreen extends StatelessWidget {
   final ProvaRepository repository;
   final Future<List<Correcao>> Function() carregarCorrecoes;
   final Future<bool> Function(String nome, Uint8List bytes) salvarArquivo;
+  final Future<bool> Function(String nome, Uint8List bytes) salvarArquivoDocx;
 
   const ListarProvasScreen({
     super.key,
     required this.repository,
     required this.carregarCorrecoes,
     this.salvarArquivo = salvarXlsx,
+    this.salvarArquivoDocx = salvarDocx,
   });
 
   @override
@@ -86,6 +89,8 @@ class ListarProvasScreen extends StatelessWidget {
                                     onEditar: () => _editar(context, prova),
                                     onExportar: () =>
                                         _exportarNotas(context, prova),
+                                    onExportarDocx: () =>
+                                        _exportarDocx(context, prova),
                                     onExcluir: () => _excluir(context, prova),
                                   ),
                                 ),
@@ -179,6 +184,7 @@ class ListarProvasScreen extends StatelessWidget {
         avisar('Esta prova ainda não tem alunos nem correções para exportar.');
         return;
       }
+
       final nome = prova.nome.trim().replaceAll(
         RegExp(r'[^A-Za-z0-9À-ÿ]+'),
         '_',
@@ -190,6 +196,32 @@ class ListarProvasScreen extends StatelessWidget {
       if (salvo) avisar('Planilha de notas salva.');
     } catch (_) {
       avisar('Não foi possível exportar as notas.');
+    }
+  }
+
+  Future<void> _exportarDocx(BuildContext context, ProvaResumo resumo) async {
+    final mensagens = ScaffoldMessenger.of(context);
+    void avisar(String texto) => mensagens
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(texto)));
+
+    try {
+      final prova = await repository.buscar(resumo.id);
+      if (prova == null) {
+        avisar('Não foi possível encontrar a prova para exportar.');
+        return;
+      }
+      final nome = resumo.nome.trim().replaceAll(
+        RegExp(r'[^A-Za-z0-9À-ÿ]+'),
+        '_',
+      );
+      final salvo = await salvarArquivoDocx(
+        'prova_$nome.docx',
+        gerarDocx(prova),
+      );
+      if (salvo) avisar('Prova exportada em Word.');
+    } catch (_) {
+      avisar('Não foi possível exportar a prova.');
     }
   }
 
@@ -242,11 +274,13 @@ class ListarProvasScreen extends StatelessWidget {
 class _MenuProva extends StatelessWidget {
   final VoidCallback onEditar;
   final VoidCallback onExportar;
+  final VoidCallback onExportarDocx;
   final VoidCallback onExcluir;
 
   const _MenuProva({
     required this.onEditar,
     required this.onExportar,
+    required this.onExportarDocx,
     required this.onExcluir,
   });
 
@@ -259,6 +293,10 @@ class _MenuProva extends StatelessWidget {
         PopupMenuItem<void>(
           onTap: onExportar,
           child: const Text('Exportar notas (.xlsx)'),
+        ),
+        PopupMenuItem<void>(
+          onTap: onExportarDocx,
+          child: const Text('Exportar prova (.docx)'),
         ),
         PopupMenuItem<void>(
           onTap: onExcluir,
