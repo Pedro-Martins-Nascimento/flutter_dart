@@ -2,10 +2,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/provas_exemplo.dart';
 import 'package:flutter_dart/main.dart';
 import 'package:flutter_dart/services/auth_service.dart';
 import 'package:flutter_dart/services/correcao_repository_memoria.dart';
-import 'package:flutter_dart/services/prova_repository_memoria.dart';
 import 'package:mock_exceptions/mock_exceptions.dart';
 
 void main() {
@@ -13,13 +14,14 @@ void main() {
     tester.view.physicalSize = const Size(400, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    final repoProvas = await criarProvaRepositoryMemoriaComMocks();
     await tester.pumpWidget(
       MyApp(
         auth: AuthService(
           auth: firebase,
           tokenGoogle: () async => 'id-token-falso',
         ),
-        provas: ProvaRepositoryMemoria.comMocks(),
+        provas: repoProvas,
         correcoes: CorrecaoRepositoryMemoria(),
       ),
     );
