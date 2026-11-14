@@ -12,6 +12,7 @@ import '../../models/versao_prova.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../services/prova_repository.dart';
+import '../../services/firebase_erro.dart';
 import '../../models/prova_gerada.dart';
 import '../../services/pdf_service.dart';
 import '../../services/questoes_repository.dart';
@@ -150,11 +151,17 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
       } else {
         await widget.repository.criar(prova);
       }
-    } catch (_) {
+    } catch (erro) {
       if (!mounted) return;
       setState(() => _salva = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível salvar a prova.')),
+        SnackBar(
+          content: Text(
+            eErroDeConexao(erro)
+                ? 'Sem conexão. A prova não foi salva.'
+                : 'Não foi possível salvar a prova.',
+          ),
+        ),
       );
       return;
     }

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/turma.dart';
+import '../../services/firebase_erro.dart';
 import '../../services/turmas_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
@@ -386,10 +387,16 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
             const SnackBar(content: Text('Aluno adicionado com sucesso!')),
           );
         }
-      } catch (e) {
+      } catch (erro) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erro ao adicionar aluno: $e')),
+            SnackBar(
+              content: Text(
+                eErroDeConexao(erro)
+                    ? 'Sem conexão. O aluno não foi salvo.'
+                    : 'Não foi possível adicionar o aluno.',
+              ),
+            ),
           );
         }
       }
