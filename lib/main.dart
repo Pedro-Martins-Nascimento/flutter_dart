@@ -55,12 +55,12 @@ class _MyAppState extends State<MyApp> {
   late final ProvaRepository _provas =
       widget.provas ??
       ProvaRepositoryFirestore(
-        uid: () => _auth.usuario?.uid ?? 'dev_professor',
+        uid: () => _auth.usuario?.uid,
       );
   late final CorrecaoRepository _correcoes =
       widget.correcoes ??
       CorrecaoRepositoryDoProfessor(
-        uid: () => _auth.usuario?.uid ?? 'dev_professor',
+        uid: () => _auth.usuario?.uid,
       );
   late final GoRouter _router = criarRouter(_auth, _provas, _correcoes);
 
