@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xml/xml.dart';
 
+import 'package:flutter_dart/models/aluno.dart';
 import 'package:flutter_dart/models/questao.dart';
 import 'package:flutter_dart/models/versao_prova.dart';
 import 'package:flutter_dart/services/docx_service.dart';
@@ -79,7 +81,64 @@ void main() {
     expect(xml.indexOf('segunda'), lessThan(xml.indexOf('primeira')));
     expect(xml, contains('Outra questão'));
     expect(xml.indexOf('B primeiro'), lessThan(xml.indexOf('A depois')));
-    expect(xml, contains('<w:br w:type="page"/>'));
+    expect(xml, contains('<w:r><w:br w:type="page"/></w:r>'));
+    expect(xml, isNot(contains('<w:p><w:br')));
     expect(xml, isNot(contains('nao-incluir')));
+    expect(() => XmlDocument.parse(xml), returnsNormally);
   });
+
+  test('usa nome do aluno vinculado e nunca expõe o id', () {
+    final prova = _provaComAluno('aluno-1');
+
+    final xml = _documentXml(
+      gerarDocx(prova, alunos: [Aluno(id: 'aluno-1', nome: 'Ana Beatriz')]),
+    );
+
+    expect(xml, contains('Aluno: Ana Beatriz'));
+    expect(xml, isNot(contains('aluno-1')));
+  });
+
+  test('deixa aluno em branco sem vínculo ou sem aluno correspondente', () {
+    final semVinculo = _documentXml(gerarDocx(_provaComAluno(null)));
+    final idAusente = _documentXml(gerarDocx(_provaComAluno('inexistente')));
+
+    expect(semVinculo, contains('Aluno: ____________________'));
+    expect(idAusente, contains('Aluno: ____________________'));
+    expect(idAusente, isNot(contains('inexistente')));
+  });
+}
+
+ProvaGerada _provaComAluno(String? alunoId) => ProvaGerada(
+      id: 'p-aluno',
+      nome: 'Prova',
+      materia: 'Ciências',
+      turma: '7A',
+      criadoEm: DateTime(2026, 11, 14),
+      versoes: [
+        VersaoProva(
+          id: 'v1',
+          qrCode: 'q',
+          alunoId: alunoId,
+          questoes: [
+            QuestaoNaVersao(
+              questao: Questao(
+                id: 'q1',
+                materiaId: 'c',
+                enunciado: 'Enunciado',
+                alternativas: ['A', 'B'],
+                respostaCorreta: 0,
+              ),
+              alternativas: ['A', 'B'],
+              respostaCorreta: 0,
+            ),
+          ],
+        ),
+      ],
+    );
+
+String _documentXml(List<int> bytes) {
+  final archive = ZipDecoder().decodeBytes(bytes);
+  return utf8.decode(
+    archive.findFile('word/document.xml')!.content as List<int>,
+  );
 }
