@@ -10,6 +10,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_page.dart';
 import '../../services/notas_da_prova.dart';
+import '../../services/alunos_para_pdf.dart';
 import '../../services/docx_service.dart';
 import '../../services/prova_repository.dart';
 import '../../models/prova_gerada.dart';
@@ -201,6 +202,7 @@ class ListarProvasScreen extends StatelessWidget {
 
   Future<void> _exportarDocx(BuildContext context, ProvaResumo resumo) async {
     final mensagens = ScaffoldMessenger.of(context);
+    final turmas = context.read<TurmasRepository?>()?.turmas ?? const [];
     void avisar(String texto) => mensagens
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(texto)));
@@ -217,7 +219,7 @@ class ListarProvasScreen extends StatelessWidget {
       );
       final salvo = await salvarArquivoDocx(
         'prova_$nome.docx',
-        gerarDocx(prova),
+        gerarDocx(prova, alunos: alunosDaTurma(prova.turma, turmas)),
       );
       if (salvo) avisar('Prova exportada em Word.');
     } catch (_) {
