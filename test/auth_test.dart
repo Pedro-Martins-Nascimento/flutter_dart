@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/provas_exemplo.dart';
+
 import 'package:flutter_dart/main.dart';
 import 'package:flutter_dart/services/auth_service.dart';
 import 'package:flutter_dart/services/correcao_repository_memoria.dart';
@@ -124,6 +125,74 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Já tenho conta · Entrar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Entrar com Google'), findsOneWidget);
+  });
+
+  Future<void> abrirRecuperacao(WidgetTester tester) async {
+    await tester.tap(find.text('Esqueci minha senha'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('esqueci minha senha abre a tela de recuperação', (tester) async {
+    await abrirApp(tester, MockFirebaseAuth());
+
+    await abrirRecuperacao(tester);
+
+    expect(find.text('Recuperar senha'), findsOneWidget);
+    expect(find.text('Enviar link'), findsOneWidget);
+  });
+
+  testWidgets('recuperação envia o e-mail e mostra a confirmação', (
+    tester,
+  ) async {
+    final firebase = MockFirebaseAuth();
+    whenCalling(Invocation.method(#sendPasswordResetEmail, null)).on(firebase);
+    await abrirApp(tester, firebase);
+    await abrirRecuperacao(tester);
+
+    await tester.enterText(find.byType(TextFormField), 'prof@escola.com');
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Enviar link'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('prof@escola.com'), findsOneWidget);
+    expect(find.text('Enviar para outro e-mail'), findsOneWidget);
+  });
+
+  testWidgets('recuperação com e-mail inválido não envia nada', (tester) async {
+    await abrirApp(tester, MockFirebaseAuth());
+    await abrirRecuperacao(tester);
+
+    await tester.enterText(find.byType(TextFormField), 'isso-nao-e-email');
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Enviar link'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('E-mail inválido'), findsOneWidget);
+    expect(find.text('Enviar para outro e-mail'), findsNothing);
+  });
+
+  testWidgets('erro ao enviar a recuperação mostra mensagem', (tester) async {
+    final firebase = MockFirebaseAuth();
+    whenCalling(Invocation.method(#sendPasswordResetEmail, null))
+        .on(firebase)
+        .thenThrow(FirebaseAuthException(code: 'network-request-failed'));
+    await abrirApp(tester, firebase);
+    await abrirRecuperacao(tester);
+
+    await tester.enterText(find.byType(TextFormField), 'prof@escola.com');
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Enviar link'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sem conexão com a internet.'), findsOneWidget);
+    expect(find.text('Enviar para outro e-mail'), findsNothing);
+  });
+
+  testWidgets('da recuperação dá para voltar ao login', (tester) async {
+    await abrirApp(tester, MockFirebaseAuth());
+    await abrirRecuperacao(tester);
+
+    await tester.tap(find.text('Voltar para o login'));
     await tester.pumpAndSettle();
 
     expect(find.text('Entrar com Google'), findsOneWidget);

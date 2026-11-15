@@ -61,14 +61,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _esqueciSenha() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Recuperação de senha ainda não disponível.'),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -178,7 +170,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           vertical: AppSpacing.s2,
                         ),
                       ),
-                      onPressed: _esqueciSenha,
+                      onPressed: _carregando
+                          ? null
+                          : () => context.push('/recuperar-senha'),
                       child: const Text('Esqueci minha senha'),
                     ),
                     const SizedBox(height: AppSpacing.s4),
