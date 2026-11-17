@@ -106,7 +106,7 @@ Integração com banco de dados real: os dados mock da N1 foram substituídos po
 | RF16 | Corrigir › versão | ✅ nota de 0 a 10 calculada ao confirmar e salva no Firestore |
 | RF17 | Corrigir › Resultado | ✅ por questão: alternativa marcada, gabarito e acerto |
 | RF18 | Início › Estatística completa | ✅ acerto por matéria, questões com mais erros, média por prova e ranking de alunos |
-| RF19 | Provas geradas | ✅ exporta as notas da prova em `.xlsx` |
+| RF19 | Provas geradas | ✅ exporta as notas da prova em `.xlsx` (matrícula, nome, nota e data; formato em [docs/formato-relatorio-notas.md](docs/formato-relatorio-notas.md)) |
 | RNF07 | Firestore | ✅ regras em `firestore.rules`: cada professor só lê e grava em `professores/{uid}` |
 
 ### 1.2 Entrega N1

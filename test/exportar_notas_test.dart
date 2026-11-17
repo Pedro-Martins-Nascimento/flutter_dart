@@ -79,6 +79,8 @@ void main() {
                 ? (c!.value as DoubleCellValue).value
                 : c?.value is IntCellValue
                 ? (c!.value as IntCellValue).value.toDouble()
+                : c?.value is DateCellValue
+                ? (c!.value as DateCellValue).asDateTimeLocal()
                 : null,
         ],
     ];
@@ -105,9 +107,9 @@ void main() {
 
     expect(nomeSalvo, 'notas_Prova_de_Matemática.xlsx');
     expect(lerLinhas(bytesSalvos!), [
-      ['Aluno', 'Prova', 'Nota'],
-      ['Ana', 'Prova de Matemática', 5.0],
-      ['Bruno', 'Prova de Matemática', null],
+      ['Matrícula', 'Nome', 'Nota', 'Data'],
+      ['1', 'Ana', 5.0, DateTime(2026, 5, 10)],
+      ['2', 'Bruno', null, null],
     ]);
     expect(find.text('Planilha de notas salva.'), findsOneWidget);
   });
