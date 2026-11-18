@@ -40,7 +40,18 @@ void main() {
     expect(linhas.map((l) => l.aluno), ['Ana', 'Bruno']);
     expect(linhas[0].nota, isNull);
     expect(linhas[1].nota, 5);
-    expect(linhas.every((l) => l.prova == 'Prova 1'), isTrue);
+    expect(linhas.map((l) => l.matricula), ['1', '2']);
+  });
+
+  test('a data é a da correção, e vazia para quem não foi corrigido', () {
+    final linhas = linhasDeNotas(
+      prova: prova,
+      turmas: turmas,
+      correcoes: [correcao('x', alunoId: 'b1', alunoNome: 'Bruno')],
+    );
+
+    expect(linhas[0].data, isNull);
+    expect(linhas[1].data, DateTime(2026, 5, 10));
   });
 
   test('ignora correções de outras provas', () {
