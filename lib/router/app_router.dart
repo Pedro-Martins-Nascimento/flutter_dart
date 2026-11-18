@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../models/versao_prova.dart';
 import '../screens/auth/criar_conta_screen.dart';
 import '../screens/auth/login_screen.dart';
+import '../screens/auth/recuperar_senha_screen.dart';
 import '../models/questao.dart';
 import '../screens/corrigir/corrigir_screen.dart';
 import '../screens/corrigir/corrigir_versao_screen.dart';
@@ -37,7 +38,8 @@ GoRouter criarRouter(
   redirect: (context, state) {
     final telaPublica =
         state.matchedLocation == '/login' ||
-        state.matchedLocation == '/cadastro';
+        state.matchedLocation == '/cadastro' ||
+        state.matchedLocation == '/recuperar-senha';
     if (!auth.logado) return telaPublica ? null : '/login';
     if (telaPublica) return '/inicio';
     return null;
@@ -47,6 +49,10 @@ GoRouter criarRouter(
     GoRoute(
       path: '/cadastro',
       builder: (context, state) => const CriarContaScreen(),
+    ),
+    GoRoute(
+      path: '/recuperar-senha',
+      builder: (context, state) => const RecuperarSenhaScreen(),
     ),
 
     StatefulShellRoute.indexedStack(

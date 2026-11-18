@@ -64,6 +64,14 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  Future<void> enviarRecuperacaoDeSenha(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (e) {
+      throw AuthErro(_mensagemRecuperacao(e.code));
+    }
+  }
+
   Future<void> entrarComGoogle() async {
     try {
       if (kIsWeb) {
@@ -151,6 +159,21 @@ class AuthService extends ChangeNotifier {
         return 'Cadastro com e-mail e senha não está habilitado no Firebase.';
       default:
         return 'Não foi possível criar a conta. Tente novamente.';
+    }
+  }
+
+  String _mensagemRecuperacao(String codigo) {
+    switch (codigo) {
+      case 'invalid-email':
+        return 'E-mail inválido.';
+      case 'user-not-found':
+        return 'Não existe conta com este e-mail.';
+      case 'network-request-failed':
+        return 'Sem conexão com a internet.';
+      case 'too-many-requests':
+        return 'Muitas tentativas. Tente novamente em alguns minutos.';
+      default:
+        return 'Não foi possível enviar o e-mail. Tente novamente.';
     }
   }
 
