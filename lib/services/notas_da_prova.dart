@@ -33,11 +33,13 @@ List<LinhaNota> linhasDeNotas({
 
   final linhas = <LinhaNota>[];
   for (final aluno in alunosDaTurma) {
+    final c = porAluno.remove(aluno.id);
     linhas.add(
       LinhaNota(
+        matricula: aluno.matricula,
         aluno: aluno.nome,
-        prova: prova.nome,
-        nota: porAluno.remove(aluno.id)?.nota,
+        nota: c?.nota,
+        data: c?.corrigidoEm,
       ),
     );
   }
@@ -47,8 +49,8 @@ List<LinhaNota> linhasDeNotas({
     linhas.add(
       LinhaNota(
         aluno: c.alunoNome ?? 'Sem aluno vinculado (${c.versaoId})',
-        prova: prova.nome,
         nota: c.nota,
+        data: c.corrigidoEm,
       ),
     );
   }
