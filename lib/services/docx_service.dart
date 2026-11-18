@@ -3,11 +3,12 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 
+import '../models/aluno.dart';
 import '../models/versao_prova.dart';
 import '../models/prova_gerada.dart';
 
 class DocxService {
-  Uint8List gerar(ProvaGerada prova) {
+  Uint8List gerar(ProvaGerada prova, {List<Aluno> alunos = const []}) {
     final documento = StringBuffer(
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
@@ -15,8 +16,10 @@ class DocxService {
     );
 
     for (var i = 0; i < prova.versoes.length; i++) {
-      if (i > 0) _paragrafo(documento, '<w:br w:type="page"/>');
-      _adicionarVersao(documento, prova, prova.versoes[i], i + 1);
+      if (i > 0) {
+        _paragrafo(documento, '<w:r><w:br w:type="page"/></w:r>');
+      }
+      _adicionarVersao(documento, prova, prova.versoes[i], i + 1, alunos);
     }
 
     documento.write(
@@ -38,6 +41,7 @@ class DocxService {
     ProvaGerada prova,
     VersaoProva versao,
     int numero,
+    List<Aluno> alunos,
   ) {
     _paragrafo(xml, _texto('Versão $numero', negrito: true, tamanho: 32));
     _paragrafo(xml, _texto(versao.provaNome, negrito: true));
@@ -47,7 +51,7 @@ class DocxService {
     _paragrafo(xml, _texto('Data: ${_data(prova.criadoEm)}'));
     _paragrafo(
       xml,
-      _texto('Aluno: ${versao.alunoId ?? '____________________________'}'),
+      _texto('Aluno: ${_nomeAluno(versao, alunos)}'),
     );
 
     for (var i = 0; i < versao.questoes.length; i++) {
@@ -60,6 +64,15 @@ class DocxService {
         _paragrafo(xml, _texto('${String.fromCharCode(65 + j)}) ${questao.alternativas[j]}'));
       }
     }
+  }
+
+  String _nomeAluno(VersaoProva versao, List<Aluno> alunos) {
+    final alunoId = versao.alunoId;
+    if (alunoId == null) return '____________________';
+    for (final aluno in alunos) {
+      if (aluno.id == alunoId) return aluno.nome;
+    }
+    return '____________________';
   }
 
   String _data(DateTime data) =>
@@ -99,4 +112,7 @@ class DocxService {
       '</Relationships>';
 }
 
-Uint8List gerarDocx(ProvaGerada prova) => DocxService().gerar(prova);
+Uint8List gerarDocx(
+  ProvaGerada prova, {
+  List<Aluno> alunos = const [],
+}) => DocxService().gerar(prova, alunos: alunos);
