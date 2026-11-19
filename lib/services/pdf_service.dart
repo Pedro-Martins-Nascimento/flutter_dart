@@ -281,13 +281,14 @@ class PdfService {
     return pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: pw.EdgeInsets.all(margem),
-      header: (context) => _buildHeader(versao),
+      header: (context) => _buildHeader(versao, context),
       footer: (context) => _buildFooterMarkers(),
       build: (context) => corpo(),
     );
   }
 
-  pw.Widget _buildHeader(VersaoProva versao) {
+  pw.Widget _buildHeader(VersaoProva versao, pw.Context context) {
+    final bool isFirstPage = context.pageNumber == 1;
     return pw.Container(
       width: double.infinity,
       height: LayoutFolha.alturaCabecalho,
@@ -340,12 +341,18 @@ class PdfService {
                   ),
                 ),
 
-                pw.BarcodeWidget(
-                  barcode: pw.Barcode.qrCode(),
-                  data: versao.qrCode,
-                  width: LayoutFolha.ladoQr,
-                  height: LayoutFolha.ladoQr,
-                ),
+                if (isFirstPage)
+                  pw.BarcodeWidget(
+                    barcode: pw.Barcode.qrCode(),
+                    data: versao.qrCode,
+                    width: LayoutFolha.ladoQr,
+                    height: LayoutFolha.ladoQr,
+                  )
+                else
+                  pw.SizedBox(
+                    width: LayoutFolha.ladoQr,
+                    height: LayoutFolha.ladoQr,
+                  ),
               ],
             ),
           ),
