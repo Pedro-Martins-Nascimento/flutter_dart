@@ -15,10 +15,11 @@ import '../screens/provas/criar_prova_screen.dart';
 import '../screens/provas/gerar_provas_screen.dart';
 import '../screens/provas/listar_provas_screen.dart';
 import '../screens/provas/preview_layout_screen.dart';
-import '../screens/questoes/materias_screen.dart';
+import '../screens/questoes/disciplinas_questoes_screen.dart';
 import '../screens/questoes/questao_form_screen.dart';
-import '../screens/questoes/questoes_materia_screen.dart';
+import '../screens/questoes/questoes_disciplina_screen.dart';
 import '../screens/turmas/criar_turma_screen.dart';
+import '../screens/turmas/disciplina_screen.dart';
 import '../screens/turmas/visualizar_turma_screen.dart';
 import '../screens/turmas/importar_alunos_screen.dart';
 import '../models/correcao.dart';
@@ -90,17 +91,27 @@ GoRouter criarRouter(
                 ),
                 GoRoute(
                   path: ':id',
-                  builder: (context, state) {
-                    final id = state.pathParameters['id']!;
-                    return VisualizarTurmaScreen(turmaId: id);
-                  },
+                  builder: (context, state) => DisciplinaScreen(
+                    disciplinaId: state.pathParameters['id']!,
+                  ),
                   routes: [
                     GoRoute(
-                      path: 'importar',
-                      builder: (context, state) {
-                        final id = state.pathParameters['id']!;
-                        return ImportarAlunosScreen(turmaId: id);
-                      },
+                      path: 'turma/:turmaId',
+                      builder: (context, state) => VisualizarTurmaScreen(
+                        disciplinaId: state.pathParameters['id']!,
+                        turmaId: state.pathParameters['turmaId']!,
+                        provas: provas,
+                        correcoes: correcoes,
+                      ),
+                      routes: [
+                        GoRoute(
+                          path: 'importar',
+                          builder: (context, state) => ImportarAlunosScreen(
+                            disciplinaId: state.pathParameters['id']!,
+                            turmaId: state.pathParameters['turmaId']!,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -112,18 +123,20 @@ GoRouter criarRouter(
           routes: [
             GoRoute(
               path: '/questoes',
-              builder: (context, state) => const MateriasScreen(),
+              builder: (context, state) => const DisciplinasQuestoesScreen(),
               routes: [
                 GoRoute(
-                  path: ':materiaId',
-                  builder: (context, state) => QuestoesMateriaScreen(
-                    materiaId: state.pathParameters['materiaId']!,
+                  path: 'disciplina/:disciplinaId',
+                  builder: (context, state) => QuestoesDisciplinaScreen(
+                    disciplinaId: state.pathParameters['disciplinaId']!,
                   ),
                   routes: [
                     GoRoute(
                       path: 'questao',
+                      // A questão fica na disciplina: o id dela vai no campo
+                      // materiaId da questão.
                       builder: (context, state) => QuestaoFormScreen(
-                        materiaId: state.pathParameters['materiaId']!,
+                        materiaId: state.pathParameters['disciplinaId']!,
                         questao: state.extra as Questao?,
                       ),
                     ),
@@ -152,9 +165,9 @@ GoRouter criarRouter(
               },
               routes: [
                 GoRoute(
-                  path: 'questao/:materiaId',
+                  path: 'questao/:disciplinaId',
                   builder: (context, state) => QuestaoFormScreen(
-                    materiaId: state.pathParameters['materiaId']!,
+                    materiaId: state.pathParameters['disciplinaId']!,
                   ),
                 ),
               ],

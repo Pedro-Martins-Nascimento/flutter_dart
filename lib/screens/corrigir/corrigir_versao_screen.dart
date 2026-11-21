@@ -64,8 +64,11 @@ class _CorrigirVersaoScreenState extends State<CorrigirVersaoScreen> {
   Aluno? _aluno(BuildContext context) {
     final alunoId = widget.versao.alunoId;
     if (alunoId == null) return null;
-    final turmas = context.read<TurmasRepository>().turmas;
-    for (final aluno in alunosDaTurma(widget.prova.turma, turmas)) {
+    for (final aluno in alunosDaProva(
+      disciplina: widget.prova.disciplina,
+      turma: widget.prova.turma,
+      disciplinas: context.read<TurmasRepository>().disciplinas,
+    )) {
       if (aluno.id == alunoId) return aluno;
     }
     return null;

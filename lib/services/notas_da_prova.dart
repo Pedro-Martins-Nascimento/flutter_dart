@@ -4,11 +4,12 @@
 import '../models/correcao.dart';
 import '../models/linha_nota.dart';
 import '../models/turma.dart';
+import 'alunos_para_pdf.dart';
 import 'prova_repository.dart' show ProvaResumo;
 
 List<LinhaNota> linhasDeNotas({
   required ProvaResumo prova,
-  required List<Turma> turmas,
+  required List<Disciplina> disciplinas,
   required List<Correcao> correcoes,
 }) {
   // Se o aluno tem mais de uma correção na prova, vale a mais recente.
@@ -26,10 +27,11 @@ List<LinhaNota> linhasDeNotas({
     }
   }
 
-  final alunosDaTurma = [
-    for (final turma in turmas)
-      if (turma.nome == prova.turma) ...turma.alunos,
-  ];
+  final alunosDaTurma = alunosTurmaDaProva(
+    disciplina: prova.disciplina,
+    turma: prova.turma,
+    disciplinas: disciplinas,
+  );
 
   final linhas = <LinhaNota>[];
   for (final aluno in alunosDaTurma) {

@@ -1,4 +1,4 @@
-// Estatística agregada da turma: acerto por matéria, questões que mais
+// Estatística agregada da turma: acerto por disciplina, questões que mais
 // derrubam a turma, média por prova e ranking de alunos.
 
 import 'package:flutter/material.dart';
@@ -7,7 +7,9 @@ import 'package:provider/provider.dart';
 import '../../models/correcao.dart';
 import '../../services/correcao_repository.dart';
 import '../../services/estatistica_service.dart';
+import '../../services/nome_da_disciplina.dart';
 import '../../services/questoes_repository.dart';
+import '../../services/turmas_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 
@@ -43,14 +45,15 @@ class EstatisticaCompletaScreen extends StatelessWidget {
       );
     }
 
-    final materias = context.watch<QuestoesRepository>().materias;
-    final acertoPorMateria = EstatisticaService.percentualAcertoPorMateria(
+    final acertoPorDisciplina = EstatisticaService.percentualAcertoPorGrupo(
       correcoes,
+      nomeDaDisciplina(
+        context.watch<QuestoesRepository>(),
+        context.watch<TurmasRepository>().disciplinas,
+      ),
     );
-    final materiasOrdenadas = [
-      for (final materia in materias)
-        if (acertoPorMateria[materia.id] case final acerto?)
-          (materia.nome, acerto),
+    final disciplinasOrdenadas = [
+      for (final e in acertoPorDisciplina.entries) (e.key, e.value),
     ]..sort((a, b) => a.$2.compareTo(b.$2));
 
     final questoes = EstatisticaService.percentualAcertoPorQuestao(correcoes);
@@ -76,8 +79,8 @@ class EstatisticaCompletaScreen extends StatelessWidget {
               ],
             ),
           ),
-          _secao('ACERTO POR MATÉRIA', [
-            for (final (nome, acerto) in materiasOrdenadas)
+          _secao('ACERTO POR DISCIPLINA', [
+            for (final (nome, acerto) in disciplinasOrdenadas)
               _linhaPercentual(nome, acerto),
           ]),
           _secao('QUESTÕES QUE MAIS DERRUBAM A TURMA', [

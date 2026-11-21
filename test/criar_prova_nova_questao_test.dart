@@ -1,6 +1,6 @@
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dart/models/questao.dart';
+import 'package:flutter_dart/models/turma.dart';
 import 'package:flutter_dart/router/app_router.dart';
 import 'package:flutter_dart/services/auth_service.dart';
 import 'package:flutter_dart/services/correcao_repository_memoria.dart';
@@ -20,10 +20,7 @@ void main() {
       auth: MockFirebaseAuth(signedIn: true),
       tokenGoogle: () async => 'x',
     );
-    final questoes = QuestoesRepository(
-      materias: [Materia(id: 'fis', nome: 'Física')],
-      questoes: const [],
-    );
+    final questoes = QuestoesRepository(materias: const [], questoes: const []);
     final router = criarRouter(
       auth,
       ProvaRepositoryMemoria(),
@@ -34,7 +31,9 @@ void main() {
         providers: [
           ChangeNotifierProvider.value(value: auth),
           ChangeNotifierProvider(
-            create: (_) => TurmasRepository(iniciais: const []),
+            create: (_) => TurmasRepository(
+              iniciais: [Disciplina(id: 'fis', nome: 'Física')],
+            ),
           ),
           ChangeNotifierProvider.value(value: questoes),
         ],
@@ -46,6 +45,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, 'Prova de Física');
+    // Escolher a disciplina já mostra as questões dela (sem matérias).
     await tester.tap(find.text('Física'));
     await tester.pumpAndSettle();
 

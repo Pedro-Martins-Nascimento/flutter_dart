@@ -50,6 +50,40 @@ class QuestoesRepository extends ChangeNotifier {
     return null;
   }
 
+  /// Disciplina das questões de [materiaId]. As questões ficam direto na
+  /// disciplina: o campo `materiaId` guarda o id dela. Questões antigas,
+  /// criadas quando havia matérias, apontam para uma matéria; vale a
+  /// disciplina dela, ou null se ela não tem.
+  String? disciplinaDoGrupo(String materiaId) {
+    final materia = materiaPorId(materiaId);
+    return materia == null ? materiaId : materia.disciplinaId;
+  }
+
+  /// Questões da disciplina [disciplinaId]; com null, as antigas que ainda
+  /// não têm disciplina.
+  List<Questao> questoesDaDisciplina(String? disciplinaId) => [
+    for (final q in _questoes)
+      if (disciplinaDoGrupo(q.materiaId) == disciplinaId) q,
+  ];
+
+  /// Coloca uma questão sem disciplina dentro de [disciplinaId].
+  Future<void> moverQuestao(String questaoId, String disciplinaId) async {
+    Questao? atual;
+    for (final q in _questoes) {
+      if (q.id == questaoId) atual = q;
+    }
+    if (atual == null) return;
+    await salvarQuestao(
+      Questao(
+        id: atual.id,
+        materiaId: disciplinaId,
+        enunciado: atual.enunciado,
+        alternativas: atual.alternativas,
+        respostaCorreta: atual.respostaCorreta,
+      ),
+    );
+  }
+
   List<Questao> questoesDaMateria(String materiaId) =>
       _questoes.where((q) => q.materiaId == materiaId).toList();
 
@@ -127,10 +161,11 @@ class QuestoesRepository extends ChangeNotifier {
 
   // ---------- operações de escrita ----------
 
-  Materia criarMateria(String nome) {
+  Materia criarMateria(String nome, {String? disciplinaId}) {
     final materia = Materia(
       id: 'mat_${DateTime.now().millisecondsSinceEpoch}',
       nome: nome,
+      disciplinaId: disciplinaId,
     );
 
     if (_modoMemoria) {

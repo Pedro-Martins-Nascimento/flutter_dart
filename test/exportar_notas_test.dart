@@ -4,6 +4,9 @@ import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dart/models/correcao.dart';
 import 'package:flutter_dart/models/turma.dart';
+
+import 'helpers/disciplina_antiga.dart';
+
 import 'package:flutter_dart/screens/provas/listar_provas_screen.dart';
 import 'package:flutter_dart/services/prova_repository_memoria.dart';
 import 'package:flutter_dart/models/prova_gerada.dart';
@@ -15,7 +18,7 @@ import 'package:provider/provider.dart';
 import 'correcao_fixtures.dart';
 
 void main() {
-  final turmaA = Turma(
+  final turmaA = disciplinaAntiga(
     id: 't1',
     nome: 'Turma A',
     alunos: [

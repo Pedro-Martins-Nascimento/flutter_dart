@@ -38,8 +38,8 @@ QuestaoNaVersao _questao(int n, {int linhas = 1, int alternativas = 4}) {
   );
 }
 
-VersaoProva _versao(List<QuestaoNaVersao> questoes) =>
-    VersaoProva(id: 'v1', qrCode: 'qr-v1', questoes: questoes);
+VersaoProva _versao(List<QuestaoNaVersao> questoes, {String id = 'v1'}) =>
+    VersaoProva(id: id, qrCode: 'qr-$id', questoes: questoes);
 
 /// Texto de cada página do PDF, na ordem.
 List<String> _textoPorPagina(List<int> bytes) {
@@ -52,6 +52,13 @@ List<String> _textoPorPagina(List<int> bytes) {
           .toList();
   return streams;
 }
+
+/// Texto corrido da página: o PDF grava cada palavra num trecho separado.
+String _frase(String pagina) =>
+    RegExp(r'\[\((.*?)\)\]TJ')
+        .allMatches(pagina)
+        .map((m) => m.group(1))
+        .join(' ');
 
 /// Páginas em que aparece alguma marca da questão [n] ("Q07-").
 Set<int> _paginasDaQuestao(List<String> paginas, int n) {
@@ -178,4 +185,62 @@ void main() {
       }
     }
   });
+
+  test('a letra da versão segue o número: v1 é A, v27 é AA', () {
+    String letra(String id) =>
+        VersaoProva(id: id, qrCode: '', questoes: const []).letra;
+    expect(letra('v1'), 'A');
+    expect(letra('v2'), 'B');
+    expect(letra('v26'), 'Z');
+    expect(letra('v27'), 'AA');
+    expect(letra('outro'), 'OUTRO');
+  });
+
+  test(
+    'cada versão sai com o caderno e, logo depois, o gabarito dela',
+    () async {
+      final bytes = await _servico().gerarPdfProvas([
+        _versao([_questao(1), _questao(2)], id: 'v1'),
+        _versao([_questao(3), _questao(4)], id: 'v2'),
+      ]);
+      final paginas = _textoPorPagina(bytes);
+      expect(paginas, hasLength(4));
+      final frases = paginas.map(_frase).toList();
+
+      // Caderno da A, gabarito da A, caderno da B, gabarito da B.
+      expect(frases[0], contains('PROVA A'));
+      expect(frases[0], contains('Marque as respostas no Gabarito da Prova A'));
+      expect(frases[0], isNot(contains('GABARITO DA PROVA')));
+      expect(frases[1], contains('GABARITO DA PROVA A'));
+      // O aviso de marcar com X fica só no gabarito.
+      expect(frases[1], contains('MARQUE A RESPOSTA COM UM X'));
+      expect(frases[1], contains('CERTO'));
+      expect(frases[0], isNot(contains('MARQUE A RESPOSTA COM UM X')));
+      expect(frases[2], contains('PROVA B'));
+      expect(frases[2], isNot(contains('GABARITO DA PROVA')));
+      expect(frases[3], contains('GABARITO DA PROVA B'));
+
+      // As questões ficam no caderno; o gabarito só tem número e bolinhas.
+      expect(_paginasDaQuestao(paginas, 1), {0});
+      expect(_paginasDaQuestao(paginas, 3), {2});
+    },
+  );
+
+  test(
+    'gabarito com muitas questões e alternativas não quebra o PDF',
+    () async {
+      final bytes = await _servico().gerarPdfVersao(
+        _versao([
+          for (var i = 1; i <= 130; i++)
+            _questao(i, alternativas: i == 5 ? 12 : 5),
+        ]),
+      );
+      final paginas = _textoPorPagina(bytes);
+      final gabaritos = paginas
+          .map(_frase)
+          .where((p) => p.contains('GABARITO DA PROVA A'))
+          .length;
+      expect(gabaritos, greaterThan(1));
+    },
+  );
 }

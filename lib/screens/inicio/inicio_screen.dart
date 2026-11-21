@@ -3,8 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/correcao.dart';
+import '../../models/turma.dart';
 import '../../services/correcao_repository.dart';
 import '../../services/estatistica_service.dart';
+import '../../services/nome_da_disciplina.dart';
 import '../../services/pendentes.dart';
 import '../../services/prova_repository.dart';
 import '../../services/questoes_repository.dart';
@@ -12,54 +14,45 @@ import '../../services/turmas_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/app_conta.dart';
-
-class _ResumoProva {
-  final String titulo;
-  final String meta;
-  final String provaId;
-
-  const _ResumoProva({
-    required this.titulo,
-    required this.meta,
-    required this.provaId,
-  });
-}
+import '../../widgets/cartoes_quadrados.dart';
 
 class _Numeros {
   final int corrigidas;
   final int pendentes;
-  final String media;
-  final Map<String, int> erroPorMateria;
+
+  /// Nome da disciplina → percentual de erro.
+  final Map<String, int> erroPorDisciplina;
 
   const _Numeros({
     required this.corrigidas,
     required this.pendentes,
-    required this.media,
-    required this.erroPorMateria,
+    required this.erroPorDisciplina,
   });
 
-  factory _Numeros.de(List<ProvaResumo> provas, List<Correcao> correcoes) {
-    final acertos = EstatisticaService.percentualAcertoPorMateria(correcoes);
+  factory _Numeros.de(
+    List<ProvaResumo> provas,
+    List<Correcao> correcoes,
+    String Function(String materiaId) disciplina,
+  ) {
+    final acertos = EstatisticaService.percentualAcertoPorGrupo(
+      correcoes,
+      disciplina,
+    );
     return _Numeros(
       corrigidas: correcoes.length,
       pendentes: contarPendentes(provas, correcoes),
-      media: correcoes.isEmpty
-          ? '-'
-          : EstatisticaService.mediaGeral(correcoes)
-                .toStringAsFixed(1)
-                .replaceAll('.', ','),
-      erroPorMateria: {
+      erroPorDisciplina: {
         for (final e in acertos.entries) e.key: (100 - e.value).round(),
       },
     );
   }
 }
 
-class _ErroMateria {
-  final String materia;
+class _ErroDisciplina {
+  final String disciplina;
   final int percentual;
 
-  const _ErroMateria(this.materia, this.percentual);
+  const _ErroDisciplina(this.disciplina, this.percentual);
 }
 
 class InicioScreen extends StatelessWidget {
@@ -83,7 +76,15 @@ class InicioScreen extends StatelessWidget {
         builder: (context, correcoesSnapshot) {
           final provas = provasSnapshot.data ?? const <ProvaResumo>[];
           final feitas = correcoesSnapshot.data ?? const <Correcao>[];
-          return _conteudo(context, provas, _Numeros.de(provas, feitas));
+          final disciplina = nomeDaDisciplina(
+            context.read<QuestoesRepository>(),
+            context.read<TurmasRepository>().disciplinas,
+          );
+          return _conteudo(
+            context,
+            provas,
+            _Numeros.de(provas, feitas, disciplina),
+          );
         },
       ),
     );
@@ -127,11 +128,11 @@ class InicioScreen extends StatelessWidget {
                           if (!medio) _acoesEmBarra(context, recuo),
                           _blocos(
                             context,
-                            provas: provas,
                             numeros: numeros,
                             largo: largo,
                             recuo: recuo,
                           ),
+                          _disciplinas(context, largo: largo, recuo: recuo),
                         ],
                       ),
                     ),
@@ -227,10 +228,6 @@ class InicioScreen extends StatelessWidget {
           Flexible(
             child: _Numero(rotulo: 'Pendentes', valor: '${numeros.pendentes}'),
           ),
-          SizedBox(width: espaco),
-          Flexible(
-            child: _Numero(rotulo: 'Média', valor: numeros.media),
-          ),
         ],
       ),
     );
@@ -251,83 +248,93 @@ class InicioScreen extends StatelessWidget {
 
   Widget _blocos(
     BuildContext context, {
-    required List<ProvaResumo> provas,
     required _Numeros numeros,
     required bool largo,
     required double recuo,
   }) {
-    const tituloErros = 'Erro por matéria';
-
-    const recuoCard = AppSpacing.s5;
-
-    if (!largo) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.s4,
-          AppSpacing.s2,
-          AppSpacing.s4,
-          AppSpacing.s6,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _Bloco(
-              titulo: tituloErros,
-              emCard: true,
-              recuo: recuoCard,
-              child: _conteudoEstatistica(context, numeros),
-            ),
-            const SizedBox(height: AppSpacing.s3),
-            _Bloco(
-              titulo: 'Últimas provas',
-              emCard: true,
-              recuo: recuoCard,
-              conteudoSemRecuo: true,
-              child: _conteudoProvas(context, provas: provas, recuo: recuoCard),
-            ),
-          ],
-        ),
-      );
-    }
-
+    final lateral = largo ? recuo : AppSpacing.s4;
     return Padding(
-      padding: EdgeInsets.fromLTRB(recuo, AppSpacing.s2, recuo, 0),
-      child: Row(
+      padding: EdgeInsets.fromLTRB(lateral, AppSpacing.s2, lateral, 0),
+      child: _Bloco(
+        titulo: 'Erro por disciplina',
+        emCard: true,
+        recuo: AppSpacing.s5,
+        child: _conteudoEstatistica(context, numeros),
+      ),
+    );
+  }
+
+  /// Quadradinhos: o primeiro cria uma disciplina e, ao lado, vem um por
+  /// disciplina, com o botão de criar turma. Tocar abre as turmas dela.
+  Widget _disciplinas(
+    BuildContext context, {
+    required bool largo,
+    required double recuo,
+  }) {
+    final disciplinas = context.read<TurmasRepository>().disciplinas;
+    final lateral = largo ? recuo : AppSpacing.s4;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(lateral, AppSpacing.s6, lateral, 0),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 5,
-            child: _Bloco(
-              titulo: tituloErros,
-              emCard: true,
-              recuo: recuoCard,
-              child: _conteudoEstatistica(context, numeros),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.s5),
-          Expanded(
-            flex: 4,
-            child: _Bloco(
-              titulo: 'Últimas provas',
-              emCard: true,
-              recuo: recuoCard,
-              conteudoSemRecuo: true,
-              child: _conteudoProvas(context, provas: provas, recuo: recuoCard),
-            ),
+          Text('DISCIPLINAS', style: AppTheme.kicker),
+          const SizedBox(height: AppSpacing.s3),
+          GradeDeCartoes(
+            children: [
+              CartaoAdicionar(
+                rotulo: 'Nova disciplina',
+                onTap: () => _novaDisciplina(context),
+              ),
+              for (final disciplina in disciplinas)
+                CartaoItem(
+                  titulo: disciplina.nome,
+                  subtitulo: _resumoDisciplina(disciplina),
+                  onTap: () => context.push('/turmas/${disciplina.id}'),
+                  rotuloBotao: 'Nova turma',
+                  onBotao: () => _novaTurma(context, disciplina),
+                ),
+            ],
           ),
         ],
       ),
     );
   }
 
+  Future<void> _novaDisciplina(BuildContext context) async {
+    final nome = await pedirNome(
+      context,
+      titulo: 'Nova disciplina',
+      rotulo: 'Nome da disciplina',
+      dica: 'Matemática',
+    );
+    if (nome == null || !context.mounted) return;
+    context.read<TurmasRepository>().criarDisciplina(nome);
+  }
+
+  /// Cria a turma e abre a disciplina, onde ela aparece entre as turmas.
+  Future<void> _novaTurma(BuildContext context, Disciplina disciplina) async {
+    final nome = await pedirNome(
+      context,
+      titulo: 'Nova turma em ${disciplina.nome}',
+      rotulo: 'Nome da turma',
+      dica: '3º ano B',
+    );
+    if (nome == null || !context.mounted) return;
+    final repositorio = context.read<TurmasRepository>();
+    await repositorio.criarTurma(disciplina.id, nome);
+    if (!context.mounted) return;
+    context.push('/turmas/${disciplina.id}');
+  }
+
   Widget _conteudoEstatistica(BuildContext context, _Numeros numeros) {
-    final linhas = _erroPorMateria(context, numeros);
+    final linhas = _erroPorDisciplina(context, numeros);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (linhas.isEmpty)
           const Text(
-            'Ainda não há correções para calcular o erro por matéria.',
+            'Ainda não há correções para calcular o erro por disciplina.',
             style: TextStyle(fontSize: 13, color: AppColors.textMuted),
           )
         else
@@ -343,65 +350,11 @@ class InicioScreen extends StatelessWidget {
     );
   }
 
-  List<_ErroMateria> _erroPorMateria(BuildContext context, _Numeros numeros) {
+  List<_ErroDisciplina> _erroPorDisciplina(BuildContext context, _Numeros numeros) {
     return [
-      for (final materia in context.read<QuestoesRepository>().materias)
-        if (numeros.erroPorMateria[materia.id] case final erro?)
-          _ErroMateria(materia.nome, erro),
+      for (final e in numeros.erroPorDisciplina.entries)
+        _ErroDisciplina(e.key, e.value),
     ]..sort((a, b) => b.percentual.compareTo(a.percentual));
-  }
-
-  Widget _conteudoProvas(
-    BuildContext context, {
-    required List<ProvaResumo> provas,
-    required double recuo,
-  }) {
-    if (provas.isEmpty) {
-      return Padding(
-        padding: EdgeInsets.symmetric(horizontal: recuo),
-        child: const Text(
-          'Nenhuma prova gerada ainda.',
-          style: TextStyle(fontSize: 13, color: AppColors.textMuted),
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final prova in _ultimasProvas(provas))
-          _LinhaProva(
-            resumo: prova,
-            recuo: recuo,
-            onTap: () => _abrirProva(context, prova.provaId),
-          ),
-      ],
-    );
-  }
-
-  Future<void> _abrirProva(BuildContext context, String id) async {
-    final prova = await repository.buscar(id);
-    if (prova == null || !context.mounted) return;
-    context.push('/gerar-provas', extra: prova);
-  }
-
-  List<_ResumoProva> _ultimasProvas(List<ProvaResumo> geradas) {
-    return [
-      for (final prova in geradas.take(3))
-        _ResumoProva(
-          titulo: prova.nome,
-          meta: _metaProva(prova),
-          provaId: prova.id,
-        ),
-    ];
-  }
-
-  String _metaProva(ProvaResumo prova) {
-    final partes = <String>[prova.materia];
-    if (prova.turma != null) partes.add(prova.turma!);
-    partes.add('${prova.totalVersoes} versões');
-    partes.add(_dataCurta(prova.criadoEm));
-    return partes.join(' · ');
   }
 }
 
@@ -438,14 +391,11 @@ class _Bloco extends StatelessWidget {
   final double recuo;
   final bool emCard;
 
-  final bool conteudoSemRecuo;
-
   const _Bloco({
     required this.titulo,
     required this.child,
     required this.recuo,
     this.emCard = false,
-    this.conteudoSemRecuo = false,
   });
 
   @override
@@ -458,13 +408,10 @@ class _Bloco extends StatelessWidget {
           child: Text(titulo.toUpperCase(), style: AppTheme.kicker),
         ),
         const SizedBox(height: AppSpacing.s3),
-        if (conteudoSemRecuo)
-          child
-        else
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: recuo),
-            child: child,
-          ),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: recuo),
+          child: child,
+        ),
       ],
     );
 
@@ -520,7 +467,7 @@ class _Numero extends StatelessWidget {
 }
 
 class _LinhaErro extends StatelessWidget {
-  final _ErroMateria linha;
+  final _ErroDisciplina linha;
 
   const _LinhaErro({required this.linha});
 
@@ -535,7 +482,7 @@ class _LinhaErro extends StatelessWidget {
           SizedBox(
             width: 78,
             child: Text(
-              linha.materia,
+              linha.disciplina,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 12, color: AppColors.neutral600),
@@ -573,66 +520,6 @@ class _LinhaErro extends StatelessWidget {
   }
 }
 
-class _LinhaProva extends StatelessWidget {
-  final _ResumoProva resumo;
-  final double recuo;
-  final VoidCallback onTap;
-
-  const _LinhaProva({
-    required this.resumo,
-    required this.recuo,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: recuo,
-          vertical: AppSpacing.s4,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    resumo.titulo,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      height: 1.25,
-                      color: AppColors.text,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    resumo.meta,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      height: 1.35,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: AppSpacing.s3),
-            const Icon(
-              Icons.chevron_right,
-              size: 20,
-              color: AppColors.neutral500,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 const List<String> _diasDaSemana = [
   'Segunda',
   'Terça',
@@ -664,8 +551,10 @@ String _dataPorExtenso(DateTime data) {
   return '$dia, ${data.day} de $mes';
 }
 
-String _dataCurta(DateTime data) {
-  final dia = data.day.toString().padLeft(2, '0');
-  final mes = data.month.toString().padLeft(2, '0');
-  return '$dia/$mes';
+String _resumoDisciplina(Disciplina disciplina) {
+  final turmas = disciplina.turmas.length;
+  if (turmas == 0) return 'Sem turmas';
+  final alunos = disciplina.qtdAlunos;
+  return '$turmas ${turmas == 1 ? 'turma' : 'turmas'} · '
+      '$alunos ${alunos == 1 ? 'aluno' : 'alunos'}';
 }

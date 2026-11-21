@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 
 import '../models/aluno.dart';
 import '../models/versao_prova.dart';
+import 'pdf_service.dart' show disciplinaDaVersao, turmaDaVersao;
 import '../models/prova_gerada.dart';
 
 class DocxService {
@@ -45,8 +46,14 @@ class DocxService {
   ) {
     _paragrafo(xml, _texto('Versão $numero', negrito: true, tamanho: 32));
     _paragrafo(xml, _texto(versao.provaNome, negrito: true));
-    _paragrafo(xml, _texto('Matéria: ${versao.materia}'));
-    _paragrafo(xml, _texto('Turma: ${versao.turma ?? 'Não informada'}'));
+    _paragrafo(
+      xml,
+      _texto('Disciplina: ${disciplinaDaVersao(versao) ?? 'Não informada'}'),
+    );
+    _paragrafo(
+      xml,
+      _texto('Turma: ${turmaDaVersao(versao) ?? 'Não informada'}'),
+    );
     _paragrafo(xml, _texto('Professor: ${versao.professor}'));
     _paragrafo(xml, _texto('Data: ${_data(prova.criadoEm)}'));
     _paragrafo(

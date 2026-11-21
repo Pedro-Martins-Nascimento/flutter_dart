@@ -92,8 +92,14 @@ class _PreviewLayoutScreenState extends State<PreviewLayoutScreen> {
       if (prova == null) {
         _naoEncontrada = true;
       } else {
-        final turmas = context.read<TurmasRepository>().turmas;
-        _usarDados(prova.versoes, alunosDaTurma(prova.turma, turmas));
+        _usarDados(
+          prova.versoes,
+          alunosDaProva(
+            disciplina: prova.disciplina,
+            turma: prova.turma,
+            disciplinas: context.read<TurmasRepository>().disciplinas,
+          ),
+        );
       }
     });
   }

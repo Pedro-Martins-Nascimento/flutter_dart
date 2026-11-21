@@ -24,65 +24,101 @@ void main() {
 
     tearDown(() => repo.dispose());
 
+    Future<Map<String, dynamic>?> doc(String id) async =>
+        (await firestore.doc('professores/prof1/turmas/$id').get()).data();
+
     test('começa vazio sem dados no Firestore', () async {
       await _aguardar(repo);
-      expect(repo.turmas, isEmpty);
+      expect(repo.disciplinas, isEmpty);
     });
 
-    test('carrega turmas do professor logado', () async {
-      await firestore
-          .collection('professores/prof1/turmas')
-          .doc('t1')
-          .set({'nome': 'Turma 1', 'qtdProvas': 2, 'alunos': []});
+    test('carrega disciplinas e turmas do professor logado', () async {
+      await firestore.collection('professores/prof1/turmas').doc('d1').set({
+        'nome': 'Matemática',
+        'qtdProvas': 2,
+        'turmas': [
+          {
+            'id': 't1',
+            'nome': '3º ano A',
+            'alunos': [
+              {'id': 'a1', 'nome': 'Ana', 'matricula': '1'},
+            ],
+          },
+        ],
+      });
       await _aguardar(repo);
 
-      expect(repo.turmas, hasLength(1));
-      expect(repo.turmas.first.nome, 'Turma 1');
+      expect(repo.disciplinas, hasLength(1));
+      final disciplina = repo.disciplinas.single;
+      expect(disciplina.nome, 'Matemática');
+      expect(disciplina.turmas.single.nome, '3º ano A');
+      expect(disciplina.alunos.single.nome, 'Ana');
     });
 
-    test('cria turma no Firestore no caminho do professor', () async {
-      final criada = repo.criar('3º Ano A');
+    test('cria disciplina no Firestore no caminho do professor', () async {
+      final criada = repo.criarDisciplina('Matemática');
       await _aguardar(repo);
 
-      final doc = await firestore
-          .doc('professores/prof1/turmas/${criada.id}')
-          .get();
-      expect(doc.exists, isTrue);
-      expect(doc.data()!['nome'], '3º Ano A');
+      final dados = await doc(criada.id);
+      expect(dados!['nome'], 'Matemática');
+      expect(dados['turmas'], isEmpty);
     });
 
-    test('adiciona e atualiza alunos no Firestore', () async {
-      final criada = repo.criar('3º Ano B');
+    test('cria turma e adiciona alunos dentro da disciplina', () async {
+      final disciplina = repo.criarDisciplina('Física');
       await _aguardar(repo);
 
-      await repo.adicionarAlunos(criada.id, [
+      final turma = await repo.criarTurma(disciplina.id, '2º ano');
+      await _aguardar(repo);
+      await repo.adicionarAlunos(disciplina.id, turma!.id, [
         AlunoTurma(id: 'a1', nome: 'Carlos', matricula: '123'),
       ]);
 
-      final doc = await firestore
-          .doc('professores/prof1/turmas/${criada.id}')
-          .get();
-      expect(doc.exists, isTrue);
-      final alunos = doc.data()!['alunos'] as List;
-      expect(alunos, hasLength(1));
-      expect(alunos[0]['nome'], 'Carlos');
+      final turmas = (await doc(disciplina.id))!['turmas'] as List;
+      expect(turmas, hasLength(1));
+      expect(turmas[0]['nome'], '2º ano');
+      expect((turmas[0]['alunos'] as List).single['nome'], 'Carlos');
     });
 
-    test('exclui turma do Firestore', () async {
-      final criada = repo.criar('3º Ano C');
+    test('disciplina antiga com alunos: aparecem na "Turma 1" e são '
+        'regravados no formato novo', () async {
+      await firestore.collection('professores/prof1/turmas').doc('d1').set({
+        'nome': 'História',
+        'alunos': [
+          {'id': 'a1', 'nome': 'Ana', 'matricula': '1'},
+        ],
+      });
       await _aguardar(repo);
 
-      repo.excluir(criada.id);
+      final turma1 = repo.disciplinaPorId('d1')!.turmas.single;
+      expect(turma1.nome, 'Turma 1');
+      expect(turma1.alunos.single.nome, 'Ana');
+
+      // Qualquer mudança nas turmas grava o formato novo e apaga o antigo.
+      await repo.criarTurma('d1', 'Turma 2');
       await _aguardar(repo);
 
-      final doc = await firestore
-          .doc('professores/prof1/turmas/${criada.id}')
-          .get();
-      expect(doc.exists, isFalse);
+      final dados = (await doc('d1'))!;
+      expect(dados.containsKey('alunos'), isFalse);
+      final turmas = dados['turmas'] as List;
+      expect(turmas.map((t) => t['nome']), ['Turma 1', 'Turma 2']);
+      expect((turmas[0]['alunos'] as List).single['nome'], 'Ana');
     });
 
-    test('um professor não enxerga nem altera turmas de outro', () async {
-      repo.criar('Turma do Prof 1');
+    test('exclui disciplina do Firestore', () async {
+      final criada = repo.criarDisciplina('Química');
+      await _aguardar(repo);
+
+      repo.excluirDisciplina(criada.id);
+      await _aguardar(repo);
+
+      expect(await doc(criada.id), isNull);
+    });
+
+    test('um professor não enxerga nem altera disciplinas de outro', () async {
+      final disciplina = repo.criarDisciplina('Do Prof 1');
+      await _aguardar(repo);
+      final turma = await repo.criarTurma(disciplina.id, 'Turma do Prof 1');
       await _aguardar(repo);
 
       final auth2 = MockFirebaseAuth(
@@ -92,27 +128,24 @@ void main() {
       final repo2 = TurmasRepository(auth: auth2, firestore: firestore);
       await _aguardar(repo2);
 
-      expect(repo.turmas, hasLength(1));
-      expect(repo2.turmas, isEmpty);
+      expect(repo.disciplinas, hasLength(1));
+      expect(repo2.disciplinas, isEmpty);
 
-      // Prof 2 não altera turma do Prof 1
-      final turmaProf1 = repo.turmas.first;
-      await repo2.adicionarAlunos(turmaProf1.id, [
+      await repo2.adicionarAlunos(disciplina.id, turma!.id, [
         AlunoTurma(id: 'invasor', nome: 'Invasor', matricula: '999'),
       ]);
-      repo2.excluir(turmaProf1.id);
+      repo2.excluirDisciplina(disciplina.id);
       await _aguardar(repo);
 
-      final docProf1 = await firestore
-          .doc('professores/prof1/turmas/${turmaProf1.id}')
-          .get();
-      expect(docProf1.exists, isTrue);
-      expect(docProf1.data()!['alunos'], isEmpty);
+      final dados = await doc(disciplina.id);
+      expect(dados, isNotNull);
+      final turmas = dados!['turmas'] as List;
+      expect(turmas.single['alunos'], isEmpty);
 
       repo2.dispose();
     });
 
-    test('sem login: leituras vazias e escritas ignoradas sem gravar no Firestore', () async {
+    test('sem login: leituras vazias e escritas ignoradas', () async {
       final authDeslogado = MockFirebaseAuth(signedIn: false);
       final repoDeslogado = TurmasRepository(
         auth: authDeslogado,
@@ -120,33 +153,30 @@ void main() {
       );
       await _aguardar(repoDeslogado);
 
-      expect(repoDeslogado.turmas, isEmpty);
+      expect(repoDeslogado.disciplinas, isEmpty);
 
-      final turma = repoDeslogado.criar('Turma Fantasma');
-      await repoDeslogado.adicionarAlunos(turma.id, [
-        AlunoTurma(id: 'a1', nome: 'Aluno', matricula: '001'),
-      ]);
-      repoDeslogado.excluir(turma.id);
+      final disciplina = repoDeslogado.criarDisciplina('Fantasma');
+      await repoDeslogado.criarTurma(disciplina.id, 'Turma');
+      repoDeslogado.excluirDisciplina(disciplina.id);
 
       await _aguardar(repoDeslogado);
-      expect(repoDeslogado.turmas, isEmpty);
+      expect(repoDeslogado.disciplinas, isEmpty);
 
-      // Nada foi gravado em 'professores'
       final snapshot = await firestore.collection('professores').get();
       expect(snapshot.docs, isEmpty);
 
       repoDeslogado.dispose();
     });
 
-    test('logout limpa a lista de turmas', () async {
-      repo.criar('Turma Temporária');
+    test('logout limpa a lista de disciplinas', () async {
+      repo.criarDisciplina('Temporária');
       await _aguardar(repo);
-      expect(repo.turmas, hasLength(1));
+      expect(repo.disciplinas, hasLength(1));
 
       await auth.signOut();
       await _aguardar(repo);
 
-      expect(repo.turmas, isEmpty);
+      expect(repo.disciplinas, isEmpty);
     });
   });
 }

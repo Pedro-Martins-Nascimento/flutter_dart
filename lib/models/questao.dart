@@ -2,7 +2,11 @@ class Materia {
   final String id;
   final String nome;
 
-  Materia({required this.id, required this.nome});
+  /// Disciplina a que a matéria pertence. Matérias criadas antes das
+  /// disciplinas ficam sem (null) até serem movidas para uma.
+  final String? disciplinaId;
+
+  Materia({required this.id, required this.nome, this.disciplinaId});
 }
 
 class Questao {

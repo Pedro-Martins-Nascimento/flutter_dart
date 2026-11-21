@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../models/questao.dart';
 import '../../services/firebase_erro.dart';
 import '../../services/questoes_repository.dart';
+import 'disciplinas_questoes_screen.dart' show semDisciplina;
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 
@@ -92,7 +93,11 @@ class _QuestaoFormScreenState extends State<QuestaoFormScreen> {
 
     final questao = Questao(
       id: widget.questao?.id ?? 'q_${DateTime.now().millisecondsSinceEpoch}',
-      materiaId: widget.materiaId,
+      // Editada no grupo "Sem disciplina", a questão continua onde estava
+      // (para mudar, usa-se "Mover para disciplina").
+      materiaId: widget.materiaId == semDisciplina
+          ? (widget.questao?.materiaId ?? widget.materiaId)
+          : widget.materiaId,
       enunciado: enunciado,
       alternativas: textos,
       respostaCorreta: _correta,

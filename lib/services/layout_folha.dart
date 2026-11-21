@@ -23,15 +23,14 @@ class LayoutFolha {
   static const double alturaCabecalho = 70;
   static const double alturaRodape = 24;
 
-  // QR code da versão, no canto direito do cabeçalho.
+  // QR code da versão, no canto direito do cabeçalho do gabarito (o caderno
+  // de questões não tem QR nem marcadores).
   static const double ladoQr = 48;
   static const double paddingHorizontalCabecalho = 20;
 
-  // Bolinhas das alternativas.
-  static const double diametroBolinha = 10;
+  // Bolinhas das alternativas no gabarito, com a letra dentro.
+  static const double diametroBolinhaGabarito = 13;
   static const double bordaBolinha = 0.8;
-  static const double espacoBolinhaTexto = 6;
-  static const double margemTopoBolinha = 2;
 
   /// Os quatro marcadores de canto na página (origem no canto superior
   /// esquerdo, y para baixo): superior esquerdo, superior direito, inferior

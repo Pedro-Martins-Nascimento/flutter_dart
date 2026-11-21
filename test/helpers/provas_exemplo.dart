@@ -1,6 +1,9 @@
 import 'package:flutter_dart/models/prova_gerada.dart';
 import 'package:flutter_dart/models/questao.dart';
 import 'package:flutter_dart/models/turma.dart';
+
+import 'disciplina_antiga.dart';
+
 import 'package:flutter_dart/models/versao_prova.dart';
 import 'package:flutter_dart/services/prova_repository_memoria.dart';
 
@@ -85,7 +88,8 @@ final List<Questao> questoesMock = [
   Questao(
     id: 'q9',
     materiaId: 'mat3',
-    enunciado: 'Qual organela celular é responsável pela produção de energia (ATP)?',
+    enunciado:
+        'Qual organela celular é responsável pela produção de energia (ATP)?',
     alternativas: [
       'Complexo de Golgi',
       'Ribossomo',
@@ -103,8 +107,8 @@ final List<Questao> questoesMock = [
   ),
 ];
 
-final List<Turma> turmasMock = [
-  Turma(
+final List<Disciplina> turmasMock = [
+  disciplinaAntiga(
     id: '1',
     nome: '3º ano B — Matutino',
     qtdProvas: 3,
@@ -119,7 +123,7 @@ final List<Turma> turmasMock = [
       AlunoTurma(id: '8', nome: 'Henrique Salles', matricula: '20261186'),
     ],
   ),
-  Turma(
+  disciplinaAntiga(
     id: '2',
     nome: '2º ano A — Matutino',
     qtdProvas: 1,
@@ -128,7 +132,7 @@ final List<Turma> turmasMock = [
       AlunoTurma(id: 'a2', nome: 'Bernardo Silva', matricula: '20262202'),
     ],
   ),
-  Turma(
+  disciplinaAntiga(
     id: '3',
     nome: 'Redes de Computadores — Noturno',
     qtdProvas: 5,
@@ -137,7 +141,7 @@ final List<Turma> turmasMock = [
       AlunoTurma(id: 'r2', nome: 'Bárbara Paz', matricula: '20263302'),
     ],
   ),
-  Turma(
+  disciplinaAntiga(
     id: '4',
     nome: 'Turma piloto (OMR)',
     qtdProvas: 2,
@@ -229,4 +233,3 @@ Future<ProvaRepositoryMemoria> criarProvaRepositoryMemoriaComMocks() async {
   }
   return repo;
 }
-

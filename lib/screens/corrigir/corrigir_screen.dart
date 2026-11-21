@@ -156,8 +156,11 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
   String? _nomeDoAluno(VersaoEncontrada encontrada) {
     final alunoId = encontrada.versao.alunoId;
     if (alunoId == null) return null;
-    final turmas = context.read<TurmasRepository>().turmas;
-    for (final aluno in alunosDaTurma(encontrada.prova.turma, turmas)) {
+    for (final aluno in alunosDaProva(
+      disciplina: encontrada.prova.disciplina,
+      turma: encontrada.prova.turma,
+      disciplinas: context.read<TurmasRepository>().disciplinas,
+    )) {
       if (aluno.id == alunoId) return aluno.nome;
     }
     return null;

@@ -38,6 +38,7 @@ class ProvaRepositoryMemoria implements ProvaRepository {
           nome: e.value['nome'] as String,
           materia: e.value['materia'] as String,
           turma: e.value['turma'] as String?,
+          disciplina: e.value['disciplina'] as String?,
           criadoEm: e.value['criadoEm'] as DateTime,
           totalVersoes: e.value['totalVersoes'] as int,
         ),

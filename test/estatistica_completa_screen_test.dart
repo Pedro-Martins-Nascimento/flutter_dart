@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dart/screens/inicio/estatistica_completa_screen.dart';
 import 'package:flutter_dart/services/correcao_repository_memoria.dart';
+import 'package:flutter_dart/models/turma.dart';
 import 'package:flutter_dart/services/questoes_repository.dart';
+import 'package:flutter_dart/services/turmas_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/provas_exemplo.dart';
 import 'package:provider/provider.dart';
 
 import 'correcao_fixtures.dart';
@@ -18,9 +19,18 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
-      ChangeNotifierProvider(
-        create: (_) =>
-            QuestoesRepository(materias: materiasMock, questoes: const []),
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(
+            create: (_) =>
+                QuestoesRepository(materias: const [], questoes: const []),
+          ),
+          ChangeNotifierProvider(
+            create: (_) => TurmasRepository(
+              iniciais: [Disciplina(id: 'mat1', nome: 'Matemática')],
+            ),
+          ),
+        ],
         child: MaterialApp(
           home: EstatisticaCompletaScreen(correcoes: correcoes),
         ),
@@ -35,7 +45,7 @@ void main() {
     expect(find.textContaining('Nenhuma correção com nota'), findsOneWidget);
   });
 
-  testWidgets('com correções mostra média, matéria, prova e ranking', (
+  testWidgets('com correções mostra média, disciplina, prova e ranking', (
     tester,
   ) async {
     final correcoes = CorrecaoRepositoryMemoria();
@@ -57,6 +67,8 @@ void main() {
 
     expect(find.text('7,5'), findsOneWidget);
     // 3 acertos em 4 respostas de Matemática.
+    expect(find.text('ACERTO POR DISCIPLINA'), findsOneWidget);
+    expect(find.text('Matemática'), findsOneWidget);
     expect(find.text('75%'), findsOneWidget);
     expect(find.text('Prova p1'), findsOneWidget);
     expect(find.text('7.5 · 2 corrigida(s)'), findsOneWidget);

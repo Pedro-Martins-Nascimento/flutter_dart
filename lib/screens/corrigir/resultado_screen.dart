@@ -31,7 +31,10 @@ class ResultadoScreen extends StatelessWidget {
         title: const Text('Resultado'),
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => context.go('/corrigir'),
+          // Aberto pelo histórico ou pela disciplina, volta para lá; vindo da
+          // correção (que troca a tela), volta para a câmera.
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/corrigir'),
         ),
       ),
       body: ListView(

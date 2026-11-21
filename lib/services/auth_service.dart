@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../models/versao_prova.dart';
+
 // Client OAuth "web" do projeto (client_type 3 no google-services.json).
 // O login nativo do Android precisa dele pra gerar o idToken do Firebase.
 const _googleServerClientId =
@@ -36,6 +38,34 @@ class AuthService extends ChangeNotifier {
 
   User? get usuario => _usuario;
   bool get logado => _usuario != null;
+
+  /// Nome que sai no campo "Professor" das provas (ver [nomeDoProfessor]).
+  String get nomeProfessor {
+    final usuario = _auth.currentUser ?? _usuario;
+    return nomeDoProfessor(
+      nome: usuario?.displayName,
+      email: usuario?.email,
+      google:
+          usuario?.providerData.any((p) => p.providerId == 'google.com') ??
+          false,
+    );
+  }
+
+  /// Quem entrou pelo Google aparece pelo e-mail da conta; quem se cadastrou
+  /// com e-mail e senha, pelo nome digitado no cadastro (ou pelo e-mail, se
+  /// não houver nome). Sem nenhum dos dois, fica o texto padrão.
+  static String nomeDoProfessor({
+    String? nome,
+    String? email,
+    required bool google,
+  }) {
+    final nomeLimpo = nome?.trim() ?? '';
+    final emailLimpo = email?.trim() ?? '';
+    final escolhido = google
+        ? (emailLimpo.isNotEmpty ? emailLimpo : nomeLimpo)
+        : (nomeLimpo.isNotEmpty ? nomeLimpo : emailLimpo);
+    return escolhido.isNotEmpty ? escolhido : VersaoProva.professorPadrao;
+  }
 
   Future<void> entrarComEmail(String email, String senha) async {
     try {
