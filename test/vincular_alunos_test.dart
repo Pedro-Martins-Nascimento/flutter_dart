@@ -53,7 +53,7 @@ void main() {
               disciplina: Disciplina(id: 'd1', nome: 'Mat', turmas: [turma]),
               turma: turma,
               questoes: [questao],
-              modo: ModoProva.mesmaEmbaralhada,
+              opcoes: const OpcoesProva(),
               versoes: versoes,
             ),
           ),

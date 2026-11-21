@@ -33,7 +33,13 @@ void main() {
   // a v2 foi corrigida sem aluno e a v3 está pendente. A prova "Da tarde" é
   // da outra turma, e "Antiga" foi gravada antes das turmas (só com o nome
   // da disciplina): ela aparece na primeira turma.
-  Future<void> abrir(WidgetTester tester) async {
+  final salvas = <String>[];
+
+  Future<void> abrir(
+    WidgetTester tester, {
+    bool todasCorrigidas = false,
+  }) async {
+    salvas.clear();
     tester.view.physicalSize = const Size(1200, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -60,6 +66,9 @@ void main() {
       correcao('c1', provaId: 'p1', versaoId: 'v1', alunoId: 'a1'),
     );
     await correcoes.salvar(correcao('c2', provaId: 'p1', versaoId: 'v2'));
+    if (todasCorrigidas) {
+      await correcoes.salvar(correcao('c3', provaId: 'p1', versaoId: 'v3'));
+    }
 
     await tester.pumpWidget(
       ChangeNotifierProvider(
@@ -88,6 +97,10 @@ void main() {
             turmaId: 't1',
             provas: provas,
             correcoes: correcoes,
+            salvarPlanilha: (nome, bytes) async {
+              salvas.add(nome);
+              return bytes.isNotEmpty;
+            },
           ),
         ),
       ),
@@ -145,4 +158,34 @@ void main() {
       expect(find.text('Pendente'), findsOneWidget);
     },
   );
+
+  testWidgets('planilha de notas só libera com todas as folhas corrigidas', (
+    tester,
+  ) async {
+    await abrir(tester);
+    await tester.tap(find.text('Provas (2)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Prova p1'));
+    await tester.pumpAndSettle();
+
+    // 2 de 3 corrigidas: avisa quanto falta, sem botão.
+    expect(find.textContaining('(falta 1)'), findsOneWidget);
+    expect(find.text('Baixar planilha de notas'), findsNothing);
+  });
+
+  testWidgets('com todas corrigidas, baixa a planilha da turma', (
+    tester,
+  ) async {
+    await abrir(tester, todasCorrigidas: true);
+    await tester.tap(find.text('Provas (2)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Prova p1'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Baixar planilha de notas'));
+    await tester.pumpAndSettle();
+
+    expect(salvas, ['notas_Manhã_Prova_p1.xlsx']);
+    expect(find.text('Planilha de notas salva.'), findsOneWidget);
+  });
 }

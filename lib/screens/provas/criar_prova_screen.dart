@@ -15,7 +15,7 @@ class DadosProva {
   final Disciplina? disciplina;
   final Turma? turma;
   final List<Questao> questoes;
-  final ModoProva modo;
+  final OpcoesProva opcoes;
   final int versoes;
   final ProvaGerada? editando;
 
@@ -24,7 +24,7 @@ class DadosProva {
     this.disciplina,
     required this.turma,
     required this.questoes,
-    required this.modo,
+    required this.opcoes,
     required this.versoes,
     this.editando,
   });
@@ -56,7 +56,9 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
   String? disciplinaSelecionadaId;
   String? turmaSelecionadaId;
   final Set<String> questoesSelecionadas = {};
-  ModoProva modoSelecionado = ModoProva.mesmaEmbaralhada;
+  bool embaralharAlternativas = true;
+  bool embaralharQuestoes = true;
+  bool vincularAlunos = false;
 
   final TextEditingController nomeProvaController = TextEditingController();
 
@@ -95,13 +97,18 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
       }
     }
 
-    final conjuntos = {
+    // As opções não ficam gravadas: são deduzidas das versões salvas.
+    final ordens = {
       for (final versao in prova.versoes)
-        (versao.questoes.map((q) => q.questao.id).toList()..sort()).join(','),
+        versao.questoes.map((q) => q.questao.id).join(','),
     };
-    modoSelecionado = conjuntos.length > 1
-        ? ModoProva.conjuntosDiferentes
-        : ModoProva.mesmaEmbaralhada;
+    embaralharQuestoes = ordens.length > 1;
+    embaralharAlternativas = prova.versoes.any(
+      (versao) => versao.questoes.any(
+        (q) => q.alternativas.join('|') != q.questao.alternativas.join('|'),
+      ),
+    );
+    vincularAlunos = prova.versoes.any((versao) => versao.alunoId != null);
     if (prova.versoes.isNotEmpty) {
       versoesAGerar = prova.versoes.length.clamp(_minVersoes, _maxVersoes);
     }
@@ -112,7 +119,9 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
     disciplinaSelecionadaId ?? '',
     turmaSelecionadaId ?? '',
     (questoesSelecionadas.toList()..sort()).join(','),
-    modoSelecionado.name,
+    embaralharAlternativas,
+    embaralharQuestoes,
+    vincularAlunos,
     versoesAGerar,
   ].join('|');
 
@@ -215,6 +224,35 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
     if (nova != null && mounted) _toggleTurma(nova.id);
   }
 
+  /// Há alunos para vincular: os da turma escolhida, ou de toda a
+  /// disciplina se nenhuma turma foi escolhida.
+  bool get _temAlunosParaVincular {
+    final disciplina = _disciplinaSelecionada;
+    if (disciplina == null) return false;
+    final turmaId = turmaSelecionadaId;
+    final alunos = turmaId == null
+        ? disciplina.alunos
+        : (disciplina.turmaPorId(turmaId)?.alunos ?? const []);
+    return alunos.isNotEmpty;
+  }
+
+  Widget _opcao({
+    required String titulo,
+    required String subtitulo,
+    required bool valor,
+    required ValueChanged<bool>? onChanged,
+  }) {
+    return CheckboxListTile(
+      contentPadding: EdgeInsets.zero,
+      controlAffinity: ListTileControlAffinity.leading,
+      activeColor: AppColors.accent,
+      value: valor,
+      onChanged: onChanged == null ? null : (v) => onChanged(v ?? false),
+      title: Text(titulo, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitulo, style: const TextStyle(fontSize: 12)),
+    );
+  }
+
   bool get podeAvancar =>
       questoesSelecionadas.isNotEmpty &&
       nomeProvaController.text.trim().isNotEmpty;
@@ -232,7 +270,11 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
       questoes: _bancoDeQuestoes
           .where((q) => questoesSelecionadas.contains(q.id))
           .toList(),
-      modo: modoSelecionado,
+      opcoes: OpcoesProva(
+        embaralharAlternativas: embaralharAlternativas,
+        embaralharQuestoes: embaralharQuestoes,
+        vincularAlunos: vincularAlunos && _temAlunosParaVincular,
+      ),
       versoes: versoesAGerar,
       editando: widget.editando,
     );
@@ -487,31 +529,29 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
             ],
 
             const SizedBox(height: AppSpacing.s6),
-            Text('MODO', style: AppTheme.kicker),
-            const SizedBox(height: AppSpacing.s2),
-            RadioGroup<ModoProva>(
-              groupValue: modoSelecionado,
-              onChanged: (val) => setState(() => modoSelecionado = val!),
-              child: Column(
-                children: [
-                  RadioListTile<ModoProva>(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Mesma prova, embaralhada por versão'),
-                    subtitle: const Text(
-                      'Todas as versões têm as mesmas questões em ordens diferentes.',
-                    ),
-                    value: ModoProva.mesmaEmbaralhada,
-                  ),
-                  RadioListTile<ModoProva>(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Conjuntos de questões diferentes'),
-                    subtitle: const Text(
-                      'Cada versão sorteia o próprio conjunto de questões.',
-                    ),
-                    value: ModoProva.conjuntosDiferentes,
-                  ),
-                ],
-              ),
+            Text('OPÇÕES', style: AppTheme.kicker),
+            const SizedBox(height: AppSpacing.s1),
+            _opcao(
+              titulo: 'Embaralhar alternativas',
+              subtitulo: 'Em cada versão, as alternativas mudam de ordem.',
+              valor: embaralharAlternativas,
+              onChanged: (v) => setState(() => embaralharAlternativas = v),
+            ),
+            _opcao(
+              titulo: 'Embaralhar questões',
+              subtitulo: 'Em cada versão, as questões mudam de ordem.',
+              valor: embaralharQuestoes,
+              onChanged: (v) => setState(() => embaralharQuestoes = v),
+            ),
+            _opcao(
+              titulo: 'Vincular a aluno',
+              subtitulo: _temAlunosParaVincular
+                  ? 'Cada versão já sai com um aluno da turma; dá para trocar.'
+                  : 'Escolha uma disciplina com alunos para vincular.',
+              valor: vincularAlunos && _temAlunosParaVincular,
+              onChanged: _temAlunosParaVincular
+                  ? (v) => setState(() => vincularAlunos = v)
+                  : null,
             ),
 
             const SizedBox(height: AppSpacing.s6),

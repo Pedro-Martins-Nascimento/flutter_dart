@@ -34,4 +34,20 @@ class Questao {
 
 String letraAlternativa(int indice) => String.fromCharCode(65 + indice);
 
-enum ModoProva { mesmaEmbaralhada, conjuntosDiferentes }
+/// Como as versões são montadas a partir das questões escolhidas.
+class OpcoesProva {
+  /// Cada versão tem as alternativas de cada questão numa ordem diferente.
+  final bool embaralharAlternativas;
+
+  /// Cada versão tem as questões numa ordem diferente.
+  final bool embaralharQuestoes;
+
+  /// Cada versão já sai com um aluno da turma vinculado.
+  final bool vincularAlunos;
+
+  const OpcoesProva({
+    this.embaralharAlternativas = true,
+    this.embaralharQuestoes = true,
+    this.vincularAlunos = false,
+  });
+}

@@ -70,6 +70,9 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
       return;
     }
 
+    // "Vincular a aluno" marcado na criação: as versões já saem com aluno.
+    _vincular = widget.dados?.opcoes.vincularAlunos ?? false;
+
     final pedidas = widget.dados?.versoes;
     if (pedidas != null && pedidas > 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -85,7 +88,7 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
         : context.read<QuestoesRepository>().questoes.take(8).toList();
   }
 
-  ModoProva get _modo => widget.dados?.modo ?? ModoProva.mesmaEmbaralhada;
+  OpcoesProva get _opcoes => widget.dados?.opcoes ?? const OpcoesProva();
 
   /// Alunos que podem ser vinculados às versões: os da turma escolhida (ou
   /// de toda a disciplina, se nenhuma turma foi escolhida).
@@ -129,7 +132,7 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     if (quantidade <= 0) return;
 
     final banco = _bancoSelecionado;
-    final modo = _modo;
+    final opcoes = _opcoes;
     final materiaTexto = _materiaTexto;
     final provaNome = _provaNome;
     final turmaTexto = _turmaTexto;
@@ -142,7 +145,7 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
           id: 'v$numero',
 
           qrCode: 'PROVA-2026-V$numero-${(1000 + numero * 37)}',
-          questoes: _materializarQuestoes(banco, modo),
+          questoes: _materializarQuestoes(banco, opcoes),
           materia: materiaTexto,
           professor: _nomeProfessor,
           turma: turmaTexto,
@@ -206,22 +209,18 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     context.go('/provas-geradas');
   }
 
-  List<Questao> _questoesParaVersao(List<Questao> banco, ModoProva modo) {
-    final embaralhado = List<Questao>.from(banco)..shuffle(_random);
-    if (modo == ModoProva.mesmaEmbaralhada || banco.length <= 2) {
-      return embaralhado;
-    }
-    final tamanho = (banco.length * 0.7).ceil().clamp(1, banco.length);
-    return embaralhado.take(tamanho).toList();
-  }
-
+  /// Questões de uma versão: todas as escolhidas, na ordem original ou
+  /// embaralhadas, com as alternativas também na ordem original ou
+  /// embaralhadas, conforme as [opcoes].
   List<QuestaoNaVersao> _materializarQuestoes(
     List<Questao> banco,
-    ModoProva modo,
+    OpcoesProva opcoes,
   ) {
-    return _questoesParaVersao(banco, modo).map((questao) {
-      final ordem = List<int>.generate(questao.alternativas.length, (i) => i)
-        ..shuffle(_random);
+    final questoes = List<Questao>.from(banco);
+    if (opcoes.embaralharQuestoes) questoes.shuffle(_random);
+    return questoes.map((questao) {
+      final ordem = List<int>.generate(questao.alternativas.length, (i) => i);
+      if (opcoes.embaralharAlternativas) ordem.shuffle(_random);
       return QuestaoNaVersao(
         questao: questao,
         alternativas: ordem.map((i) => questao.alternativas[i]).toList(),

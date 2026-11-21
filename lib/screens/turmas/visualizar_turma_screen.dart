@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -7,7 +9,10 @@ import '../../models/prova_gerada.dart';
 import '../../models/turma.dart';
 import '../../models/versao_prova.dart';
 import '../../services/correcao_repository.dart';
+import '../../services/notas_da_prova.dart';
 import '../../services/prova_repository.dart';
+import '../../services/relatorio_excel.dart';
+import '../../services/salvar_arquivo.dart' show salvarXlsx;
 import '../../services/turma_mapper.dart';
 import '../../services/firebase_erro.dart';
 import '../../services/turmas_repository.dart';
@@ -22,12 +27,16 @@ class VisualizarTurmaScreen extends StatefulWidget {
   final ProvaRepository provas;
   final CorrecaoRepository correcoes;
 
+  /// Salva a planilha de notas (trocado nos testes).
+  final Future<bool> Function(String nome, Uint8List bytes) salvarPlanilha;
+
   const VisualizarTurmaScreen({
     super.key,
     required this.disciplinaId,
     required this.turmaId,
     required this.provas,
     required this.correcoes,
+    this.salvarPlanilha = salvarXlsx,
   });
 
   @override
@@ -482,6 +491,8 @@ class _VisualizarTurmaScreenState extends State<VisualizarTurmaScreen> {
                               correcoes: correcoes,
                               repositorio: widget.provas,
                               alunos: turma.alunos,
+                              nomeTurma: turma.nome,
+                              salvarPlanilha: widget.salvarPlanilha,
                             ),
                           ],
                         ),
@@ -820,13 +831,41 @@ class _AbaProvas extends StatelessWidget {
   final List<Correcao> correcoes;
   final ProvaRepository repositorio;
   final List<AlunoTurma> alunos;
+  final String nomeTurma;
+  final Future<bool> Function(String nome, Uint8List bytes) salvarPlanilha;
 
   const _AbaProvas({
     required this.provas,
     required this.correcoes,
     required this.repositorio,
     required this.alunos,
+    required this.nomeTurma,
+    required this.salvarPlanilha,
   });
+
+  /// Planilha com a nota de cada aluno da turma nesta prova.
+  Future<void> _baixarPlanilha(BuildContext context, ProvaResumo prova) async {
+    final mensagens = ScaffoldMessenger.of(context);
+    void avisar(String texto) => mensagens
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(texto)));
+    try {
+      final linhas = linhasDeNotas(
+        prova: prova,
+        disciplinas: context.read<TurmasRepository>().disciplinas,
+        correcoes: correcoes,
+      );
+      String limpo(String texto) =>
+          texto.trim().replaceAll(RegExp(r'[^A-Za-z0-9À-ÿ]+'), '_');
+      final salvo = await salvarPlanilha(
+        'notas_${limpo(nomeTurma)}_${limpo(prova.nome)}.xlsx',
+        gerarXlsxNotas(linhas),
+      );
+      if (salvo) avisar('Planilha de notas salva.');
+    } catch (_) {
+      avisar('Não foi possível gerar a planilha.');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -882,6 +921,11 @@ class _AbaProvas extends StatelessWidget {
             style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
           ),
           children: [
+            _PlanilhaDaProva(
+              corrigidas: daProva.length,
+              total: prova.totalVersoes,
+              onBaixar: () => _baixarPlanilha(context, prova),
+            ),
             _VersoesDaProva(
               provaId: prova.id,
               repositorio: repositorio,
@@ -891,6 +935,48 @@ class _AbaProvas extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Botão da planilha de notas da prova, liberado quando todas as folhas
+/// estão corrigidas; antes disso, diz quantas faltam.
+class _PlanilhaDaProva extends StatelessWidget {
+  final int corrigidas;
+  final int total;
+  final VoidCallback onBaixar;
+
+  const _PlanilhaDaProva({
+    required this.corrigidas,
+    required this.total,
+    required this.onBaixar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final completa = total > 0 && corrigidas >= total;
+    final faltam = total - corrigidas;
+    return Container(
+      width: double.infinity,
+      color: AppColors.neutral100,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.s8 + AppSpacing.s6,
+        AppSpacing.s3,
+        AppSpacing.s6,
+        AppSpacing.s1,
+      ),
+      alignment: Alignment.centerLeft,
+      child: completa
+          ? ElevatedButton.icon(
+              onPressed: onBaixar,
+              icon: const Icon(Icons.table_view_rounded, size: 18),
+              label: const Text('Baixar planilha de notas'),
+            )
+          : Text(
+              'A planilha de notas fica disponível quando todas as folhas '
+              'forem corrigidas (${faltam == 1 ? 'falta 1' : 'faltam $faltam'}).',
+              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+            ),
     );
   }
 }

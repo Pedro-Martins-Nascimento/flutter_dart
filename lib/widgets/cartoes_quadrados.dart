@@ -8,19 +8,57 @@ import '../theme/app_theme.dart';
 const double ladoCartaoQuadrado = 176;
 
 /// Grade de quadradinhos: o de "+" primeiro e os itens ao lado.
+///
+/// Os quadrados têm [ladoCartaoQuadrado]; numa tela estreita (celular), onde
+/// não caberiam dois por linha, eles encolhem para caber exatamente dois.
 class GradeDeCartoes extends StatelessWidget {
   final List<Widget> children;
 
   const GradeDeCartoes({super.key, required this.children});
 
+  static const double _espaco = AppSpacing.s4;
+
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.s4,
-      runSpacing: AppSpacing.s4,
-      children: children,
+    return LayoutBuilder(
+      builder: (context, restricoes) {
+        final paraDois = (restricoes.maxWidth - _espaco) / 2;
+        final lado = paraDois < ladoCartaoQuadrado
+            ? paraDois
+            : ladoCartaoQuadrado;
+        return Wrap(
+          spacing: _espaco,
+          runSpacing: _espaco,
+          children: [
+            for (final filho in children)
+              SizedBox(
+                width: lado,
+                height: lado,
+                child: _LadoDoCartao(
+                  compacto: lado < ladoCartaoQuadrado,
+                  child: filho,
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
+}
+
+/// Diz aos cartões se o quadrado ficou pequeno (celular), para apertarem o
+/// espaçamento e o texto.
+class _LadoDoCartao extends InheritedWidget {
+  final bool compacto;
+
+  const _LadoDoCartao({required this.compacto, required super.child});
+
+  static bool deContexto(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_LadoDoCartao>()?.compacto ??
+      false;
+
+  @override
+  bool updateShouldNotify(_LadoDoCartao antigo) => antigo.compacto != compacto;
 }
 
 /// Quadradinho de "+" que cria um item novo.
@@ -48,8 +86,8 @@ class _CartaoAdicionarState extends State<CartaoAdicionar> {
         onExit: (_) => setState(() => _sobre = false),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          width: ladoCartaoQuadrado,
-          height: ladoCartaoQuadrado,
+          width: double.infinity,
+          height: double.infinity,
           decoration: BoxDecoration(
             color: _sobre ? AppColors.accent100 : AppColors.surface,
             borderRadius: raio,
@@ -124,9 +162,8 @@ class CartaoItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final raio = BorderRadius.circular(20);
     final rotuloBotao = this.rotuloBotao;
-    return SizedBox(
-      width: ladoCartaoQuadrado,
-      height: ladoCartaoQuadrado,
+    final compacto = _LadoDoCartao.deContexto(context);
+    return SizedBox.expand(
       child: Material(
         color: AppColors.surface,
         shape: RoundedRectangleBorder(
@@ -137,7 +174,7 @@ class CartaoItem extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.s4),
+            padding: EdgeInsets.all(compacto ? AppSpacing.s3 : AppSpacing.s4),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -145,8 +182,8 @@ class CartaoItem extends StatelessWidget {
                   titulo,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 17,
+                  style: TextStyle(
+                    fontSize: compacto ? 15 : 17,
                     fontWeight: FontWeight.w700,
                     height: 1.2,
                     color: AppColors.text,
