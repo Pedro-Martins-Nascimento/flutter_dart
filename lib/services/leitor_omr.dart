@@ -17,6 +17,8 @@
 //    centro, onde está a letra impressa, nem a borda: conta a tinta no anel
 //    entre os dois e procura traços nas quatro diagonais. Uma bolinha pintada
 //    enche o anel; um X preenche as quatro diagonais.
+// 6. Aplica a regra de marcação (LeituraQuestao.dePreenchimento): em branco,
+//    dupla ou rasurada vira "não identificada" para o professor revisar.
 
 import 'dart:math';
 import 'dart:typed_data';
@@ -47,24 +49,127 @@ class LeituraOmrException implements Exception {
   String toString() => 'LeituraOmrException: ${problema.mensagem}';
 }
 
-/// Resultado da leitura de uma página do gabarito.
-class LeituraCartao {
-  const LeituraCartao({
-    required this.questoes,
+/// Como ficou a leitura de uma questão.
+enum SituacaoQuestao {
+  /// Uma alternativa marcada e nenhuma outra com tinta.
+  marcada(''),
+
+  /// Nenhuma bolinha com tinta.
+  emBranco('Nenhuma alternativa marcada. Confira e selecione manualmente.'),
+
+  /// Duas ou mais bolinhas marcadas.
+  dupla('Mais de uma alternativa marcada. Confira e selecione manualmente.'),
+
+  /// Tinta que não chega a ser uma marcação: risco, visto, rasura, ou uma
+  /// bolinha marcada junto com outra rasurada.
+  rasura('Marcação fraca ou rasurada. Confira e selecione manualmente.');
+
+  const SituacaoQuestao(this.mensagem);
+
+  /// Aviso para o professor; vazio quando a leitura é confiável.
+  final String mensagem;
+
+  /// Precisa que o professor confira e escolha na mão ("não identificada").
+  bool get precisaRevisao => this != marcada;
+}
+
+/// Leitura de uma questão do gabarito.
+class LeituraQuestao {
+  const LeituraQuestao({
+    required this.indice,
+    required this.situacao,
+    required this.alternativa,
     required this.preenchimento,
-    required this.marcadas,
   });
 
+  /// Aplica a regra de marcação a partir da nota de cada bolinha:
+  ///
+  /// - marcada: nota >= [LimitesOmr.limiarMarcada] (X ou bolinha pintada);
+  /// - com tinta (dúvida): passa de [LimitesOmr.limiarDuvida] e fica pelo
+  ///   menos [LimitesOmr.folgaSobreFundo] acima da mediana da questão (o
+  ///   "fundo" daquela linha, que sobe com sombra e ruído da foto).
+  ///
+  /// Uma só marcada e nenhuma outra com tinta = [SituacaoQuestao.marcada].
+  /// Duas ou mais marcadas = [SituacaoQuestao.dupla]. Nenhuma com tinta =
+  /// [SituacaoQuestao.emBranco]. O resto = [SituacaoQuestao.rasura]. Fora de
+  /// `marcada`, [alternativa] é nula e a questão vai para a revisão do
+  /// professor.
+  factory LeituraQuestao.dePreenchimento(
+    int indice,
+    List<double> preenchimento,
+  ) {
+    final ordenado = [...preenchimento]..sort();
+    final fundo = ordenado.isEmpty ? 0.0 : ordenado[ordenado.length ~/ 2];
+    final marcadas = <int>[];
+    final comTinta = <int>[];
+    for (var i = 0; i < preenchimento.length; i++) {
+      final p = preenchimento[i];
+      if (p >= LimitesOmr.limiarMarcada) {
+        marcadas.add(i);
+      } else if (p >= LimitesOmr.limiarDuvida &&
+          p - fundo >= LimitesOmr.folgaSobreFundo) {
+        comTinta.add(i);
+      }
+    }
+
+    final SituacaoQuestao situacao;
+    if (marcadas.length >= 2) {
+      situacao = SituacaoQuestao.dupla;
+    } else if (marcadas.length == 1 && comTinta.isEmpty) {
+      situacao = SituacaoQuestao.marcada;
+    } else if (marcadas.isEmpty && comTinta.isEmpty) {
+      situacao = SituacaoQuestao.emBranco;
+    } else {
+      situacao = SituacaoQuestao.rasura;
+    }
+    return LeituraQuestao(
+      indice: indice,
+      situacao: situacao,
+      alternativa: situacao == SituacaoQuestao.marcada ? marcadas.single : null,
+      preenchimento: List.unmodifiable(preenchimento),
+    );
+  }
+
+  /// Índice da questão na prova (0 = questão 1).
+  final int indice;
+
+  final SituacaoQuestao situacao;
+
+  /// Alternativa marcada (índice na ordem impressa) quando [situacao] é
+  /// `marcada`; nula nos outros casos.
+  final int? alternativa;
+
+  /// Nota (0 a 1) de cada bolinha, na ordem impressa.
+  final List<double> preenchimento;
+}
+
+/// Resultado da leitura de uma página do gabarito.
+class LeituraCartao {
+  const LeituraCartao(this.leituras);
+
+  /// Uma leitura por questão desta página, na ordem da prova.
+  final List<LeituraQuestao> leituras;
+
   /// Índices (na ordem da prova, 0 = questão 1) das questões desta página.
-  final List<int> questoes;
+  List<int> get questoes => [for (final l in leituras) l.indice];
 
   /// Quanto (0 a 1) cada bolinha está marcada, por questão desta página e por
   /// alternativa, na ordem impressa.
-  final List<List<double>> preenchimento;
+  List<List<double>> get preenchimento => [
+    for (final l in leituras) l.preenchimento,
+  ];
 
   /// Alternativa marcada em cada questão desta página (índice na ordem
-  /// impressa), ou nulo se nenhuma bolinha passou do limiar.
-  final List<int?> marcadas;
+  /// impressa), ou nulo quando a questão precisa de revisão (em branco, dupla
+  /// ou rasurada).
+  List<int?> get marcadas => [for (final l in leituras) l.alternativa];
+
+  /// Índices (na ordem da prova) das questões que o professor precisa
+  /// conferir.
+  List<int> get paraRevisar => [
+    for (final l in leituras)
+      if (l.situacao.precisaRevisao) l.indice,
+  ];
 }
 
 class LimitesOmr {
@@ -77,6 +182,16 @@ class LimitesOmr {
   /// A partir de quanto a bolinha conta como marcada: um X (3 ou 4 diagonais
   /// com traço) ou 70% do anel pintado.
   static const double limiarMarcada = 0.7;
+
+  /// A partir de quanto a bolinha tem tinta que pede revisão (um risco ou um
+  /// visto, com duas diagonais, dão 0,4). Abaixo disso é ruído ou marca bem
+  /// apagada: nas fotos simuladas, bolinha vazia ou apagada fica abaixo de
+  /// ~0,05, mesmo com sombra forte. Ajustar com as fotos reais (tarefa 18).
+  static const double limiarDuvida = 0.3;
+
+  /// Quanto a bolinha precisa passar da mediana da própria questão para contar
+  /// como tinta (e não como ruído de fundo da foto).
+  static const double folgaSobreFundo = 0.1;
 
   /// Pixel é escuro se for mais escuro que a média da vizinhança menos isto
   /// (em fração da média).
@@ -130,26 +245,12 @@ class LeitorOmr {
       for (var q = 0; q < grade.length; q++)
         if (grade[q].pagina == pagina) q,
     ];
-    final preenchimento = [
+    return LeituraCartao([
       for (final q in questoes)
-        [for (final bolinha in grade[q].bolinhas) _marca(bolinha, h, escuro)],
-    ];
-    return LeituraCartao(
-      questoes: questoes,
-      preenchimento: preenchimento,
-      marcadas: [for (final p in preenchimento) _maisMarcada(p)],
-    );
-  }
-
-  static int? _maisMarcada(List<double> preenchimento) {
-    var melhor = -1;
-    for (var i = 0; i < preenchimento.length; i++) {
-      if (melhor < 0 || preenchimento[i] > preenchimento[melhor]) melhor = i;
-    }
-    if (melhor < 0 || preenchimento[melhor] < LimitesOmr.limiarMarcada) {
-      return null;
-    }
-    return melhor;
+        LeituraQuestao.dePreenchimento(q, [
+          for (final bolinha in grade[q].bolinhas) _marca(bolinha, h, escuro),
+        ]),
+    ]);
   }
 
   /// Quanto a bolinha está marcada, de 0 a 1: o maior entre a fração do anel
