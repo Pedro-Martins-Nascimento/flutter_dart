@@ -14,12 +14,12 @@ class TurmasRepository extends ChangeNotifier {
   TurmasRepository({
     FirebaseAuth? auth,
     FirebaseFirestore? firestore,
-    List<Turma>? iniciais,
-  })  : _auth = auth,
-        _firestore = firestore,
-        _authExplicito = auth != null {
+    List<Disciplina>? iniciais,
+  }) : _auth = auth,
+       _firestore = firestore,
+       _authExplicito = auth != null {
     if (iniciais != null) {
-      _turmas = List.of(iniciais);
+      _disciplinas = List.of(iniciais);
       _modoMemoria = true;
     } else {
       _ouvirAuth();
@@ -31,10 +31,11 @@ class TurmasRepository extends ChangeNotifier {
   final bool _authExplicito;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _inscricao;
   StreamSubscription<User?>? _authInscricao;
-  List<Turma> _turmas = [];
+  List<Disciplina> _disciplinas = [];
   bool _modoMemoria = false;
 
-  List<Turma> get turmas => List.unmodifiable(_turmas);
+  /// Disciplinas do professor, cada uma com as suas turmas.
+  List<Disciplina> get disciplinas => List.unmodifiable(_disciplinas);
 
   FirebaseAuth get __auth {
     if (_auth != null) return _auth;
@@ -62,7 +63,7 @@ class TurmasRepository extends ChangeNotifier {
       _authInscricao = __auth.authStateChanges().listen((usuario) {
         _inscricao?.cancel();
         if (usuario == null) {
-          _turmas = [];
+          _disciplinas = [];
           notifyListeners();
         } else {
           _escutarFirestore(usuario.uid);
@@ -85,166 +86,183 @@ class TurmasRepository extends ChangeNotifier {
           .collection('turmas')
           .snapshots()
           .listen((snapshot) {
-        _turmas = [
-          for (final doc in snapshot.docs)
-            TurmaMapper.turmaDeMapa(doc.id, doc.data()),
-        ];
-        notifyListeners();
-      }, onError: (_) {});
+            _disciplinas = [
+              for (final doc in snapshot.docs)
+                TurmaMapper.disciplinaDeMapa(doc.id, doc.data()),
+            ];
+            notifyListeners();
+          }, onError: (_) {});
     } catch (_) {}
   }
 
-  Turma? porId(String id) {
-    for (final turma in _turmas) {
-      if (turma.id == id) return turma;
+  Disciplina? disciplinaPorId(String id) {
+    for (final disciplina in _disciplinas) {
+      if (disciplina.id == id) return disciplina;
     }
     return null;
   }
 
-  Turma criar(String nome) {
-    final id = 'turma_${DateTime.now().millisecondsSinceEpoch}';
-    final turma = Turma(id: id, nome: nome);
-
-    if (_modoMemoria) {
-      _turmas.insert(0, turma);
-      notifyListeners();
-    } else {
-      try {
-        final uid = __auth.currentUser?.uid;
-        final db = __firestore;
-        if (uid != null && db != null) {
-          db
-              .collection('professores')
-              .doc(uid)
-              .collection('turmas')
-              .doc(id)
-              .set(TurmaMapper.turmaParaMapa(turma))
-              .catchError((e) => debugPrint('[TurmasRepository] criar: $e'));
-        } else if (db == null) {
-          _turmas.insert(0, turma);
-          notifyListeners();
-        } else {
-          debugPrint('[TurmasRepository] criar ignorado: sem professor logado');
-        }
-      } catch (e) {
-        debugPrint('[TurmasRepository] criar: $e');
-        _turmas.insert(0, turma);
-        notifyListeners();
-      }
+  Disciplina? disciplinaPorNome(String nome) {
+    for (final disciplina in _disciplinas) {
+      if (disciplina.nome == nome) return disciplina;
     }
+    return null;
+  }
+
+  Disciplina criarDisciplina(String nome) {
+    final id = 'turma_${DateTime.now().millisecondsSinceEpoch}';
+    final disciplina = Disciplina(id: id, nome: nome);
+    _gravar(
+      'criarDisciplina',
+      local: () => _disciplinas.insert(0, disciplina),
+      remoto: (doc) => doc(id).set(TurmaMapper.disciplinaParaMapa(disciplina)),
+    );
+    return disciplina;
+  }
+
+  void excluirDisciplina(String id) {
+    if (disciplinaPorId(id) == null) return;
+    _gravar(
+      'excluirDisciplina',
+      local: () => _disciplinas.removeWhere((d) => d.id == id),
+      remoto: (doc) => doc(id).delete(),
+    );
+  }
+
+  /// Cria uma turma vazia na disciplina. Devolve null se a disciplina não
+  /// existe.
+  Future<Turma?> criarTurma(String disciplinaId, String nome) async {
+    final disciplina = disciplinaPorId(disciplinaId);
+    if (disciplina == null) return null;
+    final turma = Turma(
+      id: 'turma_${DateTime.now().microsecondsSinceEpoch}',
+      nome: nome,
+    );
+    await _salvarTurmas(disciplina, [...disciplina.turmas, turma]);
     return turma;
   }
 
-  void excluir(String id) {
-    if (_modoMemoria) {
-      _turmas.removeWhere((t) => t.id == id);
-      notifyListeners();
-    } else {
-      try {
-        final uid = __auth.currentUser?.uid;
-        final db = __firestore;
-        if (uid != null && db != null) {
-          db
-              .collection('professores')
-              .doc(uid)
-              .collection('turmas')
-              .doc(id)
-              .delete()
-              .catchError((e) => debugPrint('[TurmasRepository] excluir: $e'));
-        } else if (db == null) {
-          _turmas.removeWhere((t) => t.id == id);
-          notifyListeners();
-        } else {
-          debugPrint('[TurmasRepository] excluir ignorado: sem professor logado');
-        }
-      } catch (e) {
-        debugPrint('[TurmasRepository] excluir: $e');
-        _turmas.removeWhere((t) => t.id == id);
-        notifyListeners();
-      }
-    }
+  Future<void> excluirTurma(String disciplinaId, String turmaId) async {
+    final disciplina = disciplinaPorId(disciplinaId);
+    if (disciplina == null) return;
+    await _salvarTurmas(disciplina, [
+      for (final t in disciplina.turmas)
+        if (t.id != turmaId) t,
+    ]);
   }
 
-  Future<void> adicionarAlunos(String turmaId, List<AlunoTurma> alunos) async {
-    final turma = porId(turmaId);
-    if (turma == null) return;
-    final atualizados = List<AlunoTurma>.from(turma.alunos)..addAll(alunos);
-    await _atualizarAlunosTurma(turmaId, atualizados);
+  Future<void> adicionarAlunos(
+    String disciplinaId,
+    String turmaId,
+    List<AlunoTurma> alunos,
+  ) => _mudarAlunos(disciplinaId, turmaId, (atuais) => [...atuais, ...alunos]);
+
+  Future<void> atualizarAluno(
+    String disciplinaId,
+    String turmaId,
+    AlunoTurma aluno,
+  ) => _mudarAlunos(disciplinaId, turmaId, (atuais) {
+    final indice = atuais.indexWhere((a) => a.id == aluno.id);
+    if (indice < 0) return null;
+    return List.of(atuais)..[indice] = aluno;
+  });
+
+  Future<void> removerAluno(
+    String disciplinaId,
+    String turmaId,
+    String alunoId,
+  ) => _mudarAlunos(
+    disciplinaId,
+    turmaId,
+    (atuais) => [
+      for (final a in atuais)
+        if (a.id != alunoId) a,
+    ],
+  );
+
+  /// [mudar] recebe os alunos atuais e devolve a lista nova (ou null para
+  /// não mudar nada).
+  Future<void> _mudarAlunos(
+    String disciplinaId,
+    String turmaId,
+    List<AlunoTurma>? Function(List<AlunoTurma> atuais) mudar,
+  ) async {
+    final disciplina = disciplinaPorId(disciplinaId);
+    final turma = disciplina?.turmaPorId(turmaId);
+    if (disciplina == null || turma == null) return;
+    final novos = mudar(turma.alunos);
+    if (novos == null) return;
+    await _salvarTurmas(disciplina, [
+      for (final t in disciplina.turmas)
+        t.id == turmaId ? t.copiar(alunos: novos) : t,
+    ]);
   }
 
-  Future<void> atualizarAluno(String turmaId, AlunoTurma aluno) async {
-    final turma = porId(turmaId);
-    if (turma == null) return;
-    final alunos = List<AlunoTurma>.from(turma.alunos);
-    final indice = alunos.indexWhere((a) => a.id == aluno.id);
-    if (indice < 0) return;
-    alunos[indice] = aluno;
-    await _atualizarAlunosTurma(turmaId, alunos);
-  }
-
-  Future<void> removerAluno(String turmaId, String alunoId) async {
-    final turma = porId(turmaId);
-    if (turma == null) return;
-    final alunos = turma.alunos.where((a) => a.id != alunoId).toList();
-    await _atualizarAlunosTurma(turmaId, alunos);
-  }
-
-  Future<void> _atualizarAlunosTurma(String turmaId, List<AlunoTurma> alunos) async {
-    if (_modoMemoria) {
-      final indice = _turmas.indexWhere((t) => t.id == turmaId);
-      if (indice >= 0) {
-        _turmas[indice] = Turma(
-          id: _turmas[indice].id,
-          nome: _turmas[indice].nome,
-          qtdProvas: _turmas[indice].qtdProvas,
-          alunos: alunos,
-        );
-        notifyListeners();
-      }
-    } else {
-      try {
-        final uid = __auth.currentUser?.uid;
-        final db = __firestore;
-        if (uid != null && db != null) {
-          await db
-              .collection('professores')
-              .doc(uid)
-              .collection('turmas')
-              .doc(turmaId)
-              .set({
-            'alunos': [
-              for (final a in alunos)
-                {'id': a.id, 'nome': a.nome, 'matricula': a.matricula},
-            ],
-          }, SetOptions(merge: true));
-        } else if (db == null) {
-          final indice = _turmas.indexWhere((t) => t.id == turmaId);
-          if (indice >= 0) {
-            _turmas[indice] = Turma(
-              id: _turmas[indice].id,
-              nome: _turmas[indice].nome,
-              qtdProvas: _turmas[indice].qtdProvas,
-              alunos: alunos,
-            );
-            notifyListeners();
-          }
-        } else {
-          debugPrint('[TurmasRepository] _atualizarAlunosTurma ignorado: sem professor logado');
-        }
-      } catch (e) {
-        debugPrint('[TurmasRepository] _atualizarAlunosTurma: $e');
-        final indice = _turmas.indexWhere((t) => t.id == turmaId);
+  /// Grava a lista de turmas da disciplina. Apaga o campo `alunos` antigo:
+  /// os alunos dele já estão na "Turma 1" (ver [TurmaMapper.disciplinaDeMapa]).
+  Future<void> _salvarTurmas(Disciplina disciplina, List<Turma> turmas) {
+    return _gravar(
+      'salvarTurmas',
+      local: () {
+        final indice = _disciplinas.indexWhere((d) => d.id == disciplina.id);
         if (indice >= 0) {
-          _turmas[indice] = Turma(
-            id: _turmas[indice].id,
-            nome: _turmas[indice].nome,
-            qtdProvas: _turmas[indice].qtdProvas,
-            alunos: alunos,
-          );
-          notifyListeners();
+          _disciplinas[indice] = _disciplinas[indice].copiar(turmas: turmas);
         }
-        rethrow;
+      },
+      remoto: (doc) => doc(disciplina.id).set({
+        'turmas': TurmaMapper.turmasParaLista(turmas),
+        'alunos': FieldValue.delete(),
+      }, SetOptions(merge: true)),
+      esperar: true,
+    );
+  }
+
+  /// Em memória (testes) ou sem Firestore, muda a lista local e avisa as
+  /// telas. Com Firestore, grava lá e a tela atualiza pelo snapshot. Se a
+  /// gravação falhar de imediato, aplica local para não sumir da tela.
+  Future<void> _gravar(
+    String operacao, {
+    required void Function() local,
+    required Future<void> Function(
+      DocumentReference<Map<String, dynamic>> Function(String id) doc,
+    )
+    remoto,
+    bool esperar = false,
+  }) async {
+    void aplicarLocal() {
+      local();
+      notifyListeners();
+    }
+
+    if (_modoMemoria) return aplicarLocal();
+    try {
+      final uid = __auth.currentUser?.uid;
+      final db = __firestore;
+      if (db == null) return aplicarLocal();
+      if (uid == null) {
+        debugPrint(
+          '[TurmasRepository] $operacao ignorado: sem professor logado',
+        );
+        return;
       }
+      final colecao = db
+          .collection('professores')
+          .doc(uid)
+          .collection('turmas');
+      final gravacao = remoto(colecao.doc);
+      if (esperar) {
+        await gravacao;
+      } else {
+        unawaited(
+          gravacao.catchError(
+            (Object e) => debugPrint('[TurmasRepository] $operacao: $e'),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[TurmasRepository] $operacao: $e');
+      aplicarLocal();
+      if (esperar) rethrow;
     }
   }
 

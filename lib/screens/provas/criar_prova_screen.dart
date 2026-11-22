@@ -12,24 +12,22 @@ import '../../services/turmas_repository.dart';
 
 class DadosProva {
   final String nomeProva;
-  final List<Materia> materias;
+  final Disciplina? disciplina;
   final Turma? turma;
   final List<Questao> questoes;
-  final ModoProva modo;
+  final OpcoesProva opcoes;
   final int versoes;
   final ProvaGerada? editando;
 
   DadosProva({
     required this.nomeProva,
-    required this.materias,
+    this.disciplina,
     required this.turma,
     required this.questoes,
-    required this.modo,
+    required this.opcoes,
     required this.versoes,
     this.editando,
   });
-
-  String get materiasResumo => materias.map((m) => m.nome).join(', ');
 }
 
 const _minVersoes = 1;
@@ -45,16 +43,22 @@ class CriarProvaScreen extends StatefulWidget {
 }
 
 class _CriarProvaScreenState extends State<CriarProvaScreen> {
-  List<Materia> get _materiasDisponiveis =>
-      context.read<QuestoesRepository>().materias;
-  List<Turma> get _turmasDisponiveis => context.read<TurmasRepository>().turmas;
+  List<Disciplina> get _disciplinasDisponiveis =>
+      context.read<TurmasRepository>().disciplinas;
+  Disciplina? get _disciplinaSelecionada => disciplinaSelecionadaId == null
+      ? null
+      : context.read<TurmasRepository>().disciplinaPorId(
+          disciplinaSelecionadaId!,
+        );
   List<Questao> get _bancoDeQuestoes =>
       context.read<QuestoesRepository>().questoes;
 
-  final Set<String> materiasSelecionadas = {};
+  String? disciplinaSelecionadaId;
   String? turmaSelecionadaId;
   final Set<String> questoesSelecionadas = {};
-  ModoProva modoSelecionado = ModoProva.mesmaEmbaralhada;
+  bool embaralharAlternativas = true;
+  bool embaralharQuestoes = true;
+  bool vincularAlunos = false;
 
   final TextEditingController nomeProvaController = TextEditingController();
 
@@ -80,21 +84,31 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
       for (final q in versao.questoes) {
         if (!noBanco.contains(q.questao.id)) continue;
         questoesSelecionadas.add(q.questao.id);
-        materiasSelecionadas.add(q.questao.materiaId);
       }
     }
 
-    for (final turma in _turmasDisponiveis) {
-      if (turma.nome == prova.turma) turmaSelecionadaId = turma.id;
+    // Provas antigas guardavam o nome da disciplina no campo turma.
+    final nomeDisciplina = prova.disciplina ?? prova.turma;
+    for (final disciplina in _disciplinasDisponiveis) {
+      if (disciplina.nome != nomeDisciplina) continue;
+      disciplinaSelecionadaId = disciplina.id;
+      if (prova.disciplina != null && prova.turma != null) {
+        turmaSelecionadaId = disciplina.turmaPorNome(prova.turma!)?.id;
+      }
     }
 
-    final conjuntos = {
+    // As opções não ficam gravadas: são deduzidas das versões salvas.
+    final ordens = {
       for (final versao in prova.versoes)
-        (versao.questoes.map((q) => q.questao.id).toList()..sort()).join(','),
+        versao.questoes.map((q) => q.questao.id).join(','),
     };
-    modoSelecionado = conjuntos.length > 1
-        ? ModoProva.conjuntosDiferentes
-        : ModoProva.mesmaEmbaralhada;
+    embaralharQuestoes = ordens.length > 1;
+    embaralharAlternativas = prova.versoes.any(
+      (versao) => versao.questoes.any(
+        (q) => q.alternativas.join('|') != q.questao.alternativas.join('|'),
+      ),
+    );
+    vincularAlunos = prova.versoes.any((versao) => versao.alunoId != null);
     if (prova.versoes.isNotEmpty) {
       versoesAGerar = prova.versoes.length.clamp(_minVersoes, _maxVersoes);
     }
@@ -102,10 +116,12 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
 
   String get _assinatura => [
     nomeProvaController.text.trim(),
+    disciplinaSelecionadaId ?? '',
     turmaSelecionadaId ?? '',
-    (materiasSelecionadas.toList()..sort()).join(','),
     (questoesSelecionadas.toList()..sort()).join(','),
-    modoSelecionado.name,
+    embaralharAlternativas,
+    embaralharQuestoes,
+    vincularAlunos,
     versoesAGerar,
   ].join('|');
 
@@ -115,24 +131,22 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
     super.dispose();
   }
 
+  /// Questões da disciplina escolhida (nenhuma, sem disciplina escolhida).
   List<Questao> get questoesDisponiveis {
-    if (materiasSelecionadas.isEmpty) return [];
-    return _bancoDeQuestoes
-        .where((q) => materiasSelecionadas.contains(q.materiaId))
-        .toList();
+    final disciplinaId = disciplinaSelecionadaId;
+    if (disciplinaId == null) return const [];
+    return context.read<QuestoesRepository>().questoesDaDisciplina(
+      disciplinaId,
+    );
   }
 
-  void _toggleMateria(String materiaId, bool? selecionado) {
+  void _toggleDisciplina(String? disciplinaId) {
     setState(() {
-      if (selecionado == true) {
-        materiasSelecionadas.add(materiaId);
-      } else {
-        materiasSelecionadas.remove(materiaId);
-        questoesSelecionadas.removeWhere((qId) {
-          final questao = _bancoDeQuestoes.firstWhere((q) => q.id == qId);
-          return questao.materiaId == materiaId;
-        });
-      }
+      disciplinaSelecionadaId = disciplinaId;
+      // Questões de outra disciplina saem da seleção.
+      final daDisciplina = {for (final q in questoesDisponiveis) q.id};
+      questoesSelecionadas.removeWhere((id) => !daDisciplina.contains(id));
+      turmaSelecionadaId = null;
     });
   }
 
@@ -181,21 +195,21 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
     );
   }
 
-  Future<void> _criarNovaMateria() async {
+  Future<void> _criarNovaDisciplina() async {
     final nome = await _mostrarDialogoNovoItem(
-      titulo: 'Nova matéria',
-      label: 'Nome da matéria',
+      titulo: 'Nova disciplina',
+      label: 'Nome da disciplina',
     );
     if (nome == null || nome.trim().isEmpty) return;
 
     if (!mounted) return;
-    final novaMateria = context.read<QuestoesRepository>().criarMateria(
-      nome.trim(),
-    );
-    setState(() => materiasSelecionadas.add(novaMateria.id));
+    final nova = context.read<TurmasRepository>().criarDisciplina(nome.trim());
+    _toggleDisciplina(nova.id);
   }
 
   Future<void> _criarNovaTurma() async {
+    final disciplinaId = disciplinaSelecionadaId;
+    if (disciplinaId == null) return;
     final nome = await _mostrarDialogoNovoItem(
       titulo: 'Nova turma',
       label: 'Nome da turma',
@@ -203,8 +217,40 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
     if (nome == null || nome.trim().isEmpty) return;
 
     if (!mounted) return;
-    final novaTurma = context.read<TurmasRepository>().criar(nome.trim());
-    setState(() => turmaSelecionadaId = novaTurma.id);
+    final nova = await context.read<TurmasRepository>().criarTurma(
+      disciplinaId,
+      nome.trim(),
+    );
+    if (nova != null && mounted) _toggleTurma(nova.id);
+  }
+
+  /// Há alunos para vincular: os da turma escolhida, ou de toda a
+  /// disciplina se nenhuma turma foi escolhida.
+  bool get _temAlunosParaVincular {
+    final disciplina = _disciplinaSelecionada;
+    if (disciplina == null) return false;
+    final turmaId = turmaSelecionadaId;
+    final alunos = turmaId == null
+        ? disciplina.alunos
+        : (disciplina.turmaPorId(turmaId)?.alunos ?? const []);
+    return alunos.isNotEmpty;
+  }
+
+  Widget _opcao({
+    required String titulo,
+    required String subtitulo,
+    required bool valor,
+    required ValueChanged<bool>? onChanged,
+  }) {
+    return CheckboxListTile(
+      contentPadding: EdgeInsets.zero,
+      controlAffinity: ListTileControlAffinity.leading,
+      activeColor: AppColors.accent,
+      value: valor,
+      onChanged: onChanged == null ? null : (v) => onChanged(v ?? false),
+      title: Text(titulo, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitulo, style: const TextStyle(fontSize: 12)),
+    );
   }
 
   bool get podeAvancar =>
@@ -212,23 +258,23 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
       nomeProvaController.text.trim().isNotEmpty;
 
   void _avancarParaGeracao() {
-    Turma? turmaEscolhida;
-    if (turmaSelecionadaId != null) {
-      turmaEscolhida = _turmasDisponiveis.firstWhere(
-        (t) => t.id == turmaSelecionadaId,
-      );
-    }
+    final disciplinaEscolhida = _disciplinaSelecionada;
+    final turmaEscolhida = turmaSelecionadaId == null
+        ? null
+        : disciplinaEscolhida?.turmaPorId(turmaSelecionadaId!);
 
     final dados = DadosProva(
       nomeProva: nomeProvaController.text.trim(),
-      materias: _materiasDisponiveis
-          .where((m) => materiasSelecionadas.contains(m.id))
-          .toList(),
+      disciplina: disciplinaEscolhida,
       turma: turmaEscolhida,
       questoes: _bancoDeQuestoes
           .where((q) => questoesSelecionadas.contains(q.id))
           .toList(),
-      modo: modoSelecionado,
+      opcoes: OpcoesProva(
+        embaralharAlternativas: embaralharAlternativas,
+        embaralharQuestoes: embaralharQuestoes,
+        vincularAlunos: vincularAlunos && _temAlunosParaVincular,
+      ),
       versoes: versoesAGerar,
       editando: widget.editando,
     );
@@ -236,103 +282,20 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
     context.push('/gerar-provas', extra: dados);
   }
 
-  Map<Materia, List<Questao>> get _questoesPorMateria {
-    final grupos = <Materia, List<Questao>>{};
-    for (final materia in _materiasDisponiveis) {
-      if (!materiasSelecionadas.contains(materia.id)) continue;
-      final questoes = questoesDisponiveis
-          .where((q) => q.materiaId == materia.id)
-          .toList();
-      if (questoes.isNotEmpty) grupos[materia] = questoes;
-    }
-    return grupos;
-  }
-
-  String _nomesSelecionados() {
-    final nomes = [
-      for (final materia in _materiasDisponiveis)
-        if (materiasSelecionadas.contains(materia.id)) materia.nome,
-    ];
-    if (nomes.length <= 1) return nomes.join();
-    return '${nomes.sublist(0, nomes.length - 1).join(', ')} e ${nomes.last}';
-  }
-
   Widget _listaDeQuestoes() {
-    final grupos = _questoesPorMateria;
-    final agrupar = grupos.length > 1;
-
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: 420),
       child: ListView(
         key: const ValueKey('lista-questoes'),
         shrinkWrap: true,
         padding: EdgeInsets.zero,
-        children: [
-          for (final (indice, grupo) in grupos.entries.indexed) ...[
-            if (agrupar)
-              _cabecalhoMateria(
-                grupo.key,
-                grupo.value.length,
-                primeiro: indice == 0,
-              ),
-            ...grupo.value.map(
-              (q) => _cardQuestao(q, mostrarMateria: !agrupar),
-            ),
-          ],
-        ],
+        children: [for (final q in questoesDisponiveis) _cardQuestao(q)],
       ),
     );
   }
 
-  Widget _cabecalhoMateria(
-    Materia materia,
-    int total, {
-    required bool primeiro,
-  }) {
-    return Padding(
-      padding: EdgeInsets.only(
-        top: primeiro ? 0 : AppSpacing.s5,
-        bottom: AppSpacing.s3,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (!primeiro) ...[
-            const Divider(height: 1, color: AppColors.neutral300),
-            const SizedBox(height: AppSpacing.s4),
-          ],
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  materia.nome.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTheme.kicker.copyWith(color: AppColors.accent),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.s2),
-              Text(
-                total == 1 ? '1 questão' : '$total questões',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textMuted,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.s2),
-        ],
-      ),
-    );
-  }
-
-  Widget _cardQuestao(Questao questao, {required bool mostrarMateria}) {
+  Widget _cardQuestao(Questao questao) {
     final selecionada = questoesSelecionadas.contains(questao.id);
-    final materia = _materiasDisponiveis.firstWhere(
-      (m) => m.id == questao.materiaId,
-      orElse: () => Materia(id: questao.materiaId, nome: '—'),
-    );
 
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.s3),
@@ -344,7 +307,6 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
           color: selecionada ? Colors.white : AppColors.textMuted,
         ),
         title: questao.enunciado,
-        subtitle: mostrarMateria ? materia.nome : null,
         trailing: Checkbox(
           value: selecionada,
           onChanged: (val) => _toggleQuestao(questao.id, val ?? false),
@@ -462,48 +424,50 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
             ),
 
             const SizedBox(height: AppSpacing.s6),
-            Text('TURMA', style: AppTheme.kicker),
+            Text('DISCIPLINA', style: AppTheme.kicker),
             const SizedBox(height: AppSpacing.s2),
             Wrap(
               spacing: AppSpacing.s2,
               runSpacing: AppSpacing.s2,
               children: [
-                ..._turmasDisponiveis.map((turma) {
+                ..._disciplinasDisponiveis.map((disciplina) {
                   return ChoiceChip(
-                    label: Text(turma.nome),
-                    selected: turmaSelecionadaId == turma.id,
-                    onSelected: (val) => _toggleTurma(val ? turma.id : null),
+                    label: Text(disciplina.nome),
+                    selected: disciplinaSelecionadaId == disciplina.id,
+                    onSelected: (val) =>
+                        _toggleDisciplina(val ? disciplina.id : null),
                   );
                 }),
                 ActionChip(
                   avatar: const Icon(Icons.add, size: 16),
-                  label: const Text('Nova turma'),
-                  onPressed: _criarNovaTurma,
+                  label: const Text('Nova disciplina'),
+                  onPressed: _criarNovaDisciplina,
                 ),
               ],
             ),
-
-            const SizedBox(height: AppSpacing.s6),
-            Text('MATÉRIAS', style: AppTheme.kicker),
-            const SizedBox(height: AppSpacing.s2),
-            Wrap(
-              spacing: AppSpacing.s2,
-              runSpacing: AppSpacing.s2,
-              children: [
-                ..._materiasDisponiveis.map((materia) {
-                  return FilterChip(
-                    label: Text(materia.nome),
-                    selected: materiasSelecionadas.contains(materia.id),
-                    onSelected: (val) => _toggleMateria(materia.id, val),
-                  );
-                }),
-                ActionChip(
-                  avatar: const Icon(Icons.add, size: 16),
-                  label: const Text('Nova matéria'),
-                  onPressed: _criarNovaMateria,
-                ),
-              ],
-            ),
+            if (_disciplinaSelecionada case final disciplina?) ...[
+              const SizedBox(height: AppSpacing.s4),
+              Text('TURMA', style: AppTheme.kicker),
+              const SizedBox(height: AppSpacing.s2),
+              Wrap(
+                spacing: AppSpacing.s2,
+                runSpacing: AppSpacing.s2,
+                children: [
+                  ...disciplina.turmas.map((turma) {
+                    return ChoiceChip(
+                      label: Text(turma.nome),
+                      selected: turmaSelecionadaId == turma.id,
+                      onSelected: (val) => _toggleTurma(val ? turma.id : null),
+                    );
+                  }),
+                  ActionChip(
+                    avatar: const Icon(Icons.add, size: 16),
+                    label: const Text('Nova turma'),
+                    onPressed: _criarNovaTurma,
+                  ),
+                ],
+              ),
+            ],
 
             const SizedBox(height: AppSpacing.s6),
             Row(
@@ -519,11 +483,11 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
               ],
             ),
             const SizedBox(height: AppSpacing.s2),
-            if (materiasSelecionadas.isEmpty)
+            if (_disciplinaSelecionada == null)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: AppSpacing.s4),
                 child: Text(
-                  'Selecione uma matéria acima para ver as questões disponíveis.',
+                  'Selecione uma disciplina acima para ver as questões dela.',
                   style: TextStyle(color: AppColors.textMuted),
                 ),
               )
@@ -532,7 +496,7 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.s3),
                   child: Text(
-                    'Ainda não há questões em ${_nomesSelecionados()}. '
+                    'Ainda não há questões em ${_disciplinaSelecionada!.nome}. '
                     'Crie a primeira sem sair desta tela.',
                     style: const TextStyle(color: AppColors.textMuted),
                   ),
@@ -540,58 +504,54 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
               else
                 _listaDeQuestoes(),
               const SizedBox(height: AppSpacing.s2),
-              Wrap(
-                spacing: AppSpacing.s2,
-                runSpacing: AppSpacing.s2,
-                children: [
-                  for (final materia in _materiasDisponiveis)
-                    if (materiasSelecionadas.contains(materia.id))
-                      OutlinedButton.icon(
-                        onPressed: () =>
-                            context.push('/criar-prova/questao/${materia.id}'),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(0, 40),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.s4,
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        icon: const Icon(Icons.add_rounded, size: 18),
-                        label: Text('Nova questão em ${materia.nome}'),
-                      ),
-                ],
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: () => context.push(
+                    '/criar-prova/questao/$disciplinaSelecionadaId',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 40),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.s4,
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: Text(
+                    'Nova questão em ${_disciplinaSelecionada!.nome}',
+                  ),
+                ),
               ),
             ],
 
             const SizedBox(height: AppSpacing.s6),
-            Text('MODO', style: AppTheme.kicker),
-            const SizedBox(height: AppSpacing.s2),
-            RadioGroup<ModoProva>(
-              groupValue: modoSelecionado,
-              onChanged: (val) => setState(() => modoSelecionado = val!),
-              child: Column(
-                children: [
-                  RadioListTile<ModoProva>(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Mesma prova, embaralhada por versão'),
-                    subtitle: const Text(
-                      'Todas as versões têm as mesmas questões em ordens diferentes.',
-                    ),
-                    value: ModoProva.mesmaEmbaralhada,
-                  ),
-                  RadioListTile<ModoProva>(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Conjuntos de questões diferentes'),
-                    subtitle: const Text(
-                      'Cada versão sorteia o próprio conjunto de questões.',
-                    ),
-                    value: ModoProva.conjuntosDiferentes,
-                  ),
-                ],
-              ),
+            Text('OPÇÕES', style: AppTheme.kicker),
+            const SizedBox(height: AppSpacing.s1),
+            _opcao(
+              titulo: 'Embaralhar alternativas',
+              subtitulo: 'Em cada versão, as alternativas mudam de ordem.',
+              valor: embaralharAlternativas,
+              onChanged: (v) => setState(() => embaralharAlternativas = v),
+            ),
+            _opcao(
+              titulo: 'Embaralhar questões',
+              subtitulo: 'Em cada versão, as questões mudam de ordem.',
+              valor: embaralharQuestoes,
+              onChanged: (v) => setState(() => embaralharQuestoes = v),
+            ),
+            _opcao(
+              titulo: 'Vincular a aluno',
+              subtitulo: _temAlunosParaVincular
+                  ? 'Cada versão já sai com um aluno da turma; dá para trocar.'
+                  : 'Escolha uma disciplina com alunos para vincular.',
+              valor: vincularAlunos && _temAlunosParaVincular,
+              onChanged: _temAlunosParaVincular
+                  ? (v) => setState(() => vincularAlunos = v)
+                  : null,
             ),
 
             const SizedBox(height: AppSpacing.s6),
@@ -600,8 +560,7 @@ class _CriarProvaScreenState extends State<CriarProvaScreen> {
             _contadorVersoes(),
             const SizedBox(height: AppSpacing.s2),
             const Text(
-              'Cada versão recebe um QR próprio, ligado ao gabarito daquela '
-              'ordem de questões.',
+              'Cada versão vira Prova A, B… e tem seu gabarito, com o QR.',
               style: TextStyle(
                 fontSize: 13,
                 height: 1.5,

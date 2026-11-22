@@ -12,7 +12,7 @@ class CriarTurmaScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final turmas = context.watch<TurmasRepository>().turmas;
+    final disciplinas = context.watch<TurmasRepository>().disciplinas;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -21,22 +21,22 @@ class CriarTurmaScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AppPageHeader(
-              kicker: 'Turmas',
-              titulo: 'Minhas turmas',
+              kicker: 'Disciplinas',
+              titulo: 'Minhas disciplinas',
               acao: AppNovoButton(
-                rotulo: 'Nova turma',
+                rotulo: 'Nova disciplina',
                 onPressed: () => context.push('/turmas/nova'),
               ),
             ),
             Expanded(
               child: AppMaxWidth(
-                child: turmas.isEmpty
+                child: disciplinas.isEmpty
                     ? AppEstadoVazio(
-                        icone: Icons.groups_outlined,
-                        titulo: 'Nenhuma turma ainda',
-                        mensagem: 'Crie uma turma para cadastrar os alunos e vincular as provas.',
+                        icone: Icons.class_outlined,
+                        titulo: 'Nenhuma disciplina ainda',
+                        mensagem: 'Crie uma disciplina e, dentro dela, as turmas com os alunos.',
                         acao: AppNovoButton(
-                          rotulo: 'Nova turma',
+                          rotulo: 'Nova disciplina',
                           onPressed: () => context.push('/turmas/nova'),
                         ),
                       )
@@ -50,13 +50,13 @@ class CriarTurmaScreen extends StatelessWidget {
                         children: [
                           AppListGroup(
                             children: [
-                              for (final turma in turmas)
+                              for (final disciplina in disciplinas)
                                 AppListRow(
-                                  titulo: turma.nome,
+                                  titulo: disciplina.nome,
                                   subtitulo:
-                                      '${turma.alunos.length} ${turma.alunos.length == 1 ? 'aluno' : 'alunos'}',
+                                      '${disciplina.turmas.length} ${disciplina.turmas.length == 1 ? 'turma' : 'turmas'}',
                                   onTap: () =>
-                                      context.push('/turmas/${turma.id}'),
+                                      context.push('/turmas/${disciplina.id}'),
                                 ),
                             ],
                           ),
@@ -95,7 +95,7 @@ class _NovaTurmaScreenState extends State<NovaTurmaScreen> {
 
     if (nome.isEmpty) return;
 
-    context.read<TurmasRepository>().criar(
+    context.read<TurmasRepository>().criarDisciplina(
       periodo.isNotEmpty ? '$nome — $periodo' : nome,
     );
 
@@ -107,7 +107,7 @@ class _NovaTurmaScreenState extends State<NovaTurmaScreen> {
     return AppScaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
-        title: const Text('Nova turma'),
+        title: const Text('Nova disciplina'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.text),
           onPressed: () => context.pop(),
@@ -120,14 +120,14 @@ class _NovaTurmaScreenState extends State<NovaTurmaScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              'Nome da turma',
+              'Nome da disciplina',
               style: TextStyle(color: AppColors.textMuted, fontSize: 14),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _nomeController,
               decoration: const InputDecoration(
-                hintText: '3º ano B — Matutino',
+                hintText: 'Matemática — 3º ano B',
                 hintStyle: TextStyle(color: AppColors.neutral400),
               ),
             ),
@@ -147,7 +147,7 @@ class _NovaTurmaScreenState extends State<NovaTurmaScreen> {
             const SizedBox(height: 32),
             ElevatedButton(
               onPressed: _salvar,
-              child: const Text('Salvar turma'),
+              child: const Text('Salvar disciplina'),
             ),
           ],
         ),

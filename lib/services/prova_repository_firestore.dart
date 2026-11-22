@@ -38,6 +38,7 @@ class ProvaRepositoryFirestore implements ProvaRepository {
       nome: d['nome'] as String,
       materia: d['materia'] as String,
       turma: d['turma'] as String?,
+      disciplina: d['disciplina'] as String?,
       criadoEm: (d['criadoEm'] as Timestamp).toDate(),
       totalVersoes: d['totalVersoes'] as int,
     );

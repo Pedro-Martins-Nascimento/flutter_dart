@@ -13,6 +13,7 @@ class ProvaResumo {
   final String nome;
   final String materia;
   final String? turma;
+  final String? disciplina;
   final DateTime criadoEm;
   final int totalVersoes;
 
@@ -21,6 +22,7 @@ class ProvaResumo {
     required this.nome,
     required this.materia,
     required this.turma,
+    this.disciplina,
     required this.criadoEm,
     required this.totalVersoes,
   });
@@ -30,6 +32,7 @@ class ProvaResumo {
     nome: prova.nome,
     materia: prova.materia,
     turma: prova.turma,
+    disciplina: prova.disciplina,
     criadoEm: prova.criadoEm,
     totalVersoes: prova.versoes.length,
   );

@@ -29,13 +29,21 @@ class EstatisticaService {
   /// as respostas de todas as correções.
   static Map<String, double> percentualAcertoPorMateria(
     List<Correcao> correcoes,
+  ) => percentualAcertoPorGrupo(correcoes, (materiaId) => materiaId);
+
+  /// Percentual de acerto juntando as respostas pela chave que [grupo] dá ao
+  /// `materiaId` de cada uma (por exemplo, o nome da disciplina).
+  static Map<String, double> percentualAcertoPorGrupo(
+    List<Correcao> correcoes,
+    String Function(String materiaId) grupo,
   ) {
     final acertos = <String, int>{};
     final totais = <String, int>{};
     for (final c in correcoes) {
       for (final r in c.respostas) {
-        totais[r.materiaId] = (totais[r.materiaId] ?? 0) + 1;
-        if (r.correta) acertos[r.materiaId] = (acertos[r.materiaId] ?? 0) + 1;
+        final chave = grupo(r.materiaId);
+        totais[chave] = (totais[chave] ?? 0) + 1;
+        if (r.correta) acertos[chave] = (acertos[chave] ?? 0) + 1;
       }
     }
     return {

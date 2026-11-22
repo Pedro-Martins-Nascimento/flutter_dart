@@ -12,8 +12,10 @@ import '../../models/versao_prova.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 import '../../services/prova_repository.dart';
+import '../../services/auth_service.dart';
 import '../../services/firebase_erro.dart';
 import '../../models/prova_gerada.dart';
+import '../../services/alunos_para_pdf.dart';
 import '../../services/pdf_service.dart';
 import '../../services/questoes_repository.dart';
 import '../../services/turmas_repository.dart';
@@ -47,6 +49,10 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
 
   bool _salva = false;
 
+  /// Caixa "Vincular cada prova a um aluno". Ligada, cada versão recebe um
+  /// aluno da turma (dá para trocar); desligada, nenhuma versão tem aluno.
+  bool _vincular = false;
+
   List<VersaoProva> versoes = [];
 
   @override
@@ -54,9 +60,18 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     super.initState();
     final provaExistente = widget.provaExistente;
     if (provaExistente != null) {
-      versoes = List.of(provaExistente.versoes);
+      // Prova antiga, salva com "Prof. responsável": imprime com o nome de
+      // quem está logado.
+      versoes = [
+        for (final versao in provaExistente.versoes)
+          versao.comProfessorSePadrao(_nomeProfessor),
+      ];
+      _vincular = versoes.any((v) => v.alunoId != null);
       return;
     }
+
+    // "Vincular a aluno" marcado na criação: as versões já saem com aluno.
+    _vincular = widget.dados?.opcoes.vincularAlunos ?? false;
 
     final pedidas = widget.dados?.versoes;
     if (pedidas != null && pedidas > 0) {
@@ -73,45 +88,55 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
         : context.read<QuestoesRepository>().questoes.take(8).toList();
   }
 
-  ModoProva get _modo => widget.dados?.modo ?? ModoProva.mesmaEmbaralhada;
+  OpcoesProva get _opcoes => widget.dados?.opcoes ?? const OpcoesProva();
 
-  Turma? get _turma {
-    final daCriacao = widget.dados?.turma;
-    if (daCriacao != null) return daCriacao;
-
-    final nome = widget.provaExistente?.turma;
-    if (nome == null) return null;
-    for (final turma in context.read<TurmasRepository>().turmas) {
-      if (turma.nome == nome) return turma;
-    }
-    return null;
-  }
-
+  /// Alunos que podem ser vinculados às versões: os da turma escolhida (ou
+  /// de toda a disciplina, se nenhuma turma foi escolhida).
   List<Aluno> get _alunosDisponiveis {
-    final alunos = _turma?.alunos ?? const [];
+    final dados = widget.dados;
+    final List<AlunoTurma> alunos;
+    if (dados != null) {
+      alunos = dados.turma?.alunos ?? dados.disciplina?.alunos ?? const [];
+    } else {
+      final prova = widget.provaExistente;
+      alunos = prova == null
+          ? const []
+          : alunosTurmaDaProva(
+              disciplina: prova.disciplina,
+              turma: prova.turma,
+              disciplinas: context.read<TurmasRepository>().disciplinas,
+            );
+    }
     return [for (final aluno in alunos) Aluno(id: aluno.id, nome: aluno.nome)];
   }
 
-  String get _materiaTexto {
-    final dados = widget.dados;
-    return (dados != null && dados.materias.isNotEmpty)
-        ? dados.materiasResumo
-        : 'Matemática';
-  }
+  /// O campo "matéria" da prova guarda o nome da disciplina (não há mais
+  /// matérias; ele continua no banco para as provas antigas).
+  String get _materiaTexto =>
+      widget.dados?.disciplina?.nome ?? 'Sem disciplina';
+
+  /// Nome do professor logado (sem AuthService, como em alguns testes, fica
+  /// o texto padrão).
+  String get _nomeProfessor =>
+      context.read<AuthService?>()?.nomeProfessor ??
+      VersaoProva.professorPadrao;
 
   String get _provaNome => widget.dados?.nomeProva ?? 'Prova sem título';
 
   String? get _turmaTexto => widget.dados?.turma?.nome;
+
+  String? get _disciplinaTexto => widget.dados?.disciplina?.nome;
 
   void _gerarVersoes([int? quantas]) {
     final quantidade = quantas ?? int.tryParse(quantidadeController.text) ?? 0;
     if (quantidade <= 0) return;
 
     final banco = _bancoSelecionado;
-    final modo = _modo;
+    final opcoes = _opcoes;
     final materiaTexto = _materiaTexto;
     final provaNome = _provaNome;
     final turmaTexto = _turmaTexto;
+    final disciplinaTexto = _disciplinaTexto;
 
     setState(() {
       versoes = List.generate(quantidade, (i) {
@@ -120,13 +145,15 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
           id: 'v$numero',
 
           qrCode: 'PROVA-2026-V$numero-${(1000 + numero * 37)}',
-          questoes: _materializarQuestoes(banco, modo),
+          questoes: _materializarQuestoes(banco, opcoes),
           materia: materiaTexto,
-          professor: 'Prof. responsável',
+          professor: _nomeProfessor,
           turma: turmaTexto,
+          disciplina: disciplinaTexto,
           provaNome: provaNome,
         );
       });
+      if (_vincular) _preencherVinculos();
     });
 
     setState(() => _salva = false);
@@ -142,6 +169,7 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
       nome: _provaNome,
       materia: _materiaTexto,
       turma: _turmaTexto,
+      disciplina: _disciplinaTexto,
       criadoEm: editando?.criadoEm ?? DateTime.now(),
       versoes: versoes,
     );
@@ -181,22 +209,18 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     context.go('/provas-geradas');
   }
 
-  List<Questao> _questoesParaVersao(List<Questao> banco, ModoProva modo) {
-    final embaralhado = List<Questao>.from(banco)..shuffle(_random);
-    if (modo == ModoProva.mesmaEmbaralhada || banco.length <= 2) {
-      return embaralhado;
-    }
-    final tamanho = (banco.length * 0.7).ceil().clamp(1, banco.length);
-    return embaralhado.take(tamanho).toList();
-  }
-
+  /// Questões de uma versão: todas as escolhidas, na ordem original ou
+  /// embaralhadas, com as alternativas também na ordem original ou
+  /// embaralhadas, conforme as [opcoes].
   List<QuestaoNaVersao> _materializarQuestoes(
     List<Questao> banco,
-    ModoProva modo,
+    OpcoesProva opcoes,
   ) {
-    return _questoesParaVersao(banco, modo).map((questao) {
-      final ordem = List<int>.generate(questao.alternativas.length, (i) => i)
-        ..shuffle(_random);
+    final questoes = List<Questao>.from(banco);
+    if (opcoes.embaralharQuestoes) questoes.shuffle(_random);
+    return questoes.map((questao) {
+      final ordem = List<int>.generate(questao.alternativas.length, (i) => i);
+      if (opcoes.embaralharAlternativas) ordem.shuffle(_random);
       return QuestaoNaVersao(
         questao: questao,
         alternativas: ordem.map((i) => questao.alternativas[i]).toList(),
@@ -209,18 +233,90 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     setState(() {
       versao.alunoId = alunoId;
     });
-    // O repository guarda cópias: numa prova já salva, o vínculo precisa ser
-    // gravado.
-    final existente = widget.provaExistente;
-    if (existente != null) {
-      try {
-        await widget.repository.atualizarVersao(existente.id, versao);
-      } catch (_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Não foi possível salvar o vínculo.')),
-        );
+    await _gravarVinculos([versao]);
+  }
+
+  /// Liga ou desliga o vínculo de todas as versões de uma vez.
+  Future<void> _alternarVinculo(bool ligar) async {
+    final mudadas = <VersaoProva>[];
+    setState(() {
+      _vincular = ligar;
+      if (ligar) {
+        mudadas.addAll(_preencherVinculos());
+      } else {
+        for (final versao in versoes) {
+          if (versao.alunoId == null) continue;
+          versao.alunoId = null;
+          mudadas.add(versao);
+        }
       }
+    });
+    await _gravarVinculos(mudadas);
+  }
+
+  /// Dá a cada versão sem aluno o próximo aluno da turma que ainda não tem
+  /// prova, na ordem da lista. Devolve as versões que mudaram.
+  List<VersaoProva> _preencherVinculos() {
+    final usados = {
+      for (final versao in versoes)
+        if (versao.alunoId != null) versao.alunoId,
+    };
+    final livres = _alunosDisponiveis
+        .where((aluno) => !usados.contains(aluno.id))
+        .iterator;
+    final mudadas = <VersaoProva>[];
+    for (final versao in versoes) {
+      if (versao.alunoId != null) continue;
+      if (!livres.moveNext()) break;
+      versao.alunoId = livres.current.id;
+      mudadas.add(versao);
+    }
+    return mudadas;
+  }
+
+  /// Aluno → letra da prova em que ele já está, sem contar [versao]. Esses
+  /// alunos ficam desabilitados na lista dela: um aluno só faz uma prova.
+  Map<String, String> _alunosEmOutrasProvas(VersaoProva versao) => {
+    for (final outra in versoes)
+      if (outra != versao && outra.alunoId != null) outra.alunoId!: outra.letra,
+  };
+
+  /// Alunos que estão em mais de uma versão (prova salva antes da trava).
+  List<Aluno> _alunosRepetidos() {
+    final contagem = <String, int>{};
+    for (final versao in versoes) {
+      final id = versao.alunoId;
+      if (id != null) contagem[id] = (contagem[id] ?? 0) + 1;
+    }
+    return [
+      for (final aluno in _alunosDisponiveis)
+        if ((contagem[aluno.id] ?? 0) > 1) aluno,
+    ];
+  }
+
+  /// Alunos da turma que não estão em nenhuma versão.
+  List<Aluno> _alunosSemProva() {
+    final comProva = {for (final versao in versoes) versao.alunoId};
+    return [
+      for (final aluno in _alunosDisponiveis)
+        if (!comProva.contains(aluno.id)) aluno,
+    ];
+  }
+
+  /// O repository guarda cópias: numa prova já salva, o vínculo precisa ser
+  /// gravado.
+  Future<void> _gravarVinculos(List<VersaoProva> mudadas) async {
+    final existente = widget.provaExistente;
+    if (existente == null || mudadas.isEmpty) return;
+    try {
+      for (final versao in mudadas) {
+        await widget.repository.atualizarVersao(existente.id, versao);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível salvar o vínculo.')),
+      );
     }
   }
 
@@ -306,10 +402,14 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            _painelVinculo(),
+                            const SizedBox(height: AppSpacing.s3),
                             ...versoes.map(
                               (versao) => _VersaoCard(
                                 versao: versao,
                                 alunos: _alunosDisponiveis,
+                                ocupados: _alunosEmOutrasProvas(versao),
+                                vincular: _vincular,
                                 onAlunoChanged: (alunoId) =>
                                     _vincularAluno(versao, alunoId),
                               ),
@@ -323,6 +423,61 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
           if (versoes.isNotEmpty) _acoes(editandoExistente),
         ],
       ),
+    );
+  }
+
+  Widget _painelVinculo() {
+    final alunos = _alunosDisponiveis;
+    final semProva = _vincular ? _alunosSemProva() : const <Aluno>[];
+    final repetidos = _vincular ? _alunosRepetidos() : const <Aluno>[];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppCard(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.s1),
+          // Material próprio: o cartão tem fundo e esconderia o efeito de
+          // toque da caixa.
+          child: Material(
+            type: MaterialType.transparency,
+            child: CheckboxListTile(
+              value: _vincular,
+              onChanged: alunos.isEmpty
+                  ? null
+                  : (valor) => _alternarVinculo(valor ?? false),
+              controlAffinity: ListTileControlAffinity.leading,
+              activeColor: AppColors.accent,
+              title: const Text(
+                'Vincular cada prova a um aluno',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                alunos.isEmpty
+                    ? 'A turma escolhida não tem alunos para vincular.'
+                    : 'Cada prova já vem com um aluno da turma; dá para trocar.',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ),
+        ),
+        if (repetidos.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.s2),
+          _AvisoAlunos(
+            alunos: repetidos,
+            umAluno: '1 aluno está em mais de uma prova',
+            variosAlunos: (n) => '$n alunos estão em mais de uma prova',
+            dica: 'Cada aluno deve ficar em uma prova só.',
+          ),
+        ],
+        if (semProva.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.s2),
+          _AvisoAlunos(
+            alunos: semProva,
+            umAluno: '1 aluno ficou sem prova',
+            variosAlunos: (n) => '$n alunos ficaram sem prova',
+            dica: 'Gere mais versões ou troque os vínculos.',
+          ),
+        ],
+      ],
     );
   }
 
@@ -423,14 +578,79 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
   }
 }
 
+/// Aviso amarelo com uma lista de alunos (sem prova, ou repetidos).
+class _AvisoAlunos extends StatelessWidget {
+  final List<Aluno> alunos;
+  final String umAluno;
+  final String Function(int quantidade) variosAlunos;
+  final String dica;
+
+  const _AvisoAlunos({
+    required this.alunos,
+    required this.umAluno,
+    required this.variosAlunos,
+    required this.dica,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const mostrar = 5;
+    final nomes = alunos.take(mostrar).map((a) => a.nome).toList();
+    final resto = alunos.length - nomes.length;
+    final lista = resto > 0
+        ? '${nomes.join(', ')} e mais $resto'
+        : nomes.length == 1
+        ? nomes.single
+        : '${nomes.sublist(0, nomes.length - 1).join(', ')} e ${nomes.last}';
+    final titulo = alunos.length == 1 ? umAluno : variosAlunos(alunos.length);
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.s3),
+      decoration: BoxDecoration(
+        color: AppColors.warning100,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.warning),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: AppColors.warning),
+          const SizedBox(width: AppSpacing.s2),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '$titulo: ',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  TextSpan(text: '$lista. '),
+                  TextSpan(text: dica),
+                ],
+              ),
+              style: const TextStyle(fontSize: 13, color: AppColors.text),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _VersaoCard extends StatelessWidget {
   final VersaoProva versao;
   final List<Aluno> alunos;
+
+  /// Alunos já em outra prova (id → letra da prova): ficam desabilitados.
+  final Map<String, String> ocupados;
+  final bool vincular;
   final ValueChanged<String?> onAlunoChanged;
 
   const _VersaoCard({
     required this.versao,
     required this.alunos,
+    required this.ocupados,
+    required this.vincular,
     required this.onAlunoChanged,
   });
 
@@ -442,33 +662,47 @@ class _VersaoCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: AppSpacing.s3),
       child: AppListItem(
         leading: const AppLeadingIcon(icon: Icons.qr_code_2),
-        title: versao.id.toUpperCase(),
+        title: 'Prova ${versao.letra}',
         subtitle: '${versao.qrCode} · ${versao.questoes.length} questões',
         trailing: Icon(
           vinculado ? Icons.link : Icons.link_off,
           size: 18,
           color: vinculado ? AppColors.accent : AppColors.neutral400,
         ),
-        footer: DropdownButtonFormField<String?>(
-          initialValue: versao.alunoId,
-          decoration: const InputDecoration(
-            labelText: 'Vincular aluno (opcional)',
-            isDense: true,
-          ),
-          items: [
-            const DropdownMenuItem<String?>(
-              value: null,
-              child: Text('Nenhum vínculo'),
-            ),
-            ...alunos.map(
-              (aluno) => DropdownMenuItem<String?>(
-                value: aluno.id,
-                child: Text(aluno.nome),
+        footer: !vincular
+            ? null
+            : DropdownButtonFormField<String?>(
+                // A chave muda com o aluno: quando o vínculo é preenchido de uma
+                // vez, o campo mostra o novo valor.
+                key: ValueKey('${versao.id}-${versao.alunoId}'),
+                initialValue: versao.alunoId,
+                decoration: const InputDecoration(
+                  labelText: 'Aluno',
+                  isDense: true,
+                ),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('Nenhum vínculo'),
+                  ),
+                  for (final aluno in alunos)
+                    if (ocupados[aluno.id] case final letra?)
+                      DropdownMenuItem<String?>(
+                        value: aluno.id,
+                        enabled: false,
+                        child: Text(
+                          '${aluno.nome} · já na Prova $letra',
+                          style: const TextStyle(color: AppColors.neutral400),
+                        ),
+                      )
+                    else
+                      DropdownMenuItem<String?>(
+                        value: aluno.id,
+                        child: Text(aluno.nome),
+                      ),
+                ],
+                onChanged: onAlunoChanged,
               ),
-            ),
-          ],
-          onChanged: onAlunoChanged,
-        ),
       ),
     );
   }

@@ -1,4 +1,7 @@
 import 'package:flutter_dart/models/turma.dart';
+
+import 'helpers/disciplina_antiga.dart';
+
 import 'package:flutter_dart/services/notas_da_prova.dart';
 import 'package:flutter_dart/services/prova_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,7 +18,7 @@ void main() {
     totalVersoes: 2,
   );
   final turmas = [
-    Turma(
+    disciplinaAntiga(
       id: 't1',
       nome: 'Turma A',
       alunos: [
@@ -23,7 +26,7 @@ void main() {
         AlunoTurma(id: 'b1', nome: 'Bruno', matricula: '2'),
       ],
     ),
-    Turma(
+    disciplinaAntiga(
       id: 't2',
       nome: 'Turma B',
       alunos: [AlunoTurma(id: 'c1', nome: 'Carla', matricula: '3')],
@@ -33,7 +36,7 @@ void main() {
   test('uma linha por aluno da turma, na ordem da turma', () {
     final linhas = linhasDeNotas(
       prova: prova,
-      turmas: turmas,
+      disciplinas: turmas,
       correcoes: [correcao('x', alunoId: 'b1', alunoNome: 'Bruno')],
     );
 
@@ -46,7 +49,7 @@ void main() {
   test('a data é a da correção, e vazia para quem não foi corrigido', () {
     final linhas = linhasDeNotas(
       prova: prova,
-      turmas: turmas,
+      disciplinas: turmas,
       correcoes: [correcao('x', alunoId: 'b1', alunoNome: 'Bruno')],
     );
 
@@ -57,7 +60,7 @@ void main() {
   test('ignora correções de outras provas', () {
     final linhas = linhasDeNotas(
       prova: prova,
-      turmas: turmas,
+      disciplinas: turmas,
       correcoes: [correcao('x', provaId: 'outra', alunoId: 'a1')],
     );
 
@@ -67,7 +70,7 @@ void main() {
   test('aluno com mais de uma correção fica com a mais recente', () {
     final linhas = linhasDeNotas(
       prova: prova,
-      turmas: turmas,
+      disciplinas: turmas,
       correcoes: [
         correcao(
           'velha',
@@ -89,7 +92,7 @@ void main() {
   test('quem não está na turma e folha sem aluno entram no fim', () {
     final linhas = linhasDeNotas(
       prova: prova,
-      turmas: turmas,
+      disciplinas: turmas,
       correcoes: [
         correcao('x', versaoId: 'v7', alunoId: 'fora', alunoNome: 'Diego'),
         correcao('y', versaoId: 'v3'),
@@ -115,7 +118,7 @@ void main() {
     );
     final linhas = linhasDeNotas(
       prova: semTurma,
-      turmas: turmas,
+      disciplinas: turmas,
       correcoes: [correcao('x', alunoId: 'a1', alunoNome: 'Ana')],
     );
 
@@ -125,7 +128,7 @@ void main() {
   test('sem alunos e sem correções não há linhas', () {
     final linhas = linhasDeNotas(
       prova: prova,
-      turmas: const [],
+      disciplinas: const [],
       correcoes: const [],
     );
 

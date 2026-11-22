@@ -11,6 +11,7 @@ import '../../widgets/app_card.dart';
 import '../../widgets/app_page.dart';
 import '../../services/notas_da_prova.dart';
 import '../../services/alunos_para_pdf.dart';
+import '../../services/auth_service.dart';
 import '../../services/docx_service.dart';
 import '../../services/prova_repository.dart';
 import '../../models/prova_gerada.dart';
@@ -64,7 +65,7 @@ class ListarProvasScreen extends StatelessWidget {
                         icone: Icons.description_outlined,
                         titulo: 'Nenhuma prova gerada ainda',
                         mensagem:
-                            'Monte uma prova escolhendo turma, matérias e questões — '
+                            'Monte uma prova escolhendo disciplina e questões — '
                             'as versões geradas ficam guardadas aqui.',
                         acao: AppNovoButton(
                           rotulo: 'Nova prova',
@@ -138,6 +139,7 @@ class ListarProvasScreen extends StatelessWidget {
           nome: nome,
           materia: completa.materia,
           turma: completa.turma,
+          disciplina: completa.disciplina,
           criadoEm: completa.criadoEm,
           versoes: [
             for (final v in completa.versoes)
@@ -149,6 +151,7 @@ class ListarProvasScreen extends StatelessWidget {
                 materia: v.materia,
                 professor: v.professor,
                 turma: v.turma,
+                disciplina: v.disciplina,
                 provaNome: nome,
               ),
           ],
@@ -169,7 +172,7 @@ class ListarProvasScreen extends StatelessWidget {
   }
 
   Future<void> _exportarNotas(BuildContext context, ProvaResumo prova) async {
-    final turmas = context.read<TurmasRepository>().turmas;
+    final disciplinas = context.read<TurmasRepository>().disciplinas;
     final mensagens = ScaffoldMessenger.of(context);
     void avisar(String texto) => mensagens
       ..hideCurrentSnackBar()
@@ -178,7 +181,7 @@ class ListarProvasScreen extends StatelessWidget {
     try {
       final linhas = linhasDeNotas(
         prova: prova,
-        turmas: turmas,
+        disciplinas: disciplinas,
         correcoes: await carregarCorrecoes(),
       );
       if (linhas.isEmpty) {
@@ -202,7 +205,11 @@ class ListarProvasScreen extends StatelessWidget {
 
   Future<void> _exportarDocx(BuildContext context, ProvaResumo resumo) async {
     final mensagens = ScaffoldMessenger.of(context);
-    final turmas = context.read<TurmasRepository?>()?.turmas ?? const [];
+    final disciplinas =
+        context.read<TurmasRepository?>()?.disciplinas ?? const [];
+    final professor =
+        context.read<AuthService?>()?.nomeProfessor ??
+        VersaoProva.professorPadrao;
     void avisar(String texto) => mensagens
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(texto)));
@@ -219,7 +226,14 @@ class ListarProvasScreen extends StatelessWidget {
       );
       final salvo = await salvarArquivoDocx(
         'prova_$nome.docx',
-        gerarDocx(prova, alunos: alunosDaTurma(prova.turma, turmas)),
+        gerarDocx(
+          _comProfessorLogado(prova, professor),
+          alunos: alunosDaProva(
+            disciplina: prova.disciplina,
+            turma: prova.turma,
+            disciplinas: disciplinas,
+          ),
+        ),
       );
       if (salvo) avisar('Prova exportada em Word.');
     } catch (_) {
@@ -342,7 +356,7 @@ class _DialogoRenomearState extends State<_DialogoRenomear> {
         children: [
           const Text(
             'Esta prova já tem correções salvas, então só o nome pode '
-            'mudar. Para trocar questões ou turma, crie uma prova nova.',
+            'mudar. Para trocar questões ou disciplina, crie uma prova nova.',
           ),
           const SizedBox(height: AppSpacing.s4),
           TextField(
@@ -363,3 +377,19 @@ class _DialogoRenomearState extends State<_DialogoRenomear> {
     );
   }
 }
+
+/// Prova antiga, salva com "Prof. responsável": exporta com o nome de quem
+/// está logado. Nomes já gravados na prova ficam como estão.
+ProvaGerada _comProfessorLogado(ProvaGerada prova, String professor) =>
+    ProvaGerada(
+      id: prova.id,
+      nome: prova.nome,
+      materia: prova.materia,
+      turma: prova.turma,
+      disciplina: prova.disciplina,
+      criadoEm: prova.criadoEm,
+      versoes: [
+        for (final versao in prova.versoes)
+          versao.comProfessorSePadrao(professor),
+      ],
+    );

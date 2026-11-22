@@ -153,6 +153,10 @@ class PdfService {
     double margem = LayoutFolha.margemPadrao,
     List<Aluno> alunos = const [],
   }) async {
+    // Cada versão sai em duas partes, uma atrás da outra: o caderno de
+    // questões ("Prova A") e o gabarito em que o aluno marca as respostas
+    // ("Gabarito da Prova A"). Só o gabarito tem QR, marcadores de canto e
+    // bolinhas, porque é ele que é fotografado na correção.
     Future<Uint8List> montar(Set<QuestaoNaVersao> questoesAltas) async {
       final doc = await _criarDocumentoBase();
       for (final versao in versoes) {
@@ -166,6 +170,9 @@ class PdfService {
             alunos,
             questoesAltas,
           ),
+        );
+        doc.addPage(
+          _construirGabarito(versao, forcarQuantidadeParaTeste, margem, alunos),
         );
       }
       return doc.save();
@@ -271,8 +278,8 @@ class PdfService {
     );
   }
 
-  /// Página A4 da versão, com cabeçalho e rodapé de marcadores. É a mesma
-  /// usada na medição das questões, para as duas terem o mesmo espaço útil.
+  /// Páginas A4 do caderno de questões da versão. É a mesma usada na medição
+  /// das questões, para as duas terem o mesmo espaço útil.
   pw.Page _paginaDaVersao(
     VersaoProva versao,
     double margem,
@@ -281,13 +288,304 @@ class PdfService {
     return pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: pw.EdgeInsets.all(margem),
-      header: (context) => _buildHeader(versao),
-      footer: (context) => _buildFooterMarkers(),
+      header: (context) => _cabecalhoCaderno(versao),
+      footer: (context) => _rodapeCaderno(versao),
       build: (context) => corpo(),
     );
   }
 
-  pw.Widget _buildHeader(VersaoProva versao) {
+  /// Cabeçalho repetido em toda página do caderno, para uma folha solta
+  /// ainda dizer de qual prova é. Sem QR: a correção lê só o gabarito.
+  pw.Widget _cabecalhoCaderno(VersaoProva versao) {
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 12),
+      padding: const pw.EdgeInsets.only(bottom: 6),
+      decoration: const pw.BoxDecoration(
+        border: pw.Border(
+          bottom: pw.BorderSide(width: 0.8, color: PdfColors.grey600),
+        ),
+      ),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.end,
+        children: [
+          pw.Expanded(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  'PROVA ${versao.letra}',
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                pw.Text(
+                  versao.provaNome,
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          pw.Text(
+            'Marque as respostas no Gabarito da Prova ${versao.letra}',
+            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _rodapeCaderno(VersaoProva versao) {
+    return pw.Container(
+      alignment: pw.Alignment.centerRight,
+      margin: const pw.EdgeInsets.only(top: 8),
+      child: pw.Text(
+        'Prova ${versao.letra} · ${versao.id.toUpperCase()}',
+        style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+      ),
+    );
+  }
+
+  /// Gabarito (cartão-resposta) da versão: marcadores de canto, QR de
+  /// correção e uma linha de bolinhas por questão. O QR sai só na primeira
+  /// página do gabarito.
+  pw.Page _construirGabarito(
+    VersaoProva versao,
+    int? forcarQuantidadeParaTeste,
+    double margem,
+    List<Aluno> alunos,
+  ) {
+    final lista = _listaDeQuestoes(versao, forcarQuantidadeParaTeste);
+    // context.pageNumber conta as páginas do documento inteiro, então a
+    // primeira página deste gabarito é a primeira em que o cabeçalho é
+    // montado.
+    int? primeiraPagina;
+    return pw.MultiPage(
+      pageFormat: PdfPageFormat.a4,
+      margin: pw.EdgeInsets.all(margem),
+      header: (context) {
+        primeiraPagina ??= context.pageNumber;
+        return _buildHeader(
+          versao,
+          comQr: context.pageNumber == primeiraPagina,
+        );
+      },
+      footer: (context) => _buildFooterMarkers(),
+      build: (context) => [
+        _buildCabecalhoIdentificacao(versao, alunos),
+        pw.SizedBox(height: 8),
+        _avisoComoMarcar(versao),
+        pw.SizedBox(height: 12),
+        if (lista.isEmpty)
+          pw.Text(
+            'Nenhuma questão selecionada para esta prova.',
+            style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700),
+          )
+        else
+          ..._gradeDeRespostas(lista),
+      ],
+    );
+  }
+
+  /// Questões em blocos de 3 colunas, numeradas de cima para baixo em cada
+  /// coluna. Cada bloco fica inteiro numa página.
+  List<pw.Widget> _gradeDeRespostas(List<QuestaoNaVersao> lista) {
+    const porColuna = 20;
+    const colunas = 3;
+    const porBloco = porColuna * colunas;
+    return [
+      for (var inicio = 0; inicio < lista.length; inicio += porBloco)
+        pw.Padding(
+          padding: const pw.EdgeInsets.only(bottom: 12),
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              for (var c = 0; c < colunas; c++)
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      for (
+                        var i = inicio + c * porColuna;
+                        i < inicio + (c + 1) * porColuna && i < lista.length;
+                        i++
+                      )
+                        _linhaDoGabarito(i + 1, lista[i].alternativas.length),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+    ];
+  }
+
+  pw.Widget _linhaDoGabarito(int numero, int alternativas) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 6, right: 8),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.SizedBox(
+            width: 22,
+            child: pw.Text(
+              '${numero.toString().padLeft(2, '0')}.',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+            ),
+          ),
+          // Wrap: questão com muitas alternativas quebra a linha em vez de
+          // estourar a coluna.
+          pw.Expanded(
+            child: pw.Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                for (var alt = 0; alt < alternativas; alt++) _bolinha(alt),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Aviso em destaque no topo do gabarito: marcar com X, com exemplos
+  /// desenhados do jeito certo e dos jeitos que atrapalham a leitura.
+  pw.Widget _avisoComoMarcar(VersaoProva versao) {
+    const corAviso = PdfColor.fromInt(0xFFB45309);
+    pw.Widget exemplo(String rotulo, List<_Marca> marcas, {required bool ok}) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(right: 16),
+        child: pw.Row(
+          mainAxisSize: pw.MainAxisSize.min,
+          children: [
+            pw.Text(
+              rotulo,
+              style: pw.TextStyle(
+                fontSize: 8,
+                fontWeight: pw.FontWeight.bold,
+                color: ok ? PdfColors.green800 : PdfColors.red800,
+              ),
+            ),
+            pw.SizedBox(width: 4),
+            for (var alt = 0; alt < marcas.length; alt++)
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(right: 3),
+                child: _bolinha(alt, marca: marcas[alt]),
+              ),
+          ],
+        ),
+      );
+    }
+
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.all(8),
+      decoration: pw.BoxDecoration(
+        color: const PdfColor.fromInt(0xFFFFF7E6),
+        border: pw.Border.all(width: 1, color: corAviso),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            'ATENÇÃO: MARQUE A RESPOSTA COM UM X',
+            style: pw.TextStyle(
+              fontSize: 10,
+              fontWeight: pw.FontWeight.bold,
+              color: corAviso,
+            ),
+          ),
+          pw.SizedBox(height: 3),
+          pw.Text(
+            'Faça um X sobre a bolinha da alternativa escolhida, com caneta '
+            'preta ou azul: assim a correção lê melhor. Marque só uma '
+            'alternativa por questão e não rasure. Use este gabarito apenas '
+            'para a Prova ${versao.letra}.',
+            style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey800),
+          ),
+          pw.SizedBox(height: 6),
+          pw.Wrap(
+            runSpacing: 4,
+            children: [
+              exemplo('CERTO (X)', const [
+                _Marca.nenhuma,
+                _Marca.x,
+                _Marca.nenhuma,
+                _Marca.nenhuma,
+              ], ok: true),
+              exemplo('ERRADO (visto)', const [
+                _Marca.nenhuma,
+                _Marca.visto,
+                _Marca.nenhuma,
+                _Marca.nenhuma,
+              ], ok: false),
+              exemplo('ERRADO (duas marcas)', const [
+                _Marca.x,
+                _Marca.nenhuma,
+                _Marca.x,
+                _Marca.nenhuma,
+              ], ok: false),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Bolinha do gabarito com a letra dentro. [marca] desenha um X ou um
+  /// visto por cima, para os exemplos do aviso.
+  pw.Widget _bolinha(int alt, {_Marca marca = _Marca.nenhuma}) {
+    const lado = LayoutFolha.diametroBolinhaGabarito;
+    final circulo = pw.Container(
+      width: lado,
+      height: lado,
+      alignment: pw.Alignment.center,
+      decoration: pw.BoxDecoration(
+        shape: pw.BoxShape.circle,
+        border: pw.Border.all(width: LayoutFolha.bordaBolinha),
+      ),
+      child: pw.Text(
+        letraAlternativa(alt),
+        style: const pw.TextStyle(fontSize: 7),
+      ),
+    );
+    if (marca == _Marca.nenhuma) return circulo;
+
+    return pw.Stack(
+      children: [
+        circulo,
+        pw.CustomPaint(
+          size: const PdfPoint(lado, lado),
+          painter: (canvas, size) {
+            // Origem no canto inferior esquerdo, y para cima.
+            canvas
+              ..setStrokeColor(PdfColors.blue900)
+              ..setLineWidth(1.4)
+              ..setLineCap(PdfLineCap.round);
+            if (marca == _Marca.x) {
+              canvas
+                ..moveTo(1, 1)
+                ..lineTo(size.x - 1, size.y - 1)
+                ..moveTo(1, size.y - 1)
+                ..lineTo(size.x - 1, 1);
+            } else {
+              canvas
+                ..moveTo(2, size.y * 0.5)
+                ..lineTo(size.x * 0.42, 2)
+                ..lineTo(size.x + 1, size.y + 1);
+            }
+            canvas.strokePath();
+          },
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _buildHeader(VersaoProva versao, {required bool comQr}) {
     return pw.Container(
       width: double.infinity,
       height: LayoutFolha.alturaCabecalho,
@@ -307,7 +605,7 @@ class PdfService {
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       pw.Text(
-                        'PROVA',
+                        'GABARITO DA PROVA ${versao.letra}',
                         style: pw.TextStyle(
                           fontWeight: pw.FontWeight.bold,
                           fontSize: 14,
@@ -340,12 +638,18 @@ class PdfService {
                   ),
                 ),
 
-                pw.BarcodeWidget(
-                  barcode: pw.Barcode.qrCode(),
-                  data: versao.qrCode,
-                  width: LayoutFolha.ladoQr,
-                  height: LayoutFolha.ladoQr,
-                ),
+                if (comQr)
+                  pw.BarcodeWidget(
+                    barcode: pw.Barcode.qrCode(),
+                    data: versao.qrCode,
+                    width: LayoutFolha.ladoQr,
+                    height: LayoutFolha.ladoQr,
+                  )
+                else
+                  pw.SizedBox(
+                    width: LayoutFolha.ladoQr,
+                    height: LayoutFolha.ladoQr,
+                  ),
               ],
             ),
           ),
@@ -391,7 +695,10 @@ class PdfService {
               ),
               pw.SizedBox(width: 12),
               pw.Expanded(
-                child: _campoIdentificacao('Matéria', versao.materia),
+                child: _campoIdentificacao(
+                  'Disciplina',
+                  disciplinaDaVersao(versao) ?? '—',
+                ),
               ),
             ],
           ),
@@ -399,7 +706,10 @@ class PdfService {
           pw.Row(
             children: [
               pw.Expanded(
-                child: _campoIdentificacao('Turma', versao.turma ?? '—'),
+                child: _campoIdentificacao(
+                  'Turma',
+                  turmaDaVersao(versao) ?? '—',
+                ),
               ),
               pw.SizedBox(width: 12),
               pw.Expanded(
@@ -515,31 +825,13 @@ class PdfService {
           // Alternativas direto na Column da questão (sem Column dentro de
           // Column): assim o PDF consegue dividir uma questão muito alta
           // entre as alternativas, quando ela não cabe numa página.
+          // Sem bolinhas: o aluno marca a resposta no gabarito.
           ...List.generate(questaoVersao.alternativas.length, (alt) {
             return pw.Padding(
-              padding: const pw.EdgeInsets.only(bottom: 4),
-              child: pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Container(
-                    width: LayoutFolha.diametroBolinha,
-                    height: LayoutFolha.diametroBolinha,
-                    margin: const pw.EdgeInsets.only(
-                      top: LayoutFolha.margemTopoBolinha,
-                    ),
-                    decoration: pw.BoxDecoration(
-                      shape: pw.BoxShape.circle,
-                      border: pw.Border.all(width: LayoutFolha.bordaBolinha),
-                    ),
-                  ),
-                  pw.SizedBox(width: LayoutFolha.espacoBolinhaTexto),
-                  pw.Expanded(
-                    child: pw.Text(
-                      '${String.fromCharCode(65 + alt)}) ${questaoVersao.alternativas[alt]}',
-                      style: pw.TextStyle(fontSize: tamanhoFonte - 1),
-                    ),
-                  ),
-                ],
+              padding: const pw.EdgeInsets.only(bottom: 4, left: 8),
+              child: pw.Text(
+                '${letraAlternativa(alt)}) ${questaoVersao.alternativas[alt]}',
+                style: pw.TextStyle(fontSize: tamanhoFonte - 1),
               ),
             );
           }),
@@ -548,3 +840,15 @@ class PdfService {
     );
   }
 }
+
+/// Marca desenhada numa bolinha dos exemplos do aviso do gabarito.
+enum _Marca { nenhuma, x, visto }
+
+/// Disciplina impressa na prova. Versões antigas, de antes das turmas,
+/// guardavam o nome da disciplina no campo turma.
+String? disciplinaDaVersao(VersaoProva versao) =>
+    versao.disciplina ?? versao.turma;
+
+/// Turma impressa na prova (nenhuma nas versões antigas).
+String? turmaDaVersao(VersaoProva versao) =>
+    versao.disciplina == null ? null : versao.turma;

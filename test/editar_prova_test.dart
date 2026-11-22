@@ -72,7 +72,12 @@ void main() {
 
     await tester.enterText(nome, 'P1 — Matemática (revisada)');
     final gerar = find.textContaining(RegExp(r'^Gerar \d+ vers'));
-    await tester.ensureVisible(gerar);
+    // A tela é uma lista preguiçosa: rola até o botão ser montado.
+    await tester.scrollUntilVisible(
+      gerar,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(gerar);
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Salvar prova'));

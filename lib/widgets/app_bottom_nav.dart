@@ -43,7 +43,7 @@ class _ItemNav {
 
 const _itensNav = [
   _ItemNav('Início', Icons.home_outlined, Icons.home_rounded),
-  _ItemNav('Turmas', Icons.groups_outlined, Icons.groups_rounded),
+  _ItemNav('Disciplinas', Icons.class_outlined, Icons.class_rounded),
   _ItemNav('Questões', Icons.quiz_outlined, Icons.quiz_rounded),
   _ItemNav('Provas', Icons.description_outlined, Icons.description_rounded),
   _ItemNav(

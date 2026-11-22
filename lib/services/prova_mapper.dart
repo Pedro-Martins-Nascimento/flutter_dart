@@ -17,6 +17,7 @@ class ProvaMapper {
     'nome': prova.nome,
     'materia': prova.materia,
     'turma': prova.turma,
+    'disciplina': prova.disciplina,
     'criadoEm': prova.criadoEm,
     // Evita ler a subcoleção inteira só para mostrar "N versões" no histórico.
     'totalVersoes': prova.versoes.length,
@@ -31,6 +32,7 @@ class ProvaMapper {
     nome: mapa['nome'] as String,
     materia: mapa['materia'] as String,
     turma: mapa['turma'] as String?,
+    disciplina: mapa['disciplina'] as String?,
     criadoEm: _lerData(mapa['criadoEm']),
     versoes: versoes,
   );
@@ -43,6 +45,7 @@ class ProvaMapper {
     'materia': versao.materia,
     'professor': versao.professor,
     'turma': versao.turma,
+    'disciplina': versao.disciplina,
     'provaNome': versao.provaNome,
     'questoes': [for (final q in versao.questoes) _questaoParaMapa(q)],
   };
@@ -55,6 +58,7 @@ class ProvaMapper {
         materia: mapa['materia'] as String,
         professor: mapa['professor'] as String,
         turma: mapa['turma'] as String?,
+        disciplina: mapa['disciplina'] as String?,
         provaNome: mapa['provaNome'] as String,
         questoes: [
           for (final q in (mapa['questoes'] as List))

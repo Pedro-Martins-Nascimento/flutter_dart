@@ -6,13 +6,21 @@ class QuestaoMapper {
   // Documento professores/{uid}/materias/{materiaId}.
   static Map<String, dynamic> materiaParaMapa(Materia materia) => {
     'nome': materia.nome,
+    'disciplinaId': materia.disciplinaId,
   };
 
   // Retorna null se o documento estiver corrompido.
   static Materia? materiaDeMapa(String id, Map<String, dynamic> mapa) {
     final nome = mapa['nome'];
     if (nome is! String || nome.isEmpty) return null;
-    return Materia(id: id, nome: nome);
+    final disciplinaId = mapa['disciplinaId'];
+    return Materia(
+      id: id,
+      nome: nome,
+      disciplinaId: disciplinaId is String && disciplinaId.isNotEmpty
+          ? disciplinaId
+          : null,
+    );
   }
 
   // Documento professores/{uid}/questoes/{questaoId}.

@@ -3,31 +3,83 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/questao.dart';
+import '../../models/turma.dart';
 import '../../services/questoes_repository.dart';
+import '../../services/turmas_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
+import 'disciplinas_questoes_screen.dart' show semDisciplina;
 
-class QuestoesMateriaScreen extends StatefulWidget {
-  final String materiaId;
+/// Questões de uma disciplina (ou do grupo [semDisciplina], das questões
+/// antigas que ainda não estão em nenhuma).
+class QuestoesDisciplinaScreen extends StatefulWidget {
+  final String disciplinaId;
 
-  const QuestoesMateriaScreen({super.key, required this.materiaId});
+  const QuestoesDisciplinaScreen({super.key, required this.disciplinaId});
 
   @override
-  State<QuestoesMateriaScreen> createState() => _QuestoesMateriaScreenState();
+  State<QuestoesDisciplinaScreen> createState() =>
+      _QuestoesDisciplinaScreenState();
 }
 
-class _QuestoesMateriaScreenState extends State<QuestoesMateriaScreen> {
+class _QuestoesDisciplinaScreenState extends State<QuestoesDisciplinaScreen> {
+  bool get _semDisciplina => widget.disciplinaId == semDisciplina;
+
   void _abrirFormulario([Questao? questao]) {
-    context.push('/questoes/${widget.materiaId}/questao', extra: questao);
+    context.push(
+      '/questoes/disciplina/${widget.disciplinaId}/questao',
+      extra: questao,
+    );
+  }
+
+  Future<void> _mover(Questao questao) async {
+    final disciplinas = context.read<TurmasRepository>().disciplinas;
+    if (disciplinas.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Crie uma disciplina antes de mover a questão.'),
+        ),
+      );
+      return;
+    }
+    final escolhida = await showDialog<Disciplina>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('Mover questão para'),
+        children: [
+          for (final disciplina in disciplinas)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(dialogContext).pop(disciplina),
+              child: Text(disciplina.nome),
+            ),
+        ],
+      ),
+    );
+    if (escolhida == null || !mounted) return;
+    await context.read<QuestoesRepository>().moverQuestao(
+      questao.id,
+      escolhida.id,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Questão movida para ${escolhida.nome}.')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final repositorio = context.watch<QuestoesRepository>();
-    final materia =
-        repositorio.materiaPorId(widget.materiaId) ??
-        Materia(id: widget.materiaId, nome: 'Matéria');
-    final questoes = repositorio.questoesDaMateria(widget.materiaId);
+    final disciplina = _semDisciplina
+        ? null
+        : context.watch<TurmasRepository>().disciplinaPorId(
+            widget.disciplinaId,
+          );
+    final titulo = _semDisciplina
+        ? 'Sem disciplina'
+        : (disciplina?.nome ?? 'Disciplina não encontrada');
+    final questoes = repositorio.questoesDaDisciplina(
+      _semDisciplina ? null : widget.disciplinaId,
+    );
 
     return AppScaffold(
       backgroundColor: AppColors.bg,
@@ -47,7 +99,9 @@ class _QuestoesMateriaScreenState extends State<QuestoesMateriaScreen> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back, color: AppColors.text),
-                    onPressed: () => context.pop(),
+                    onPressed: () => context.canPop()
+                        ? context.pop()
+                        : context.go('/questoes'),
                   ),
                   Expanded(
                     child: Column(
@@ -56,7 +110,7 @@ class _QuestoesMateriaScreenState extends State<QuestoesMateriaScreen> {
                         Text('Questões', style: AppTheme.kicker),
                         const SizedBox(height: 2),
                         Text(
-                          materia.nome,
+                          titulo,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -68,11 +122,15 @@ class _QuestoesMateriaScreenState extends State<QuestoesMateriaScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.s3),
-                  OutlinedButton(
-                    onPressed: _abrirFormulario,
-                    child: const Text('+ Questão'),
-                  ),
+                  // No grupo "Sem disciplina" não se cria questão: ela já
+                  // nasce dentro de uma disciplina.
+                  if (!_semDisciplina) ...[
+                    const SizedBox(width: AppSpacing.s3),
+                    OutlinedButton(
+                      onPressed: _abrirFormulario,
+                      child: const Text('+ Questão'),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -91,6 +149,9 @@ class _QuestoesMateriaScreenState extends State<QuestoesMateriaScreen> {
                         numero: indice + 1,
                         questao: questoes[indice],
                         onTap: () => _abrirFormulario(questoes[indice]),
+                        onMover: _semDisciplina
+                            ? () => _mover(questoes[indice])
+                            : null,
                       ),
                     ),
             ),
@@ -123,7 +184,7 @@ class _QuestoesMateriaScreenState extends State<QuestoesMateriaScreen> {
           const SizedBox(
             width: 260,
             child: Text(
-              'As questões desta matéria alimentam as provas embaralhadas.',
+              'As questões desta disciplina alimentam as provas embaralhadas.',
               style: TextStyle(
                 fontSize: 13,
                 height: 1.55,
@@ -131,11 +192,13 @@ class _QuestoesMateriaScreenState extends State<QuestoesMateriaScreen> {
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.s5),
-          ElevatedButton(
-            onPressed: _abrirFormulario,
-            child: const Text('Criar questão'),
-          ),
+          if (!_semDisciplina) ...[
+            const SizedBox(height: AppSpacing.s5),
+            ElevatedButton(
+              onPressed: _abrirFormulario,
+              child: const Text('Criar questão'),
+            ),
+          ],
         ],
       ),
     );
@@ -147,10 +210,14 @@ class _QuestaoItem extends StatelessWidget {
   final Questao questao;
   final VoidCallback onTap;
 
+  /// Só nas questões sem disciplina: mostra o botão de mover.
+  final VoidCallback? onMover;
+
   const _QuestaoItem({
     required this.numero,
     required this.questao,
     required this.onTap,
+    this.onMover,
   });
 
   @override
@@ -214,6 +281,12 @@ class _QuestaoItem extends StatelessWidget {
                 ],
               ),
             ),
+            if (onMover case final mover?)
+              TextButton.icon(
+                onPressed: mover,
+                icon: const Icon(Icons.drive_file_move_outline, size: 18),
+                label: const Text('Mover para disciplina'),
+              ),
           ],
         ),
       ),

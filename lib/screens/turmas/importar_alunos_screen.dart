@@ -10,9 +10,14 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
 
 class ImportarAlunosScreen extends StatefulWidget {
+  final String disciplinaId;
   final String turmaId;
 
-  const ImportarAlunosScreen({super.key, required this.turmaId});
+  const ImportarAlunosScreen({
+    super.key,
+    required this.disciplinaId,
+    required this.turmaId,
+  });
 
   @override
   State<ImportarAlunosScreen> createState() => _ImportarAlunosScreenState();
@@ -66,7 +71,11 @@ class _ImportarAlunosScreenState extends State<ImportarAlunosScreen> {
         }
 
         if (novosAlunos.isNotEmpty) {
-          await turmasRepo.adicionarAlunos(widget.turmaId, novosAlunos);
+          await turmasRepo.adicionarAlunos(
+            widget.disciplinaId,
+            widget.turmaId,
+            novosAlunos,
+          );
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -95,7 +104,7 @@ class _ImportarAlunosScreenState extends State<ImportarAlunosScreen> {
   Widget build(BuildContext context) {
     return AppScaffold(
       appBar: AppBar(
-        title: const Text('Importar lista de alunos'),
+        title: const Text('Importar alunos'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.text),
           onPressed: () => context.pop(),
