@@ -1,10 +1,12 @@
 // Estatística agregada da turma: acerto por disciplina, questões que mais
-// derrubam a turma, média por prova e ranking de alunos.
+// derrubam a turma, alternativas marcadas por questão, média por prova e
+// ranking de alunos.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/correcao.dart';
+import '../../models/questao.dart';
 import '../../services/correcao_repository.dart';
 import '../../services/estatistica_service.dart';
 import '../../services/nome_da_disciplina.dart';
@@ -57,6 +59,10 @@ class EstatisticaCompletaScreen extends StatelessWidget {
     ]..sort((a, b) => a.$2.compareTo(b.$2));
 
     final questoes = EstatisticaService.percentualAcertoPorQuestao(correcoes);
+    final distribuicao = EstatisticaService.distribuicaoAlternativas(correcoes);
+    final banco = {
+      for (final q in context.watch<QuestoesRepository>().questoes) q.id: q,
+    };
     final porProva = EstatisticaService.porProva(correcoes);
     final ranking = EstatisticaService.rankingAlunos(correcoes);
 
@@ -89,6 +95,19 @@ class EstatisticaCompletaScreen extends StatelessWidget {
                 questao.enunciado,
                 '${questao.percentual.round()}%',
                 destaque: questao.percentual < 50,
+              ),
+          ]),
+          _secao('ALTERNATIVAS MARCADAS POR QUESTÃO', [
+            for (final (indice, questao) in distribuicao.indexed) ...[
+              if (indice > 0) const Divider(height: AppSpacing.s5),
+              _distribuicaoQuestao(questao, banco[questao.questaoId]),
+            ],
+            if (distribuicao.isEmpty)
+              const Text(
+                'As correções salvas ainda não guardam a ordem das '
+                'alternativas. A distribuição aparece a partir das próximas '
+                'correções.',
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
               ),
           ]),
           _secao('MÉDIA POR PROVA', [
@@ -154,6 +173,113 @@ class EstatisticaCompletaScreen extends StatelessWidget {
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: destaque ? AppColors.accent : AppColors.text,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Uma questão com uma barra por alternativa (A a E). A certa fica em
+  /// verde; a mais marcada, quando é errada, fica em destaque, que é o erro
+  /// que a turma mais cometeu.
+  Widget _distribuicaoQuestao(DistribuicaoQuestao questao, Questao? doBanco) {
+    final errosMaisMarcados = [
+      for (final i in questao.maisMarcadas)
+        if (i != questao.correta) letraAlternativa(i),
+    ];
+    return Column(
+      key: ValueKey('distribuicao_${questao.questaoId}'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          questao.enunciado,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.text,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '${questao.respostas} resposta(s)'
+          '${questao.correta != null ? ' · certa: ${letraAlternativa(questao.correta!)}' : ''}'
+          '${errosMaisMarcados.isNotEmpty ? ' · mais marcada: ${errosMaisMarcados.join(', ')}' : ''}',
+          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+        ),
+        const SizedBox(height: AppSpacing.s2),
+        for (var i = 0; i < questao.contagem.length; i++)
+          _barraAlternativa(
+            questao,
+            i,
+            doBanco != null && i < doBanco.alternativas.length
+                ? doBanco.alternativas[i]
+                : null,
+          ),
+      ],
+    );
+  }
+
+  Widget _barraAlternativa(
+    DistribuicaoQuestao questao,
+    int indice,
+    String? texto,
+  ) {
+    final quantidade = questao.contagem[indice];
+    final fracao = questao.respostas == 0
+        ? 0.0
+        : quantidade / questao.respostas;
+    final certa = indice == questao.correta;
+    final maisMarcada = questao.maisMarcadas.contains(indice) && quantidade > 0;
+    final cor = certa
+        ? AppColors.success
+        : maisMarcada
+        ? AppColors.accent
+        : AppColors.neutral400;
+    final letra = letraAlternativa(indice);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              texto == null ? letra : '$letra) $texto',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: certa || maisMarcada
+                    ? FontWeight.w700
+                    : FontWeight.normal,
+                color: certa || maisMarcada ? cor : AppColors.neutral600,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.s3),
+          Expanded(
+            child: Container(
+              height: 6,
+              color: AppColors.neutral200,
+              alignment: Alignment.centerLeft,
+              child: FractionallySizedBox(
+                widthFactor: fracao,
+                child: Container(color: cor),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.s3),
+          SizedBox(
+            width: 64,
+            child: Text(
+              '$quantidade · ${(fracao * 100).round()}%',
+              key: ValueKey('contagem_${questao.questaoId}_$letra'),
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.text,
+              ),
             ),
           ),
         ],

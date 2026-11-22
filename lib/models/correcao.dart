@@ -15,15 +15,40 @@ class RespostaQuestao {
   /// Índice da alternativa certa na ordem impressa na versão.
   final int respostaCorreta;
 
+  /// Para cada alternativa na ordem impressa, o índice dela na questão do
+  /// banco (ver `QuestaoNaVersao.ordemNoBanco`). É nulo nas correções salvas
+  /// antes desse campo existir: elas ficam fora da distribuição das
+  /// alternativas, porque sem ele não dá para saber qual alternativa do banco
+  /// o aluno marcou.
+  final List<int>? ordemNoBanco;
+
   const RespostaQuestao({
     required this.questaoId,
     required this.materiaId,
     required this.enunciado,
     required this.alternativaMarcada,
     required this.respostaCorreta,
+    this.ordemNoBanco,
   });
 
   bool get correta => alternativaMarcada == respostaCorreta;
+
+  /// Índice, na questão do banco, da alternativa marcada; nulo se não há
+  /// [ordemNoBanco] válida.
+  int? get marcadaNoBanco => _noBanco(alternativaMarcada);
+
+  /// Índice, na questão do banco, da alternativa certa; nulo se não há
+  /// [ordemNoBanco] válida.
+  int? get corretaNoBanco => _noBanco(respostaCorreta);
+
+  int? _noBanco(int indiceImpresso) {
+    final ordem = ordemNoBanco;
+    if (ordem == null || indiceImpresso < 0 || indiceImpresso >= ordem.length) {
+      return null;
+    }
+    final indice = ordem[indiceImpresso];
+    return indice < 0 ? null : indice;
+  }
 }
 
 /// Uma folha corrigida: o resultado de uma versão de prova.

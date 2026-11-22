@@ -13,6 +13,23 @@ class QuestaoNaVersao {
     required this.alternativas,
     required this.respostaCorreta,
   });
+
+  /// Para cada alternativa na ordem impressa, o índice dela na questão do
+  /// banco. Serve para juntar respostas de versões embaralhadas de formas
+  /// diferentes (a "A" de uma versão pode ser a "C" de outra). Textos
+  /// repetidos pegam, em ordem, os índices ainda não usados.
+  List<int> get ordemNoBanco {
+    final usados = <int>{};
+    return [
+      for (final texto in alternativas)
+        () {
+          for (var i = 0; i < questao.alternativas.length; i++) {
+            if (questao.alternativas[i] == texto && usados.add(i)) return i;
+          }
+          return -1;
+        }(),
+    ];
+  }
 }
 
 class VersaoProva {

@@ -95,6 +95,7 @@ class _CorrigirVersaoScreenState extends State<CorrigirVersaoScreen> {
             enunciado: versao.questoes[i].questao.enunciado,
             alternativaMarcada: _respostas[i]!,
             respostaCorreta: versao.questoes[i].respostaCorreta,
+            ordemNoBanco: versao.questoes[i].ordemNoBanco,
           ),
       ],
     );

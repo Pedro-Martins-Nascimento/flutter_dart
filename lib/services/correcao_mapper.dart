@@ -43,6 +43,7 @@ class CorrecaoMapper {
     'enunciado': r.enunciado,
     'alternativaMarcada': r.alternativaMarcada,
     'respostaCorreta': r.respostaCorreta,
+    if (r.ordemNoBanco != null) 'ordemNoBanco': r.ordemNoBanco,
   };
 
   static RespostaQuestao _respostaDeMapa(Map<String, dynamic> mapa) =>
@@ -52,6 +53,10 @@ class CorrecaoMapper {
         enunciado: mapa['enunciado'] as String,
         alternativaMarcada: mapa['alternativaMarcada'] as int,
         respostaCorreta: mapa['respostaCorreta'] as int,
+        ordemNoBanco: switch (mapa['ordemNoBanco']) {
+          final List<dynamic> lista => [for (final i in lista) i as int],
+          _ => null,
+        },
       );
 
   /// Aceita DateTime, texto ISO e Timestamp do Firestore (via `toDate()`),
