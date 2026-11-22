@@ -171,9 +171,13 @@ class PdfService {
             questoesAltas,
           ),
         );
-        doc.addPage(
-          _construirGabarito(versao, forcarQuantidadeParaTeste, margem, alunos),
-        );
+        for (final pagina in _construirGabarito(
+          versao,
+          forcarQuantidadeParaTeste,
+          alunos,
+        )) {
+          doc.addPage(pagina);
+        }
       }
       return doc.save();
     }
@@ -350,106 +354,119 @@ class PdfService {
   }
 
   /// Gabarito (cartão-resposta) da versão: marcadores de canto, QR de
-  /// correção e uma linha de bolinhas por questão. O QR sai só na primeira
-  /// página do gabarito.
-  pw.Page _construirGabarito(
+  /// correção e as bolinhas de cada questão. O QR sai só na primeira página
+  /// do gabarito.
+  ///
+  /// Tudo é posicionado em coordenadas absolutas de [LayoutFolha] (sempre com
+  /// a margem padrão), porque o leitor das marcações procura cada bolinha
+  /// exatamente nesses pontos. Por isso cada página do gabarito é montada à
+  /// parte, sem deixar o conteúdo refluir de uma página para outra.
+  List<pw.Page> _construirGabarito(
     VersaoProva versao,
     int? forcarQuantidadeParaTeste,
-    double margem,
     List<Aluno> alunos,
   ) {
+    const margem = LayoutFolha.margemPadrao;
+    const larguraUtil = LayoutFolha.larguraPagina - 2 * margem;
     final lista = _listaDeQuestoes(versao, forcarQuantidadeParaTeste);
-    // context.pageNumber conta as páginas do documento inteiro, então a
-    // primeira página deste gabarito é a primeira em que o cabeçalho é
-    // montado.
-    int? primeiraPagina;
-    return pw.MultiPage(
-      pageFormat: PdfPageFormat.a4,
-      margin: pw.EdgeInsets.all(margem),
-      header: (context) {
-        primeiraPagina ??= context.pageNumber;
-        return _buildHeader(
-          versao,
-          comQr: context.pageNumber == primeiraPagina,
-        );
-      },
-      footer: (context) => _buildFooterMarkers(),
-      build: (context) => [
-        _buildCabecalhoIdentificacao(versao, alunos),
-        pw.SizedBox(height: 8),
-        _avisoComoMarcar(versao),
-        pw.SizedBox(height: 12),
-        if (lista.isEmpty)
-          pw.Text(
-            'Nenhuma questão selecionada para esta prova.',
-            style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700),
-          )
-        else
-          ..._gradeDeRespostas(lista),
-      ],
-    );
-  }
+    final grade = LayoutFolha.gradeGabarito([
+      for (final q in lista) q.alternativas.length,
+    ]);
+    final paginas = grade.isEmpty ? 1 : grade.last.pagina + 1;
 
-  /// Questões em blocos de 3 colunas, numeradas de cima para baixo em cada
-  /// coluna. Cada bloco fica inteiro numa página.
-  List<pw.Widget> _gradeDeRespostas(List<QuestaoNaVersao> lista) {
-    const porColuna = 20;
-    const colunas = 3;
-    const porBloco = porColuna * colunas;
+    pw.Widget posicionar(double esquerda, double topo, pw.Widget filho) =>
+        pw.Positioned(left: esquerda, top: topo, child: filho);
+
     return [
-      for (var inicio = 0; inicio < lista.length; inicio += porBloco)
-        pw.Padding(
-          padding: const pw.EdgeInsets.only(bottom: 12),
-          child: pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              for (var c = 0; c < colunas; c++)
-                pw.Expanded(
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      for (
-                        var i = inicio + c * porColuna;
-                        i < inicio + (c + 1) * porColuna && i < lista.length;
-                        i++
-                      )
-                        _linhaDoGabarito(i + 1, lista[i].alternativas.length),
-                    ],
+      for (var pagina = 0; pagina < paginas; pagina++)
+        // MultiPage de uma página só: é montado na hora, como o caderno, e
+        // assim as páginas saem no arquivo na mesma ordem em que aparecem.
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: pw.EdgeInsets.zero,
+          build: (context) => [
+            pw.SizedBox(
+              width: LayoutFolha.larguraPagina,
+              // Um fio menor que a página, para o MultiPage não abrir outra.
+              height: LayoutFolha.alturaPagina - 1,
+              child: pw.Stack(
+                children: [
+                  posicionar(
+                    margem,
+                    margem,
+                    pw.SizedBox(
+                      width: larguraUtil,
+                      child: _buildHeader(versao, comQr: pagina == 0),
+                    ),
                   ),
-                ),
-            ],
-          ),
+                  posicionar(
+                    margem,
+                    LayoutFolha.alturaPagina -
+                        margem -
+                        LayoutFolha.alturaRodape,
+                    pw.SizedBox(
+                      width: larguraUtil,
+                      child: _buildFooterMarkers(),
+                    ),
+                  ),
+                  if (pagina == 0) ...[
+                    posicionar(
+                      margem,
+                      LayoutFolha.topoIdentificacaoGabarito,
+                      pw.SizedBox(
+                        width: larguraUtil,
+                        height: LayoutFolha.alturaIdentificacaoGabarito,
+                        child: _buildCabecalhoIdentificacao(versao, alunos),
+                      ),
+                    ),
+                    posicionar(
+                      margem,
+                      LayoutFolha.topoAvisoGabarito,
+                      pw.SizedBox(
+                        width: larguraUtil,
+                        height: LayoutFolha.alturaAvisoGabarito,
+                        child: _avisoComoMarcar(versao),
+                      ),
+                    ),
+                  ],
+                  if (lista.isEmpty && pagina == 0)
+                    posicionar(
+                      margem,
+                      LayoutFolha.topoGradePrimeiraPagina,
+                      pw.Text(
+                        'Nenhuma questão selecionada para esta prova.',
+                        style: const pw.TextStyle(
+                          fontSize: 11,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
+                    ),
+                  for (var q = 0; q < grade.length; q++)
+                    if (grade[q].pagina == pagina) ...[
+                      posicionar(
+                        grade[q].numero.dx,
+                        grade[q].numero.dy + 2,
+                        pw.Text(
+                          '${(q + 1).toString().padLeft(2, '0')}.',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ),
+                      for (var a = 0; a < grade[q].bolinhas.length; a++)
+                        posicionar(
+                          grade[q].bolinhas[a].left,
+                          grade[q].bolinhas[a].top,
+                          _bolinha(a),
+                        ),
+                    ],
+                ],
+              ),
+            ),
+          ],
         ),
     ];
-  }
-
-  pw.Widget _linhaDoGabarito(int numero, int alternativas) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.only(bottom: 6, right: 8),
-      child: pw.Row(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.SizedBox(
-            width: 22,
-            child: pw.Text(
-              '${numero.toString().padLeft(2, '0')}.',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
-            ),
-          ),
-          // Wrap: questão com muitas alternativas quebra a linha em vez de
-          // estourar a coluna.
-          pw.Expanded(
-            child: pw.Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: [
-                for (var alt = 0; alt < alternativas; alt++) _bolinha(alt),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   /// Aviso em destaque no topo do gabarito: marcar com X, com exemplos
