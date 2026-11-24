@@ -19,9 +19,12 @@ typedef AcertoAluno = ({String aluno, double media, int quantidade});
 ///
 /// Os índices de [contagem], [correta] e [maisMarcadas] seguem a ordem da
 /// questão no banco (0 = A), não a ordem impressa em cada versão.
+/// [alternativas] são os textos guardados na correção, como estavam na prova
+/// aplicada (nulo se as correções não guardaram).
 typedef DistribuicaoQuestao = ({
   String questaoId,
   String enunciado,
+  List<String>? alternativas,
   String materiaId,
   List<int> contagem,
   int? correta,
@@ -112,10 +115,16 @@ class EstatisticaService {
   /// alternativas de jeitos diferentes, então sem ela não dá para juntar).
   /// A ordem da lista é a mesma de [percentualAcertoPorQuestao]: menor acerto
   /// primeiro, empates pelo enunciado.
+  ///
+  /// Se a questão foi editada entre uma aplicação e outra, cada conjunto de
+  /// textos guardado nas correções vira um grupo separado: assim a contagem
+  /// de um texto antigo não aparece com o texto novo.
   static List<DistribuicaoQuestao> distribuicaoAlternativas(
     List<Correcao> correcoes,
   ) {
     final contagens = <String, List<int>>{};
+    final ids = <String, String>{};
+    final textos = <String, List<String>?>{};
     final corretas = <String, int>{};
     final enunciados = <String, String>{};
     final materias = <String, String>{};
@@ -123,31 +132,38 @@ class EstatisticaService {
       for (final r in c.respostas) {
         final marcada = r.marcadaNoBanco;
         if (marcada == null) continue;
+        final alternativas = r.alternativasNoBanco;
+        final chave = alternativas == null
+            ? r.questaoId
+            : '${r.questaoId}\u0000${alternativas.join('\u0001')}';
         final tamanho = r.ordemNoBanco!.length;
-        final contagem = contagens.putIfAbsent(r.questaoId, () => []);
+        final contagem = contagens.putIfAbsent(chave, () => []);
         while (contagem.length < tamanho) {
           contagem.add(0);
         }
         contagem[marcada]++;
-        enunciados[r.questaoId] = r.enunciado;
-        materias[r.questaoId] = r.materiaId;
+        ids[chave] = r.questaoId;
+        textos[chave] = alternativas;
+        enunciados[chave] = r.enunciado;
+        materias[chave] = r.materiaId;
         if (r.corretaNoBanco case final correta?) {
-          corretas[r.questaoId] = correta;
+          corretas[chave] = correta;
         }
       }
     }
 
     final lista = [
-      for (final MapEntry(key: id, value: contagem) in contagens.entries)
+      for (final MapEntry(key: chave, value: contagem) in contagens.entries)
         () {
           final respostas = contagem.fold<int>(0, (soma, n) => soma + n);
           final maximo = contagem.fold<int>(0, (m, n) => n > m ? n : m);
           return (
-            questaoId: id,
-            enunciado: enunciados[id]!,
-            materiaId: materias[id]!,
+            questaoId: ids[chave]!,
+            enunciado: enunciados[chave]!,
+            alternativas: textos[chave],
+            materiaId: materias[chave]!,
             contagem: List<int>.unmodifiable(contagem),
-            correta: corretas[id],
+            correta: corretas[chave],
             maisMarcadas: [
               for (var i = 0; i < contagem.length; i++)
                 if (contagem[i] == maximo) i,

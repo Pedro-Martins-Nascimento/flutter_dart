@@ -44,6 +44,8 @@ class CorrecaoMapper {
     'alternativaMarcada': r.alternativaMarcada,
     'respostaCorreta': r.respostaCorreta,
     if (r.ordemNoBanco != null) 'ordemNoBanco': r.ordemNoBanco,
+    if (r.alternativasNoBanco != null)
+      'alternativasNoBanco': r.alternativasNoBanco,
   };
 
   static RespostaQuestao _respostaDeMapa(Map<String, dynamic> mapa) =>
@@ -55,6 +57,10 @@ class CorrecaoMapper {
         respostaCorreta: mapa['respostaCorreta'] as int,
         ordemNoBanco: switch (mapa['ordemNoBanco']) {
           final List<dynamic> lista => [for (final i in lista) i as int],
+          _ => null,
+        },
+        alternativasNoBanco: switch (mapa['alternativasNoBanco']) {
+          final List<dynamic> lista => [for (final t in lista) t as String],
           _ => null,
         },
       );

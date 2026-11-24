@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/correcao.dart';
-import '../../models/questao.dart';
+import '../../models/questao.dart' show letraAlternativa;
 import '../../services/correcao_repository.dart';
 import '../../services/estatistica_service.dart';
 import '../../services/nome_da_disciplina.dart';
@@ -60,9 +60,6 @@ class EstatisticaCompletaScreen extends StatelessWidget {
 
     final questoes = EstatisticaService.percentualAcertoPorQuestao(correcoes);
     final distribuicao = EstatisticaService.distribuicaoAlternativas(correcoes);
-    final banco = {
-      for (final q in context.watch<QuestoesRepository>().questoes) q.id: q,
-    };
     final porProva = EstatisticaService.porProva(correcoes);
     final ranking = EstatisticaService.rankingAlunos(correcoes);
 
@@ -100,7 +97,7 @@ class EstatisticaCompletaScreen extends StatelessWidget {
           _secao('ALTERNATIVAS MARCADAS POR QUESTÃO', [
             for (final (indice, questao) in distribuicao.indexed) ...[
               if (indice > 0) const Divider(height: AppSpacing.s5),
-              _distribuicaoQuestao(questao, banco[questao.questaoId]),
+              _distribuicaoQuestao(indice, questao),
             ],
             if (distribuicao.isEmpty)
               const Text(
@@ -182,14 +179,16 @@ class EstatisticaCompletaScreen extends StatelessWidget {
 
   /// Uma questão com uma barra por alternativa (A a E). A certa fica em
   /// verde; a mais marcada, quando é errada, fica em destaque, que é o erro
-  /// que a turma mais cometeu.
-  Widget _distribuicaoQuestao(DistribuicaoQuestao questao, Questao? doBanco) {
+  /// que a turma mais cometeu. Os textos vêm da cópia guardada na correção,
+  /// não do banco atual: editar a questão depois não muda o histórico.
+  Widget _distribuicaoQuestao(int indice, DistribuicaoQuestao questao) {
+    final textos = questao.alternativas;
     final errosMaisMarcados = [
       for (final i in questao.maisMarcadas)
         if (i != questao.correta) letraAlternativa(i),
     ];
     return Column(
-      key: ValueKey('distribuicao_${questao.questaoId}'),
+      key: ValueKey('distribuicao_${questao.questaoId}_$indice'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
@@ -212,9 +211,7 @@ class EstatisticaCompletaScreen extends StatelessWidget {
           _barraAlternativa(
             questao,
             i,
-            doBanco != null && i < doBanco.alternativas.length
-                ? doBanco.alternativas[i]
-                : null,
+            textos != null && i < textos.length ? textos[i] : null,
           ),
       ],
     );

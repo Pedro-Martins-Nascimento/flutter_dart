@@ -22,6 +22,7 @@ RespostaQuestao respostaEmbaralhada(
   required List<int> ordem,
   required int marcadaNoBanco,
   int corretaNoBanco = 0,
+  List<String>? textos,
 }) => RespostaQuestao(
   questaoId: questaoId,
   materiaId: 'mat1',
@@ -29,6 +30,7 @@ RespostaQuestao respostaEmbaralhada(
   alternativaMarcada: ordem.indexOf(marcadaNoBanco),
   respostaCorreta: ordem.indexOf(corretaNoBanco),
   ordemNoBanco: ordem,
+  alternativasNoBanco: textos,
 );
 
 void main() {
@@ -88,18 +90,25 @@ void main() {
       final original = correcao(
         'c1',
         respostas: [
-          respostaEmbaralhada('q1', ordem: const [1, 0], marcadaNoBanco: 1),
+          respostaEmbaralhada(
+            'q1',
+            ordem: const [1, 0],
+            marcadaNoBanco: 1,
+            textos: const ['sim', 'não'],
+          ),
         ],
       );
       final mapa = CorrecaoMapper.paraMapa(original);
       final lida = CorrecaoMapper.deMapa('c1', mapa);
       expect(lida.respostas.single.ordemNoBanco, [1, 0]);
+      expect(lida.respostas.single.alternativasNoBanco, ['sim', 'não']);
 
       final antiga = CorrecaoMapper.deMapa(
         'c2',
         CorrecaoMapper.paraMapa(correcao('c2')),
       );
       expect(antiga.respostas.first.ordemNoBanco, isNull);
+      expect(antiga.respostas.first.alternativasNoBanco, isNull);
       expect(
         (CorrecaoMapper.paraMapa(correcao('c2'))['respostas'] as List).first,
         isNot(contains('ordemNoBanco')),
@@ -226,6 +235,40 @@ void main() {
       );
     });
 
+    test('questão editada entre aplicações vira grupos separados', () {
+      final c = [
+        correcao(
+          'a',
+          respostas: [
+            respostaEmbaralhada(
+              'q1',
+              ordem: const [0, 1],
+              marcadaNoBanco: 1,
+              textos: const ['4', '5'],
+            ),
+          ],
+        ),
+        correcao(
+          'b',
+          respostas: [
+            respostaEmbaralhada(
+              'q1',
+              ordem: const [0, 1],
+              marcadaNoBanco: 1,
+              textos: const ['4', '6'],
+            ),
+          ],
+        ),
+      ];
+      final d = EstatisticaService.distribuicaoAlternativas(c);
+      expect(d, hasLength(2));
+      expect(d.map((q) => q.alternativas), [
+        ['4', '5'],
+        ['4', '6'],
+      ]);
+      expect(d.every((q) => q.contagem[1] == 1), isTrue);
+    });
+
     test('sem correções é vazia', () {
       expect(EstatisticaService.distribuicaoAlternativas([]), isEmpty);
     });
@@ -234,8 +277,9 @@ void main() {
   group('tela de estatística', () {
     Future<void> abrir(
       WidgetTester tester,
-      CorrecaoRepositoryMemoria correcoes,
-    ) async {
+      CorrecaoRepositoryMemoria correcoes, {
+      Questao? questaoNoBanco,
+    }) async {
       tester.view.physicalSize = const Size(900, 2400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -245,7 +289,7 @@ void main() {
             ChangeNotifierProvider(
               create: (_) => QuestoesRepository(
                 materias: materiasMock,
-                questoes: [questaoBanco],
+                questoes: [questaoNoBanco ?? questaoBanco],
               ),
             ),
             ChangeNotifierProvider(
@@ -273,6 +317,7 @@ void main() {
                 'q1',
                 ordem: const [3, 2, 1, 0],
                 marcadaNoBanco: marcada,
+                textos: questaoBanco.alternativas,
               ),
             ],
           ),
@@ -286,7 +331,7 @@ void main() {
         find.text('3 resposta(s) · certa: A · mais marcada: C'),
         findsOneWidget,
       );
-      // Texto da alternativa vem do banco de questões.
+      // Texto da alternativa vem da cópia guardada na correção.
       expect(find.text('A) 4'), findsOneWidget);
       expect(find.text('C) 5'), findsOneWidget);
       Text contagem(String letra) =>
@@ -295,6 +340,49 @@ void main() {
       expect(contagem('B').data, '0 · 0%');
       expect(contagem('C').data, '2 · 67%');
       expect(contagem('D').data, '0 · 0%');
+    });
+
+    testWidgets('editar a questão depois não muda os textos do histórico', (
+      tester,
+    ) async {
+      // Salva a correção com as alternativas da prova aplicada.
+      final correcoes = CorrecaoRepositoryMemoria();
+      final versao = QuestaoNaVersao(
+        questao: questaoBanco,
+        alternativas: const ['22', '4', '5', '3'],
+        respostaCorreta: 1,
+      );
+      await correcoes.salvar(
+        correcao(
+          'c1',
+          respostas: [
+            RespostaQuestao(
+              questaoId: 'q1',
+              materiaId: 'mat1',
+              enunciado: questaoBanco.enunciado,
+              alternativaMarcada: 2,
+              respostaCorreta: versao.respostaCorreta,
+              ordemNoBanco: versao.ordemNoBanco,
+              alternativasNoBanco: questaoBanco.alternativas,
+            ),
+          ],
+        ),
+      );
+
+      // Depois, o professor edita as alternativas da questão no banco.
+      final editada = Questao(
+        id: 'q1',
+        materiaId: 'mat1',
+        enunciado: 'Quanto é 2 + 2?',
+        alternativas: const ['quatro', 'três', 'cinco', 'vinte e dois'],
+        respostaCorreta: 0,
+      );
+      await abrir(tester, correcoes, questaoNoBanco: editada);
+
+      expect(find.text('A) 4'), findsOneWidget);
+      expect(find.text('C) 5'), findsOneWidget);
+      expect(find.textContaining('quatro'), findsNothing);
+      expect(find.textContaining('cinco'), findsNothing);
     });
 
     testWidgets('só correções antigas avisa que a distribuição vem depois', (

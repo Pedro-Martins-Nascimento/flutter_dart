@@ -22,6 +22,11 @@ class RespostaQuestao {
   /// o aluno marcou.
   final List<int>? ordemNoBanco;
 
+  /// Textos das alternativas na ordem da questão do banco, como estavam na
+  /// prova aplicada. É uma cópia: editar a questão depois não muda o que
+  /// aparece no histórico. Nulo nas correções salvas antes desse campo.
+  final List<String>? alternativasNoBanco;
+
   const RespostaQuestao({
     required this.questaoId,
     required this.materiaId,
@@ -29,6 +34,7 @@ class RespostaQuestao {
     required this.alternativaMarcada,
     required this.respostaCorreta,
     this.ordemNoBanco,
+    this.alternativasNoBanco,
   });
 
   bool get correta => alternativaMarcada == respostaCorreta;
