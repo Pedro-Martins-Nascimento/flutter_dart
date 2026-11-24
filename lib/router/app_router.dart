@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:go_router/go_router.dart';
 
 import '../models/versao_prova.dart';
@@ -229,6 +231,7 @@ GoRouter criarRouter(
                       prova: extra['prova']! as ProvaGerada,
                       versao: extra['versao']! as VersaoProva,
                       correcoes: correcoes,
+                      foto: extra['foto'] as Uint8List?,
                     );
                   },
                 ),

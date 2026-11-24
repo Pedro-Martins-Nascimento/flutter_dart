@@ -199,10 +199,6 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
         _vistaEm = null;
         return;
       }
-    } else {
-      _avisar(
-        'Neste dispositivo a qualidade da foto não é verificada. Confira as respostas com atenção.',
-      );
     }
 
     // Consulta de novo: outra correção pode ter sido salva nesse meio-tempo.
@@ -224,7 +220,12 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
         final encontrada = folha.encontrada!;
         context.push(
           '/corrigir/versao',
-          extra: {'prova': encontrada.prova, 'versao': encontrada.versao},
+          extra: {
+            'prova': encontrada.prova,
+            'versao': encontrada.versao,
+            // A foto aprovada vai para o leitor de marcações.
+            'foto': _verificaFoto ? _ultimaFoto : null,
+          },
         );
     }
   }
