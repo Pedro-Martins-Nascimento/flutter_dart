@@ -81,9 +81,10 @@ class VersaoProva {
   }
 
   /// Cópia com [nome] no campo professor, mas só se esta versão ainda tiver
-  /// o texto padrão: um nome já gravado na prova não é trocado.
+  /// o texto padrão ou um e-mail (provas antigas do login pelo Google): um
+  /// nome já gravado na prova não é trocado.
   VersaoProva comProfessorSePadrao(String nome) {
-    if (professor != professorPadrao) return this;
+    if (professor != professorPadrao && !professor.contains('@')) return this;
     return VersaoProva(
       id: id,
       qrCode: qrCode,

@@ -4,44 +4,26 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('nome do professor na prova', () {
-    test('cadastro com e-mail e senha usa o nome do cadastro', () {
+    test('usa o nome do cadastro ou da conta Google', () {
+      expect(AuthService.nomeDoProfessor(['Ana Souza']), 'Ana Souza');
+    });
+
+    test('sem nome no usuário, usa o nome do provedor (Google)', () {
       expect(
-        AuthService.nomeDoProfessor(
-          nome: 'Ana Souza',
-          email: 'ana@escola.edu.br',
-          google: false,
-        ),
+        AuthService.nomeDoProfessor([null, '  ', 'Ana Souza']),
         'Ana Souza',
       );
     });
 
-    test('cadastro sem nome cai para o e-mail', () {
+    test('nunca usa um e-mail como nome', () {
       expect(
-        AuthService.nomeDoProfessor(
-          nome: '  ',
-          email: 'ana@escola.edu.br',
-          google: false,
-        ),
-        'ana@escola.edu.br',
-      );
-    });
-
-    test('login pelo Google usa o e-mail da conta', () {
-      expect(
-        AuthService.nomeDoProfessor(
-          nome: 'Ana Souza',
-          email: 'ana@gmail.com',
-          google: true,
-        ),
-        'ana@gmail.com',
-      );
-    });
-
-    test('sem nome nem e-mail fica o texto padrão', () {
-      expect(
-        AuthService.nomeDoProfessor(nome: null, email: null, google: false),
+        AuthService.nomeDoProfessor(['ana@gmail.com']),
         VersaoProva.professorPadrao,
       );
+    });
+
+    test('sem nome fica o texto padrão', () {
+      expect(AuthService.nomeDoProfessor([]), VersaoProva.professorPadrao);
     });
   });
 
@@ -62,6 +44,13 @@ void main() {
       expect(nova.qrCode, 'qr');
       expect(nova.turma, '9A');
       expect(nova.provaNome, 'P1');
+    });
+
+    test('troca um e-mail gravado antes pelo nome', () {
+      expect(
+        versao('ana@gmail.com').comProfessorSePadrao('Ana Souza').professor,
+        'Ana Souza',
+      );
     });
 
     test('não troca um nome que já estava gravado', () {

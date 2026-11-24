@@ -42,29 +42,21 @@ class AuthService extends ChangeNotifier {
   /// Nome que sai no campo "Professor" das provas (ver [nomeDoProfessor]).
   String get nomeProfessor {
     final usuario = _auth.currentUser ?? _usuario;
-    return nomeDoProfessor(
-      nome: usuario?.displayName,
-      email: usuario?.email,
-      google:
-          usuario?.providerData.any((p) => p.providerId == 'google.com') ??
-          false,
-    );
+    return nomeDoProfessor([
+      usuario?.displayName,
+      ...?usuario?.providerData.map((p) => p.displayName),
+    ]);
   }
 
-  /// Quem entrou pelo Google aparece pelo e-mail da conta; quem se cadastrou
-  /// com e-mail e senha, pelo nome digitado no cadastro (ou pelo e-mail, se
-  /// não houver nome). Sem nenhum dos dois, fica o texto padrão.
-  static String nomeDoProfessor({
-    String? nome,
-    String? email,
-    required bool google,
-  }) {
-    final nomeLimpo = nome?.trim() ?? '';
-    final emailLimpo = email?.trim() ?? '';
-    final escolhido = google
-        ? (emailLimpo.isNotEmpty ? emailLimpo : nomeLimpo)
-        : (nomeLimpo.isNotEmpty ? nomeLimpo : emailLimpo);
-    return escolhido.isNotEmpty ? escolhido : VersaoProva.professorPadrao;
+  /// Nome do professor, nunca o e-mail: o nome do cadastro ou, no login pelo
+  /// Google, o nome da conta Google. Usa o primeiro nome preenchido de
+  /// [nomes]; sem nenhum, fica o texto padrão.
+  static String nomeDoProfessor(Iterable<String?> nomes) {
+    for (final nome in nomes) {
+      final limpo = nome?.trim() ?? '';
+      if (limpo.isNotEmpty && !limpo.contains('@')) return limpo;
+    }
+    return VersaoProva.professorPadrao;
   }
 
   Future<void> entrarComEmail(String email, String senha) async {
