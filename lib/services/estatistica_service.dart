@@ -15,6 +15,23 @@ typedef AcertoQuestao = ({
 
 typedef AcertoAluno = ({String aluno, double media, int quantidade});
 
+/// Quantas vezes cada alternativa de uma questão do banco foi marcada (RF18).
+///
+/// Os índices de [contagem], [correta] e [maisMarcadas] seguem a ordem da
+/// questão no banco (0 = A), não a ordem impressa em cada versão.
+/// [alternativas] são os textos guardados na correção, como estavam na prova
+/// aplicada (nulo se as correções não guardaram).
+typedef DistribuicaoQuestao = ({
+  String questaoId,
+  String enunciado,
+  List<String>? alternativas,
+  String materiaId,
+  List<int> contagem,
+  int? correta,
+  List<int> maisMarcadas,
+  int respostas,
+});
+
 class EstatisticaService {
   const EstatisticaService._();
 
@@ -86,6 +103,81 @@ class EstatisticaService {
       return porPercentual != 0
           ? porPercentual
           : a.enunciado.compareTo(b.enunciado);
+    });
+    return lista;
+  }
+
+  /// Distribuição das alternativas marcadas por questão do banco, para a
+  /// análise pedagógica dos erros: quantos alunos marcaram cada alternativa,
+  /// qual é a certa e qual foi a mais marcada (mais de uma, se empatarem).
+  ///
+  /// Só entram respostas com `ordemNoBanco` (as versões embaralham as
+  /// alternativas de jeitos diferentes, então sem ela não dá para juntar).
+  /// A ordem da lista é a mesma de [percentualAcertoPorQuestao]: menor acerto
+  /// primeiro, empates pelo enunciado.
+  ///
+  /// Se a questão foi editada entre uma aplicação e outra, cada conjunto de
+  /// textos guardado nas correções vira um grupo separado: assim a contagem
+  /// de um texto antigo não aparece com o texto novo.
+  static List<DistribuicaoQuestao> distribuicaoAlternativas(
+    List<Correcao> correcoes,
+  ) {
+    final contagens = <String, List<int>>{};
+    final ids = <String, String>{};
+    final textos = <String, List<String>?>{};
+    final corretas = <String, int>{};
+    final enunciados = <String, String>{};
+    final materias = <String, String>{};
+    for (final c in correcoes) {
+      for (final r in c.respostas) {
+        final marcada = r.marcadaNoBanco;
+        if (marcada == null) continue;
+        final alternativas = r.alternativasNoBanco;
+        final chave = alternativas == null
+            ? r.questaoId
+            : '${r.questaoId}\u0000${alternativas.join('\u0001')}';
+        final tamanho = r.ordemNoBanco!.length;
+        final contagem = contagens.putIfAbsent(chave, () => []);
+        while (contagem.length < tamanho) {
+          contagem.add(0);
+        }
+        contagem[marcada]++;
+        ids[chave] = r.questaoId;
+        textos[chave] = alternativas;
+        enunciados[chave] = r.enunciado;
+        materias[chave] = r.materiaId;
+        if (r.corretaNoBanco case final correta?) {
+          corretas[chave] = correta;
+        }
+      }
+    }
+
+    final lista = [
+      for (final MapEntry(key: chave, value: contagem) in contagens.entries)
+        () {
+          final respostas = contagem.fold<int>(0, (soma, n) => soma + n);
+          final maximo = contagem.fold<int>(0, (m, n) => n > m ? n : m);
+          return (
+            questaoId: ids[chave]!,
+            enunciado: enunciados[chave]!,
+            alternativas: textos[chave],
+            materiaId: materias[chave]!,
+            contagem: List<int>.unmodifiable(contagem),
+            correta: corretas[chave],
+            maisMarcadas: [
+              for (var i = 0; i < contagem.length; i++)
+                if (contagem[i] == maximo) i,
+            ],
+            respostas: respostas,
+          );
+        }(),
+    ];
+
+    double acerto(DistribuicaoQuestao d) =>
+        d.correta == null ? 0 : d.contagem[d.correta!] / d.respostas;
+    lista.sort((a, b) {
+      final porAcerto = acerto(a).compareTo(acerto(b));
+      return porAcerto != 0 ? porAcerto : a.enunciado.compareTo(b.enunciado);
     });
     return lista;
   }
