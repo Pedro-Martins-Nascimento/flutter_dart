@@ -93,6 +93,20 @@ void main() {
     ];
   }
 
+  testWidgets('cada versão tem QR próprio, que não repete o de outra prova', (
+    tester,
+  ) async {
+    final repo = await gerarESalvar(tester, const OpcoesProva());
+    final prova = await repo.buscar((await repo.listar()).single.id);
+    final qrs = [for (final v in prova!.versoes) v.qrCode];
+    expect(qrs.toSet(), hasLength(qrs.length));
+    for (var i = 0; i < qrs.length; i++) {
+      expect(qrs[i], matches(RegExp('^PROVA-[0-9A-Z]+-V${i + 1}\$')));
+    }
+    // O formato antigo repetia o mesmo QR em todas as provas.
+    expect(qrs.first, isNot('PROVA-2026-V1-1037'));
+  });
+
   testWidgets('sem embaralhar: questões e alternativas na ordem original', (
     tester,
   ) async {

@@ -65,6 +65,19 @@ class VersaoProva {
   /// "Gabarito da Prova B"): v1 → A, v2 → B, …, v26 → Z, v27 → AA.
   String get letra => letraDe(id);
 
+  /// Conteúdo do QR da versão [numero] (1 = A) de uma geração de prova.
+  ///
+  /// [lote] identifica a geração (por exemplo, o instante em que as versões
+  /// foram geradas). Ele entra no QR para que a Prova A de uma prova não tenha
+  /// o mesmo QR da Prova A de outra: a correção acha a versão só pelo QR.
+  static String qrCodeDe({required String lote, required int numero}) =>
+      'PROVA-$lote-V$numero';
+
+  /// Lote novo para [qrCodeDe], a partir do instante [agora] (em base 36,
+  /// para o QR ficar curto).
+  static String novoLote(DateTime agora) =>
+      agora.microsecondsSinceEpoch.toRadixString(36).toUpperCase();
+
   /// Letra da versão de id [id]. Um id fora do padrão `v<número>` aparece
   /// como está, em maiúsculas.
   static String letraDe(String id) {
