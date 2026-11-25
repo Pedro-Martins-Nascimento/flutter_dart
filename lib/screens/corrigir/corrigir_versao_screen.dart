@@ -46,6 +46,11 @@ class CorrigirVersaoScreen extends StatefulWidget {
   /// Foto da primeira página do gabarito (a do QR). Sem foto (web, desktop),
   /// o professor marca todas as respostas na mão.
   final Uint8List? foto;
+
+  /// Outros quadros recentes da mesma folha. Se a [foto] não der uma leitura
+  /// limpa, o leitor tenta estes e fica com a leitura que deixa menos
+  /// questões para revisar.
+  final List<Uint8List> outrasFotos;
   final LerGabarito lerGabarito;
 
   /// Reduz a [foto] para guardar com a correção (null se não der).
@@ -57,6 +62,7 @@ class CorrigirVersaoScreen extends StatefulWidget {
     required this.versao,
     required this.correcoes,
     this.foto,
+    this.outrasFotos = const [],
     this.lerGabarito = lerGabaritoEmSegundoPlano,
     this.prepararFoto = prepararFotoEmSegundoPlano,
   });
@@ -101,24 +107,41 @@ class _CorrigirVersaoScreenState extends State<CorrigirVersaoScreen> {
       return;
     }
     _lendo = true;
-    _fotoParaGuardar = widget.prepararFoto(foto).catchError((_) => null);
-    _ler(foto);
+    _ler([foto, ...widget.outrasFotos]);
   }
 
-  Future<void> _ler(Uint8List foto) async {
+  /// Lê as [fotos] em ordem e fica com a leitura que deixa menos questões
+  /// para revisar (para na primeira sem nenhuma). A foto dessa leitura é a
+  /// que vai ser guardada com a correção.
+  Future<void> _ler(List<Uint8List> fotos) async {
+    final alternativas = [
+      for (final q in widget.versao.questoes) q.alternativas.length,
+    ];
     String? aviso;
     LeituraCartao? leitura;
-    try {
-      leitura = await widget.lerGabarito(foto, [
-        for (final q in widget.versao.questoes) q.alternativas.length,
-      ]);
-    } on LeituraOmrException catch (e) {
-      aviso = '${e.problema.mensagem} Ou selecione as respostas abaixo.';
-    } catch (_) {
-      aviso =
-          'Não foi possível ler as marcações da foto. '
-          'Selecione as respostas abaixo.';
+    var fotoEscolhida = fotos.first;
+    for (final foto in fotos) {
+      try {
+        final lida = await widget.lerGabarito(foto, alternativas);
+        if (leitura == null ||
+            lida.paraRevisar.length < leitura.paraRevisar.length) {
+          leitura = lida;
+          fotoEscolhida = foto;
+        }
+        if (lida.paraRevisar.isEmpty) break;
+      } on LeituraOmrException catch (e) {
+        aviso ??= '${e.problema.mensagem} Ou selecione as respostas abaixo.';
+      } catch (_) {
+        aviso ??=
+            'Não foi possível ler as marcações da foto. '
+            'Selecione as respostas abaixo.';
+      }
+      if (!mounted) return;
     }
+    if (leitura != null) aviso = null;
+    _fotoParaGuardar = widget
+        .prepararFoto(fotoEscolhida)
+        .catchError((_) => null);
     if (!mounted) return;
     setState(() {
       _lendo = false;
