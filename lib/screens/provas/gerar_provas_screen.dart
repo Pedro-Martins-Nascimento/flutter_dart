@@ -138,13 +138,15 @@ class _GerarProvasScreenState extends State<GerarProvasScreen> {
     final turmaTexto = _turmaTexto;
     final disciplinaTexto = _disciplinaTexto;
 
+    // Cada geração tem um lote próprio: o QR da Prova A desta prova não
+    // repete o de nenhuma outra.
+    final lote = VersaoProva.novoLote(DateTime.now());
     setState(() {
       versoes = List.generate(quantidade, (i) {
         final numero = i + 1;
         return VersaoProva(
           id: 'v$numero',
-
-          qrCode: 'PROVA-2026-V$numero-${(1000 + numero * 37)}',
+          qrCode: VersaoProva.qrCodeDe(lote: lote, numero: numero),
           questoes: _materializarQuestoes(banco, opcoes),
           materia: materiaTexto,
           professor: _nomeProfessor,
