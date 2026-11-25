@@ -1,5 +1,10 @@
 // Guarda as correções no Firestore, em professores/{uid}/correcoes/{id}.
 // Cada professor só enxerga as próprias (ver firestore.rules).
+//
+// A foto da folha fica em correcoes/{id}/arquivos/foto, fora do documento da
+// correção: assim listar e observar as correções não baixa as fotos.
+
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -13,9 +18,9 @@ class CorrecaoRepositoryFirestore implements CorrecaoRepository {
     : _colecao = (uid == null || uid.isEmpty)
           ? null
           : firestore
-              .collection('professores')
-              .doc(uid)
-              .collection('correcoes');
+                .collection('professores')
+                .doc(uid)
+                .collection('correcoes');
 
   final CollectionReference<Map<String, dynamic>>? _colecao;
 
@@ -28,11 +33,17 @@ class CorrecaoRepositoryFirestore implements CorrecaoRepository {
           CorrecaoMapper.deMapa(doc.id, doc.data()),
       ]);
 
+  static DocumentReference<Map<String, dynamic>> _docFoto(
+    DocumentReference<Map<String, dynamic>> correcao,
+  ) => correcao.collection('arquivos').doc('foto');
+
   @override
-  Future<void> salvar(Correcao correcao) async {
+  Future<void> salvar(Correcao correcao, {Uint8List? foto}) async {
     final colecao = _colecao;
     if (colecao == null) {
-      debugPrint('[CorrecaoRepositoryFirestore] salvar ignorado: sem professor logado');
+      debugPrint(
+        '[CorrecaoRepositoryFirestore] salvar ignorado: sem professor logado',
+      );
       return;
     }
     final doc = colecao.doc(correcao.id);
@@ -42,7 +53,22 @@ class CorrecaoRepositoryFirestore implements CorrecaoRepository {
         throw StateError('Já existe uma correção com id ${correcao.id}');
       }
       tx.set(doc, CorrecaoMapper.paraMapa(correcao));
+      if (foto != null) {
+        tx.set(_docFoto(doc), {
+          'jpeg': Blob(foto),
+          'salvaEm': correcao.corrigidoEm,
+        });
+      }
     });
+  }
+
+  @override
+  Future<Uint8List?> buscarFoto(String correcaoId) async {
+    final colecao = _colecao;
+    if (colecao == null) return null;
+    final dados = (await _docFoto(colecao.doc(correcaoId)).get()).data();
+    final jpeg = dados?['jpeg'];
+    return jpeg is Blob ? jpeg.bytes : null;
   }
 
   @override
@@ -84,9 +110,16 @@ class CorrecaoRepositoryFirestore implements CorrecaoRepository {
   Future<void> excluir(String id) async {
     final colecao = _colecao;
     if (colecao == null) {
-      debugPrint('[CorrecaoRepositoryFirestore] excluir ignorado: sem professor logado');
+      debugPrint(
+        '[CorrecaoRepositoryFirestore] excluir ignorado: sem professor logado',
+      );
       return;
     }
-    await colecao.doc(id).delete();
+    // A subcoleção não some junto com o documento: apaga a foto também.
+    final doc = colecao.doc(id);
+    await (colecao.firestore.batch()
+          ..delete(_docFoto(doc))
+          ..delete(doc))
+        .commit();
   }
 }

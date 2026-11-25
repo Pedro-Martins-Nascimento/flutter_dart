@@ -15,6 +15,7 @@ import '../../models/versao_prova.dart';
 import '../../services/alunos_para_pdf.dart';
 import '../../services/correcao_repository.dart';
 import '../../services/firebase_erro.dart';
+import '../../services/foto_da_folha.dart';
 import '../../services/leitor_omr.dart';
 import '../../models/prova_gerada.dart';
 import '../../services/turmas_repository.dart';
@@ -47,6 +48,9 @@ class CorrigirVersaoScreen extends StatefulWidget {
   final Uint8List? foto;
   final LerGabarito lerGabarito;
 
+  /// Reduz a [foto] para guardar com a correção (null se não der).
+  final Future<Uint8List?> Function(Uint8List foto) prepararFoto;
+
   const CorrigirVersaoScreen({
     super.key,
     required this.prova,
@@ -54,6 +58,7 @@ class CorrigirVersaoScreen extends StatefulWidget {
     required this.correcoes,
     this.foto,
     this.lerGabarito = lerGabaritoEmSegundoPlano,
+    this.prepararFoto = prepararFotoEmSegundoPlano,
   });
 
   @override
@@ -67,6 +72,10 @@ class _CorrigirVersaoScreenState extends State<CorrigirVersaoScreen> {
   /// alternativa). Fica mesmo depois que o professor escolhe, para ele ver
   /// quais respostas foram dele.
   late final List<String?> _motivos;
+
+  /// Foto reduzida que vai ser guardada com a correção. Começa a ser
+  /// preparada junto com a leitura, para não atrasar o "Confirmar".
+  Future<Uint8List?>? _fotoParaGuardar;
 
   /// Aviso geral da leitura (sem foto, foto ilegível...).
   String? _aviso;
@@ -92,6 +101,7 @@ class _CorrigirVersaoScreenState extends State<CorrigirVersaoScreen> {
       return;
     }
     _lendo = true;
+    _fotoParaGuardar = widget.prepararFoto(foto).catchError((_) => null);
     _ler(foto);
   }
 
@@ -175,7 +185,9 @@ class _CorrigirVersaoScreenState extends State<CorrigirVersaoScreen> {
 
     setState(() => _salvando = true);
     try {
-      await widget.correcoes.salvar(correcao);
+      // Sem foto (web) ou se ela não puder ser reduzida, salva só a correção.
+      final foto = await _fotoParaGuardar;
+      await widget.correcoes.salvar(correcao, foto: foto);
     } catch (erro) {
       if (!mounted) return;
       setState(() => _salvando = false);

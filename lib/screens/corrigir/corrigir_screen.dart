@@ -69,6 +69,11 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
         : DetectionSpeed.noDuplicates,
     detectionTimeoutMs: _intervaloDeteccao.inMilliseconds,
     returnImage: _verificaFoto,
+    // O quadro da câmera é a foto que o leitor de marcações usa. No padrão
+    // (1920x1080), a folha enquadrada no guia fica com ~800 px de largura e
+    // o traço do X some em várias bolinhas; em 4K a leitura fica confiável.
+    // Se a câmera não tiver 4K, ela usa a resolução mais próxima.
+    cameraResolution: _verificaFoto ? const Size(3840, 2160) : null,
   );
 
   String? _qrEmFoco;

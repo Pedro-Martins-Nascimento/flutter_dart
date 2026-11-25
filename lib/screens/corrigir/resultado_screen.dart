@@ -1,5 +1,8 @@
-// Resultado de uma correção já concluída: nota final e, por questão, qual
-// alternativa foi marcada e se bateu com o gabarito.
+// Resultado de uma correção já concluída: nota final, a foto da folha (se
+// foi guardada) e, por questão, qual alternativa foi marcada e se bateu com
+// o gabarito.
+
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +10,7 @@ import 'package:printing/printing.dart';
 
 import '../../models/correcao.dart';
 import '../../models/questao.dart';
+import '../../services/correcao_repository.dart';
 import '../../services/pdf_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_card.dart';
@@ -14,7 +18,56 @@ import '../../widgets/app_card.dart';
 class ResultadoScreen extends StatelessWidget {
   final Correcao correcao;
 
-  const ResultadoScreen({super.key, required this.correcao});
+  /// De onde vem a foto da folha. Sem ele, o botão da foto não aparece.
+  final CorrecaoRepository? correcoes;
+
+  const ResultadoScreen({super.key, required this.correcao, this.correcoes});
+
+  Future<void> _verFoto(BuildContext context, CorrecaoRepository correcoes) {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.all(AppSpacing.s4),
+        child: FutureBuilder<Uint8List?>(
+          future: correcoes.buscarFoto(correcao.id),
+          builder: (context, snapshot) {
+            final Widget conteudo;
+            if (snapshot.connectionState != ConnectionState.done) {
+              conteudo = const Center(child: CircularProgressIndicator());
+            } else if (snapshot.data case final foto?) {
+              conteudo = InteractiveViewer(
+                maxScale: 5,
+                child: Image.memory(foto, key: const ValueKey('foto_folha')),
+              );
+            } else {
+              conteudo = Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.s5),
+                  child: Text(
+                    snapshot.hasError
+                        ? 'Não foi possível carregar a foto.'
+                        : 'Esta correção não tem foto guardada.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              );
+            }
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Flexible(child: conteudo),
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Fechar'),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
 
   Future<void> _exportarBoletim() async {
     final bytes = await PdfService().gerarBoletimAluno(correcao);
@@ -70,6 +123,14 @@ class ResultadoScreen extends StatelessWidget {
             icon: const Icon(Icons.picture_as_pdf),
             label: const Text('Exportar boletim (PDF)'),
           ),
+          if (correcoes case final correcoes?) ...[
+            const SizedBox(height: AppSpacing.s2),
+            OutlinedButton.icon(
+              onPressed: () => _verFoto(context, correcoes),
+              icon: const Icon(Icons.photo_outlined),
+              label: const Text('Ver foto da folha'),
+            ),
+          ],
           const SizedBox(height: AppSpacing.s5),
           Text('GABARITO POR QUESTÃO', style: AppTheme.kicker),
           const SizedBox(height: AppSpacing.s3),
