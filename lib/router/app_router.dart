@@ -232,6 +232,9 @@ GoRouter criarRouter(
                       versao: extra['versao']! as VersaoProva,
                       correcoes: correcoes,
                       foto: extra['foto'] as Uint8List?,
+                      outrasFotos:
+                          (extra['outrasFotos'] as List<Uint8List>?) ??
+                          const [],
                     );
                   },
                 ),

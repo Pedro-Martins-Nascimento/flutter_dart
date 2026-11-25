@@ -40,6 +40,7 @@ void main() {
     LerGabarito? ler,
     Uint8List? foto,
     Future<Uint8List?> Function(Uint8List foto)? prepararFoto,
+    List<Uint8List> outrasFotos = const [],
   }) async {
     final p = prova('a', versoes: 1);
     final router = GoRouter(
@@ -53,6 +54,7 @@ void main() {
             foto: foto ?? (ler == null ? null : _foto),
             lerGabarito: ler ?? _xNaB,
             prepararFoto: prepararFoto ?? (f) async => f,
+            outrasFotos: outrasFotos,
           ),
         ),
         GoRoute(
@@ -116,6 +118,67 @@ void main() {
 
     final salva = (await correcoes.listar()).single;
     expect(await correcoes.buscarFoto(salva.id), reduzida);
+  });
+
+  testWidgets('com vários quadros, fica com a leitura mais limpa', (
+    tester,
+  ) async {
+    // 1º quadro: sem marcadores; 2º: marcação dupla; 3º: X na B.
+    final quadros = [
+      for (var i = 1; i <= 3; i++) Uint8List.fromList([i]),
+    ];
+    final lidos = <int>[];
+    final correcoes = CorrecaoRepositoryMemoria();
+    await abrir(
+      tester,
+      correcoes,
+      foto: quadros[0],
+      outrasFotos: quadros.sublist(1),
+      ler: (foto, alternativas) async {
+        lidos.add(foto.single);
+        return switch (foto.single) {
+          1 => throw const LeituraOmrException(ProblemaLeitura.marcadores),
+          2 => LeituraCartao([
+            LeituraQuestao.dePreenchimento(0, const [0.9, 0.95, 0, 0]),
+          ]),
+          _ => LeituraCartao([
+            LeituraQuestao.dePreenchimento(0, const [0.02, 0.95, 0.03, 0]),
+          ]),
+        };
+      },
+    );
+    await tester.pumpAndSettle();
+
+    expect(lidos, [1, 2, 3]);
+    expect(find.byKey(const ValueKey('aviso_leitura')), findsNothing);
+    expect(find.byKey(const ValueKey('motivo_0')), findsNothing);
+
+    await tester.tap(find.text('Confirmar correção'));
+    await tester.pumpAndSettle();
+    final salva = (await correcoes.listar()).single;
+    expect(salva.nota, 10);
+    // A foto guardada é a do quadro que deu a leitura usada.
+    expect(await correcoes.buscarFoto(salva.id), quadros[2]);
+  });
+
+  testWidgets('para no primeiro quadro com leitura limpa', (tester) async {
+    final lidos = <int>[];
+    await abrir(
+      tester,
+      CorrecaoRepositoryMemoria(),
+      foto: Uint8List.fromList([1]),
+      outrasFotos: [
+        Uint8List.fromList([2]),
+      ],
+      ler: (foto, alternativas) async {
+        lidos.add(foto.single);
+        return LeituraCartao([
+          LeituraQuestao.dePreenchimento(0, const [0.02, 0.95, 0.03, 0]),
+        ]);
+      },
+    );
+    await tester.pumpAndSettle();
+    expect(lidos, [1]);
   });
 
   testWidgets('sem foto, a correção é salva sem foto', (tester) async {

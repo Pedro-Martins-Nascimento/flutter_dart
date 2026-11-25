@@ -80,6 +80,12 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
   _FolhaEmFoco? _folha;
   Uint8List? _ultimaFoto;
   DateTime? _vistaEm;
+
+  /// Últimos quadros da folha em foco, do mais novo para o mais antigo. O
+  /// leitor de marcações tenta todos e fica com a melhor leitura: um quadro
+  /// tremido ou cortado não estraga a correção.
+  final List<Uint8List> _quadrosRecentes = [];
+  static const _maxQuadros = 4;
   bool _verificando = false;
 
   // Mesma conta do selo de pendentes da aba: versões geradas x correções salvas.
@@ -119,6 +125,13 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
       if (valor != null && valor.isNotEmpty) {
         _ultimaFoto = captura.image;
         _vistaEm = DateTime.now();
+        if (valor != _qrEmFoco) _quadrosRecentes.clear();
+        if (captura.image case final quadro?) {
+          _quadrosRecentes.insert(0, quadro);
+          if (_quadrosRecentes.length > _maxQuadros) {
+            _quadrosRecentes.removeLast();
+          }
+        }
         if (valor != _qrEmFoco) {
           setState(() => _qrEmFoco = valor);
           _identificar(valor);
@@ -202,6 +215,7 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
         await _pedirNovaFoto(avaliacao);
         _ultimaFoto = null;
         _vistaEm = null;
+        _quadrosRecentes.clear();
         return;
       }
     }
@@ -228,8 +242,15 @@ class _CorrigirScreenState extends State<CorrigirScreen> {
           extra: {
             'prova': encontrada.prova,
             'versao': encontrada.versao,
-            // A foto aprovada vai para o leitor de marcações.
+            // A foto aprovada vai para o leitor de marcações, com os
+            // quadros anteriores como alternativa.
             'foto': _verificaFoto ? _ultimaFoto : null,
+            'outrasFotos': _verificaFoto
+                ? [
+                    for (final q in _quadrosRecentes)
+                      if (!identical(q, _ultimaFoto)) q,
+                  ]
+                : const <Uint8List>[],
           },
         );
     }
