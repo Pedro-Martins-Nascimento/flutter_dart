@@ -404,6 +404,7 @@ professores/{uid}/
 ├── provas/{provaId}              # prova gerada: nome, disciplina, turma
 │   └── versoes/{versaoId}        # versão (A, B, C…) com QR, aluno e questões na ordem impressa
 └── correcoes/{correcaoId}        # alternativas marcadas e nota de uma versão
+    └── arquivos/foto             # foto da folha corrigida (JPEG reduzido)
 ```
 
 A coleção das disciplinas manteve o nome `turmas` da N2 para não perder os dados já salvos. Documentos antigos, com `alunos` direto na disciplina, são lidos como uma "Turma 1" e regravados no formato novo na primeira alteração.
@@ -541,6 +542,15 @@ A coleção das disciplinas manteve o nome `turmas` da N2 para não perder os da
 | `respostas[].respostaCorreta` | number | Alternativa certa (ordem impressa) |
 | `respostas[].ordemNoBanco` | array de number | Para cada alternativa impressa, o índice dela no banco (junta versões embaralhadas na estatística) |
 | `respostas[].alternativasNoBanco` | array de string | Cópia dos textos das alternativas na prova aplicada (editar a questão depois não muda o histórico) |
+
+**Foto da folha** (`correcoes/{correcaoId}/arquivos/foto`)
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `jpeg` | bytes | Foto da folha usada na correção, reduzida para até 1600 px e 800 KB (cabe no limite de 1 MiB do documento) |
+| `salvaEm` | timestamp | Data da correção |
+
+A foto fica fora do documento da correção para que listar as correções e montar a estatística não baixe as fotos. Ela é gravada na mesma transação da correção e apagada junto com ela. Para vê-la: Resultado › **Ver foto da folha**.
 
 A nota não é gravada: é calculada a partir das respostas (acertos ÷ questões × 10).
 

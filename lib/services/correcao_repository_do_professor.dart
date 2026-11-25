@@ -2,6 +2,8 @@
 // login, então o uid é lido a cada chamada e cada uma delega para o
 // CorrecaoRepositoryFirestore daquele professor.
 
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/correcao.dart';
@@ -20,7 +22,12 @@ class CorrecaoRepositoryDoProfessor implements CorrecaoRepository {
   );
 
   @override
-  Future<void> salvar(Correcao correcao) => _repo.salvar(correcao);
+  Future<void> salvar(Correcao correcao, {Uint8List? foto}) =>
+      _repo.salvar(correcao, foto: foto);
+
+  @override
+  Future<Uint8List?> buscarFoto(String correcaoId) =>
+      _repo.buscarFoto(correcaoId);
 
   @override
   Future<List<Correcao>> listar() => _repo.listar();

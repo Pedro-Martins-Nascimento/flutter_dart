@@ -237,8 +237,10 @@ GoRouter criarRouter(
                 ),
                 GoRoute(
                   path: 'resultado',
-                  builder: (context, state) =>
-                      ResultadoScreen(correcao: state.extra! as Correcao),
+                  builder: (context, state) => ResultadoScreen(
+                    correcao: state.extra! as Correcao,
+                    correcoes: correcoes,
+                  ),
                 ),
                 GoRoute(
                   path: 'historico',

@@ -4,6 +4,7 @@
 // objetos, para o comportamento ser igual ao da versão com Firestore.
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import '../models/correcao.dart';
 import 'correcao_mapper.dart';
@@ -11,6 +12,7 @@ import 'correcao_repository.dart';
 
 class CorrecaoRepositoryMemoria implements CorrecaoRepository {
   final Map<String, Map<String, dynamic>> _correcoes = {};
+  final Map<String, Uint8List> _fotos = {};
 
   final StreamController<void> _mudancas = StreamController<void>.broadcast(
     sync: true,
@@ -25,11 +27,12 @@ class CorrecaoRepositoryMemoria implements CorrecaoRepository {
   }
 
   @override
-  Future<void> salvar(Correcao correcao) async {
+  Future<void> salvar(Correcao correcao, {Uint8List? foto}) async {
     if (_correcoes.containsKey(correcao.id)) {
       throw StateError('Já existe uma correção com id ${correcao.id}');
     }
     _correcoes[correcao.id] = CorrecaoMapper.paraMapa(correcao);
+    if (foto != null) _fotos[correcao.id] = Uint8List.fromList(foto);
     _mudancas.add(null);
   }
 
@@ -54,6 +57,9 @@ class CorrecaoRepositoryMemoria implements CorrecaoRepository {
   }
 
   @override
+  Future<Uint8List?> buscarFoto(String correcaoId) async => _fotos[correcaoId];
+
+  @override
   Future<Correcao?> buscar(String id) async {
     final mapa = _correcoes[id];
     return mapa == null ? null : CorrecaoMapper.deMapa(id, mapa);
@@ -66,6 +72,7 @@ class CorrecaoRepositoryMemoria implements CorrecaoRepository {
 
   @override
   Future<void> excluir(String id) async {
+    _fotos.remove(id);
     if (_correcoes.remove(id) == null) return;
     _mudancas.add(null);
   }

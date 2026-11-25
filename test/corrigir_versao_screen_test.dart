@@ -29,7 +29,7 @@ final _xNaB = _leitor(const [0.02, 0.95, 0.03, 0.02]);
 
 class _CorrecoesComFalha extends CorrecaoRepositoryMemoria {
   @override
-  Future<void> salvar(Correcao correcao) async =>
+  Future<void> salvar(Correcao correcao, {Uint8List? foto}) async =>
       throw StateError('sem conexão');
 }
 
@@ -39,6 +39,7 @@ void main() {
     CorrecaoRepositoryMemoria correcoes, {
     LerGabarito? ler,
     Uint8List? foto,
+    Future<Uint8List?> Function(Uint8List foto)? prepararFoto,
   }) async {
     final p = prova('a', versoes: 1);
     final router = GoRouter(
@@ -51,6 +52,7 @@ void main() {
             correcoes: correcoes,
             foto: foto ?? (ler == null ? null : _foto),
             lerGabarito: ler ?? _xNaB,
+            prepararFoto: prepararFoto ?? (f) async => f,
           ),
         ),
         GoRoute(
@@ -95,6 +97,37 @@ void main() {
     expect(salvas.single.nota, 10);
     expect(find.text('Resultado'), findsOneWidget);
     expect(find.text('10.0'), findsOneWidget);
+  });
+
+  testWidgets('a foto reduzida é guardada junto com a correção', (
+    tester,
+  ) async {
+    final correcoes = CorrecaoRepositoryMemoria();
+    final reduzida = Uint8List.fromList([7, 7, 7]);
+    await abrir(
+      tester,
+      correcoes,
+      ler: _xNaB,
+      prepararFoto: (foto) async => reduzida,
+    );
+
+    await tester.tap(find.text('Confirmar correção'));
+    await tester.pumpAndSettle();
+
+    final salva = (await correcoes.listar()).single;
+    expect(await correcoes.buscarFoto(salva.id), reduzida);
+  });
+
+  testWidgets('sem foto, a correção é salva sem foto', (tester) async {
+    final correcoes = CorrecaoRepositoryMemoria();
+    await abrir(tester, correcoes);
+    await tester.tap(find.text('B'));
+    await tester.pump();
+    await tester.tap(find.text('Confirmar correção'));
+    await tester.pumpAndSettle();
+
+    final salva = (await correcoes.listar()).single;
+    expect(await correcoes.buscarFoto(salva.id), isNull);
   });
 
   testWidgets('marcação dupla vai para o professor escolher', (tester) async {

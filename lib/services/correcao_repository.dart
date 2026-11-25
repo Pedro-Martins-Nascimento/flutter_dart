@@ -2,12 +2,18 @@
 // estatística usam só esta interface, então trocar a implementação (memória,
 // Firestore) não exige mexer nelas.
 
+import 'dart:typed_data';
+
 import '../models/correcao.dart';
 
 abstract class CorrecaoRepository {
   /// Salva uma correção nova. O `id` vem de [correcao]. Lança [StateError] se
-  /// já existir uma correção com esse id.
-  Future<void> salvar(Correcao correcao);
+  /// já existir uma correção com esse id. Se vier [foto] (JPEG da folha), ela
+  /// é guardada junto, na mesma gravação.
+  Future<void> salvar(Correcao correcao, {Uint8List? foto});
+
+  /// Foto da folha guardada com a correção, ou null se não houver.
+  Future<Uint8List?> buscarFoto(String correcaoId);
 
   /// Histórico, da correção mais nova para a mais antiga.
   Future<List<Correcao>> listar();
@@ -21,6 +27,6 @@ abstract class CorrecaoRepository {
   /// Se a versão da prova já tem alguma correção salva.
   Future<bool> jaCorrigida(String provaId, String versaoId);
 
-  /// Remove a correção. Não faz nada se o id não existir.
+  /// Remove a correção (e a foto dela). Não faz nada se o id não existir.
   Future<void> excluir(String id);
 }

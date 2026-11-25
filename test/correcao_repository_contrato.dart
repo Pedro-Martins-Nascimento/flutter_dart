@@ -1,6 +1,8 @@
 // Testes de contrato do CorrecaoRepository: rodam iguais para a versão em
 // memória e para a do Firestore (fake), garantindo que se comportam igual.
 
+import 'dart:typed_data';
+
 import 'package:flutter_dart/services/correcao_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -27,6 +29,19 @@ void testarContratoCorrecaoRepository(CorrecaoRepository Function() criar) {
     expect(lida.respostas.map((r) => r.questaoId), ['q1', 'q2']);
     expect(lida.nota, 5);
     expect(lida.corrigidoEm, DateTime(2026, 5, 10));
+  });
+
+  test('a foto da folha é guardada junto e sai com a correção', () async {
+    final foto = Uint8List.fromList([0xFF, 0xD8, 1, 2, 3]);
+    await repo.salvar(correcao('a'), foto: foto);
+    await repo.salvar(correcao('b'));
+
+    expect(await repo.buscarFoto('a'), foto);
+    expect(await repo.buscarFoto('b'), isNull);
+    expect(await repo.buscarFoto('nao_existe'), isNull);
+
+    await repo.excluir('a');
+    expect(await repo.buscarFoto('a'), isNull);
   });
 
   test('salvar com id repetido falha e não altera a existente', () async {

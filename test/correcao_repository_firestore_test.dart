@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_dart/services/correcao_repository_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +26,27 @@ void main() {
       expect(doc.data()!['provaId'], 'p1');
       expect(doc.data()!.containsKey('id'), isFalse);
     });
+
+    test(
+      'a foto fica em correcoes/{id}/arquivos/foto, fora da correção',
+      () async {
+        final firestore = FakeFirebaseFirestore();
+        final foto = Uint8List.fromList([0xFF, 0xD8, 9, 9]);
+        await CorrecaoRepositoryFirestore(
+          firestore,
+          'prof1',
+        ).salvar(correcao('a'), foto: foto);
+
+        final correcaoDoc = await firestore
+            .doc('professores/prof1/correcoes/a')
+            .get();
+        expect(correcaoDoc.data()!.containsKey('jpeg'), isFalse);
+        final fotoDoc = await firestore
+            .doc('professores/prof1/correcoes/a/arquivos/foto')
+            .get();
+        expect((fotoDoc.data()!['jpeg'] as Blob).bytes, foto);
+      },
+    );
 
     test('cada professor enxerga só as próprias correções', () async {
       final firestore = FakeFirebaseFirestore();
